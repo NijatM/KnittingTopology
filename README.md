@@ -28,7 +28,7 @@ The browser configuration uses installed Google Chrome on macOS, with isolated c
 
 ## Explore
 
-1. Choose a **plane, cube, sphere, or saddle**. Import OBJ/STL for [surface inspection](docs/imported-surfaces.md) with an explicit unit declaration; imported meshes are inspection-only until a surface mapping is verified. Dimensions and spacing are displayed in millimeters; scientific state uses meters.
+1. Choose a **plane, cube, sphere, or saddle**. Import OBJ/STL for [surface inspection](docs/imported-surfaces.md) with an explicit unit declaration. OBJ files with a suitable [supplied rectangular UV chart](docs/mapped-surfaces.md) support network generation; other imports remain inspection-only. Dimensions and spacing are displayed in millimeters; scientific state uses meters.
 2. Choose **Surface patch network** for regular, inset, alternating or nested control topology. Set target spacing, or edit compatible strip subdivisions in the Topology inspector.
 3. Use **Draw guide** to sketch soft direction preferences on the surface. Orbiting the camera does not move attached strokes. **Field orientation** defines the background tangent cross-field.
 4. Press **Generate / Regenerate** (G). Generation is explicit and cancellable; obsolete results cannot replace newer edits. The previous accepted result stays visible while computing on the same surface.
@@ -50,7 +50,7 @@ This is a **geometric cell-network explorer**. It does not claim knit-loop topol
 - Closed cubical/spherical atlases, soft guide fitting, feature-preserving cube transformations, and open-boundary operator rules are documented project extensions.
 - Target spacing and guide alignment are measured preferences. Integer rounding, atlas distortion and transformations change achieved edge lengths. Local validity checks do not certify the absence of all global intersections.
 
-[Methods and citations](docs/methods.md) · [BibTeX](research/references.bib) · [Sources and evidence](research/sources.csv) · [Data contract](docs/data-contract.md) · [Algorithm details](src/core/README.md) · [Verification record](docs/verification.md)
+[Supplied OBJ UV mapping](docs/mapped-surfaces.md) · [Methods and citations](docs/methods.md) · [BibTeX](research/references.bib) · [Sources and evidence](research/sources.csv) · [Data contract](docs/data-contract.md) · [Algorithm details](src/core/README.md) · [Verification record](docs/verification.md)
 
 ## GitHub Pages
 
@@ -72,4 +72,4 @@ tests/         numerical, project and isolated browser verification
 research/      primary-source register and scientific references
 ```
 
-Pattern generation on arbitrary imported surfaces, direct graph grammar editing, pseudo-quads/poles, calibrated mechanics, textile semantics, and machine adapters are future work. The contracts preserve a boundary for them without claiming they are implemented.
+Automatic mapping of arbitrary imported surfaces, direct graph grammar editing, pseudo-quads/poles, calibrated mechanics, textile semantics, and machine adapters are future work. The contracts preserve a boundary for them without claiming they are implemented.

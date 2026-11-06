@@ -1,4 +1,4 @@
-import type { PatternParameters, SurfaceKind } from '../core/types';
+import type { PatternParameters, SurfaceKind, SurfaceSpec } from '../core/types';
 import { REFERENCES } from './references';
 import type { ReferenceId, ScientificReference } from './types';
 
@@ -82,17 +82,29 @@ export function referencesCSL(ids: ReferenceId[]): Record<string, unknown>[] {
   }));
 }
 
-export function relevantReferenceIds(parameters: PatternParameters): ReferenceId[] {
+export function relevantReferenceIds(
+  parameters: PatternParameters,
+  surface?: SurfaceSpec
+): ReferenceId[] {
   const ids: ReferenceId[] = ['oval2018'];
   if (parameters.strategy === 'n-sided-patch') ids.push('takayama2014');
   if (['dual', 'ambo', 'kis', 'gyro'].includes(parameters.family)) ids.push('hart');
+  if (surface?.mapping === 'rectangular-obj-uv-v1') ids.push('lipman2014');
   return ids;
 }
 
 const numeric = (n: number) =>
   Number.isFinite(n) ? String(Number(n.toPrecision(8))) : 'unspecified';
 
-export function describeMethod(p: PatternParameters, surfaceKind: SurfaceKind): string {
+export function describeMethod(p: PatternParameters, surface: SurfaceKind | SurfaceSpec): string {
+  const surfaceKind = typeof surface === 'string' ? surface : surface.kind;
+  if (
+    typeof surface !== 'string' &&
+    surface.kind === 'mesh' &&
+    surface.mapping === 'rectangular-obj-uv-v1'
+  ) {
+    return `Knitting Topology constructs the project-authored ${p.preset} coarse network, compatible strip densities and ${p.family} graph family in a supplied rectangular OBJ UV chart, then embeds it by piecewise-affine triangle interpolation. Pipeline separation is informed by Oval et al. (2018). ${['dual', 'ambo', 'kis', 'gyro'].includes(p.family) ? 'Operator connectivity follows Conway notation as described by Hart (n.d.), with project boundary rules. ' : ''}Chart checks are motivated by Lipman (2014), Theorem 1: consistent nondegenerate elements and a bijective boundary on a clean disk. These are floating-point checks, not the paper’s optimization or an exact certificate. Integer strip counts use mapped coarse-edge lengths against the ${numeric(p.spacing)} m target. Orientation ${numeric(p.orientation)}° and guide influence ${numeric(p.guideStrength)} operate in normalized UV space; chart distortion affects physical directions and spacing. Stored edges follow straight UV segments mapped across source triangles; their lengths are not geodesics. Achieved physical spacing and local quality require diagnostics. No global 3D intersection, structural, textile or manufacturing validity is established.`;
+  }
   if (surfaceKind === 'mesh')
     return 'An imported triangle mesh is retained for geometric and connectivity inspection. Source units are converted explicitly to meters, and the bounding-box center translation is recorded. No generated cell network, verified surface parameterization or retopology method has been applied.';
   const surfaces: Record<SurfaceKind, string> = {

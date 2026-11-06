@@ -107,7 +107,9 @@ export default function ImportControls({ revision, onImported }: ImportControlsP
           const accepted = importedCallback.current(data.surface, data.report, data.inputRevision);
           setStatus(
             accepted
-              ? 'Surface imported for inspection.'
+              ? data.surface.mapping
+                ? 'Supplied UV chart imported. Generate to create a network.'
+                : 'Surface imported for inspection.'
               : 'Import discarded: project changed. The current surface is unchanged.'
           );
         }
@@ -137,6 +139,11 @@ export default function ImportControls({ revision, onImported }: ImportControlsP
       <div className="import-heading">
         Import surface <span>OBJ / STL</span>
       </div>
+      <p>
+        <a href={`${import.meta.env.BASE_URL}examples/bent-rectangle-uv.obj`} download>
+          Download a bent rectangular UV example (mm)
+        </a>
+      </p>
       <label className="import-file-label">
         Local surface file
         <input
@@ -182,7 +189,8 @@ export default function ImportControls({ revision, onImported }: ImportControlsP
       </p>
       <p>
         Files stay in this browser. Up to {MAX_IMPORT_BYTES / 1024 / 1024} MiB; 200,000 vertices and
-        200,000 triangles. Imported surfaces support inspection only.
+        200,000 triangles. Suitable OBJ rectangle charts also support mapped generation; other
+        imports remain inspection-only.
       </p>
       <div className="import-actions">
         <button type="button" disabled={!file || busy} onClick={() => void start()}>

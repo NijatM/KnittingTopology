@@ -15,7 +15,10 @@ async function walk(directory) {
 }
 await walk('src');
 await walk('tests');
+await walk('public');
 files.push(
+  'scripts/snapshot-verification.mjs',
+  'research/references.bib',
   'package.json',
   'package-lock.json',
   'tsconfig.json',

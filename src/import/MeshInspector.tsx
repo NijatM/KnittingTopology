@@ -32,6 +32,7 @@ export default function MeshInspector({ surface, report, selection }: MeshInspec
   const mesh = surface.mesh;
   if (surface.kind !== 'mesh' || !mesh) return null;
   const { statistics: stats } = report;
+  const mapped = surface.mapping === 'rectangular-obj-uv-v1';
   const triangleText = selection?.kind === 'triangle' ? selection.id.replace(/^triangle:/, '') : '';
   const triangle = /^\d+$/.test(triangleText) ? Number(triangleText) : -1;
   const hasTriangle =
@@ -49,13 +50,42 @@ export default function MeshInspector({ surface, report, selection }: MeshInspec
       aria-label="Imported surface inspection"
     >
       <div className="inspector-title">
-        <span className="eyebrow">IMPORTED / INSPECTION ONLY</span>
+        <span className="eyebrow">
+          {mapped ? 'IMPORTED / SUPPLIED UV CHART' : 'IMPORTED / INSPECTION ONLY'}
+        </span>
         <h2>Triangle surface</h2>
         <p>
-          Mesh connectivity and geometric measurements. This surface has no analytic UV atlas or
-          quadrangulation mapping.
+          Mesh connectivity and geometric measurements.{' '}
+          {mapped
+            ? 'A tolerance-screened supplied rectangular OBJ chart is enabled for mapped network generation.'
+            : 'This surface has no enabled mapping for network generation.'}
         </p>
       </div>
+
+      {report.uvMapping && (
+        <section className="mesh-explanation" data-testid="uv-mapping-status">
+          <h3>Supplied rectangular UV chart</h3>
+          <p>{report.uvMapping.reason}</p>
+          {report.uvMapping.status === 'ready' && (
+            <>
+              <p>
+                Raw bounds: [{report.uvMapping.boundsMin?.join(', ')}] → [
+                {report.uvMapping.boundsMax?.join(', ')}]. Both axes are normalized independently.
+              </p>
+              <p>
+                Local singular scales: {quantity(report.uvMapping.minScaleM!)}–
+                {quantity(report.uvMapping.maxScaleM!)} m per normalized UV. Maximum condition
+                ratio: {quantity(report.uvMapping.maxCondition!)}.
+              </p>
+              <p>
+                Guides and orientation use normalized UV. Physical spacing is measured after
+                mapping; no geodesic, exact-predicate or global 3D intersection certificate is
+                claimed.
+              </p>
+            </>
+          )}
+        </section>
+      )}
       <div className="mesh-scope" role="note">
         Geometry inspection does not establish fabric behavior, material properties, structural
         capacity or manufacturability.

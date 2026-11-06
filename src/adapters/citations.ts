@@ -22,16 +22,18 @@ export function createCitationRecord(project: ProjectState, resultIsStale = fals
   const graph = project.graph;
   const parameters = graph?.provenance.parameters ?? project.parameters;
   const imported = project.surface.kind === 'mesh';
-  const ids = imported ? [] : relevantReferenceIds(parameters);
+  const mapped = imported && project.surface.mapping === 'rectangular-obj-uv-v1';
+  const ids = imported && !mapped ? [] : relevantReferenceIds(parameters, project.surface);
   return {
     format: 'knitting-topology-method-record',
     schemaVersion: '1.0.0',
     recordedAt: new Date().toISOString(),
-    basis: imported
-      ? 'imported surface inspection; no generated result'
-      : graph
-        ? 'accepted graph'
-        : 'requested inputs; no generated result',
+    basis:
+      imported && !mapped
+        ? 'imported surface inspection; no generated result'
+        : graph
+          ? 'accepted graph'
+          : 'requested inputs; no generated result',
     resultIsStale,
     software: SOFTWARE_CITATION,
     implementation: {
@@ -43,6 +45,7 @@ export function createCitationRecord(project: ProjectState, resultIsStale = fals
             kind: 'mesh',
             size: project.surface.size,
             revision: project.surface.revision,
+            mapping: project.surface.mapping,
             source: project.surface.mesh?.source,
           }
         : project.surface,
@@ -55,7 +58,7 @@ export function createCitationRecord(project: ProjectState, resultIsStale = fals
         ? 'The accepted guide inputs are identified by inputSignature and summarized in provenance notes when available. Saved project guides are editable inputs and may differ when the result is stale; exact regeneration of that accepted embedding then requires the original guide inputs.'
         : 'Saved project guides are requested inputs; no generated embedding has been accepted.',
     },
-    suggestedDescription: describeMethod(parameters, project.surface.kind),
+    suggestedDescription: describeMethod(parameters, project.surface),
     descriptionNote:
       'Adapt this wording to the work actually performed. Cite the referenced method and disclose the implemented subset and project extensions. A citation is not evidence of validation.',
     references: ids.map((id) => REFERENCES[id]),

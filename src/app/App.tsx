@@ -27,6 +27,7 @@ import {
 } from '../core/limits';
 import {
   createProject,
+  freezeImportedMesh,
   geometryChange,
   historyReducer,
   parametersMatchGraph,
@@ -45,6 +46,7 @@ import {
   saveProject,
 } from '../adapters/export';
 import LearningPanel from '../learning/LearningPanel';
+import MappedChartLesson from '../learning/MappedChartLesson';
 import type { LearningExample } from '../learning/types';
 import { createCitationRecord } from '../adapters/citations';
 import { referencesBibtex, relevantReferenceIds } from '../learning/citations';
@@ -207,7 +209,7 @@ function RangeControl({
   value: number;
   min: number;
   max: number;
-  step?: number;
+  step?: number | 'any';
   suffix?: string;
   onChange: (n: number) => void;
 }) {
@@ -216,7 +218,7 @@ function RangeControl({
       <span className="control-caption">
         {label}
         <span>
-          {Number.isInteger(value) ? value : Number(value.toFixed(2))}
+          {Number.isInteger(value) ? value : Number(value.toPrecision(6))}
           <small>{suffix}</small>
         </span>
       </span>
@@ -283,6 +285,8 @@ export default function App() {
   }));
   const project = history.present;
   const imported = project.surface.kind === 'mesh';
+  const mapped = imported && project.surface.mapping === 'rectangular-obj-uv-v1';
+  const inspectionOnly = imported && !mapped;
   const meshInspection = useMeshReport(project.surface);
   const [nameDraft, setNameDraft] = useState(project.name);
   useEffect(() => setNameDraft(project.name), [project.name]);
@@ -297,10 +301,12 @@ export default function App() {
   projectRef.current = project;
   const [view, setView] = useState<ViewerOptions>(DEFAULT_VIEW);
   useEffect(() => {
-    if (imported) setView((v) => (v.mode === 'draw' ? { ...v, mode: 'orbit' } : v));
-  }, [imported]);
+    if (inspectionOnly) setView((v) => (v.mode === 'draw' ? { ...v, mode: 'orbit' } : v));
+  }, [inspectionOnly]);
   const [selection, setSelection] = useState<ViewerSelection | null>(null);
-  const [tab, setTab] = useState<'measures' | 'topology' | 'compare' | 'methods'>('measures');
+  const [tab, setTab] = useState<'measures' | 'topology' | 'compare' | 'methods' | 'surface'>(
+    'measures'
+  );
   const [variants, setVariants] = useState<{ id: number; name: string; project: ProjectState }[]>(
     []
   );
@@ -346,7 +352,7 @@ export default function App() {
     cancel(false);
     setError(null);
     const snapshot = projectRef.current;
-    if (snapshot.surface.kind === 'mesh') {
+    if (snapshot.surface.kind === 'mesh' && !snapshot.surface.mapping) {
       setStatus(
         'Imported surface inspection. Pattern generation requires a verified surface mapping.'
       );
@@ -422,7 +428,11 @@ export default function App() {
   useEffect(() => {
     if (!initialGeneration.current) {
       initialGeneration.current = true;
-      if (!projectRef.current.graph && projectRef.current.surface.kind !== 'mesh') generate();
+      if (
+        !projectRef.current.graph &&
+        (projectRef.current.surface.kind !== 'mesh' || projectRef.current.surface.mapping)
+      )
+        generate();
       else setStatus(initialRestore.notice || 'Restored your locally saved project.');
     }
     return () => {
@@ -484,7 +494,10 @@ export default function App() {
         event.shiftKey ? redo() : undo();
       } else if (event.metaKey || event.ctrlKey || event.altKey) return;
       else if (event.key.toLowerCase() === 'g' && !event.metaKey && !event.ctrlKey) generate();
-      else if (event.key.toLowerCase() === 'd' && projectRef.current.surface.kind !== 'mesh')
+      else if (
+        event.key.toLowerCase() === 'd' &&
+        (projectRef.current.surface.kind !== 'mesh' || !!projectRef.current.surface.mapping)
+      )
         setView((v) => ({ ...v, mode: 'draw' }));
       else if (event.key.toLowerCase() === 'v') setView((v) => ({ ...v, mode: 'orbit' }));
       else if (event.key.toLowerCase() === 'f') viewer.current?.fit();
@@ -634,11 +647,21 @@ export default function App() {
       if (current.revision !== inputRevision || surface.kind !== 'mesh' || !surface.mesh)
         return false;
       cancel(false);
+      freezeImportedMesh(surface.mesh);
       seedMeshReport(surface.mesh, report);
       commit({
         ...current,
         surface,
-        parameters: { ...current.parameters, stripOverrides: undefined },
+        parameters: {
+          ...current.parameters,
+          ...(surface.mapping
+            ? {
+                strategy: 'patch-grid' as const,
+                spacing: Math.min(current.parameters.spacing, surface.size / 8),
+              }
+            : {}),
+          stripOverrides: undefined,
+        },
         guides: [],
         graph: null,
         diagnostics: [],
@@ -654,11 +677,11 @@ export default function App() {
         wireframe: true,
         showSeams: true,
         showGraph: true,
-        showGuides: false,
+        showGuides: !!surface.mapping,
         showCoarse: false,
       }));
       setStatus(
-        `${surface.mesh.source.name} imported for inspection. Undo restores your previous surface.`
+        `${surface.mesh.source.name} imported${surface.mapping ? ' with a supplied rectangular UV chart. Generate to create a network' : ' for inspection'}. Undo restores your previous surface.`
       );
       setTab('measures');
       return true;
@@ -795,7 +818,7 @@ export default function App() {
               <ImportControls revision={project.revision} onImported={acceptImportedSurface} />
             </details>
           </section>
-          {!imported && (
+          {!inspectionOnly && (
             <>
               <section className="control-section">
                 <h2>
@@ -826,7 +849,9 @@ export default function App() {
                     }}
                   >
                     <option value="patch-grid">Surface patch network</option>
-                    <option value="n-sided-patch">N-sided patch laboratory</option>
+                    <option value="n-sided-patch" disabled={mapped}>
+                      N-sided patch laboratory
+                    </option>
                   </select>
                 </label>
                 {!patchMode ? (
@@ -847,10 +872,10 @@ export default function App() {
                     </div>
                     <RangeControl
                       label="Target spacing"
-                      value={Number((project.parameters.spacing * 1000).toFixed(1))}
-                      min={3}
-                      max={40}
-                      step={0.5}
+                      value={Number((project.parameters.spacing * 1000).toPrecision(6))}
+                      min={mapped ? Math.max(1e-9, (project.surface.size * 1000) / 1024) : 3}
+                      max={mapped ? Math.max(40, (project.surface.size * 1000) / 2) : 40}
+                      step={mapped ? 'any' : 0.5}
                       suffix="mm"
                       onChange={(n) =>
                         changeParameter({ spacing: n / 1000, stripOverrides: undefined })
@@ -928,7 +953,7 @@ export default function App() {
                   </>
                 )}
                 <RangeControl
-                  label="Field orientation"
+                  label={mapped ? 'UV field orientation' : 'Field orientation'}
                   value={project.parameters.orientation}
                   min={-90}
                   max={90}
@@ -937,7 +962,7 @@ export default function App() {
                   onChange={(n) => changeParameter({ orientation: n })}
                 />
                 <RangeControl
-                  label="Guide influence"
+                  label={mapped ? 'UV guide influence' : 'Guide influence'}
                   value={Math.round(project.parameters.guideStrength * 100)}
                   min={0}
                   max={100}
@@ -945,7 +970,7 @@ export default function App() {
                   onChange={(n) => changeParameter({ guideStrength: n / 100 })}
                 />
                 <RangeControl
-                  label="Relaxation"
+                  label={mapped ? 'UV relaxation' : 'Relaxation'}
                   value={Math.round(project.parameters.relaxation * 100)}
                   min={0}
                   max={100}
@@ -975,9 +1000,13 @@ export default function App() {
           )}
         </div>
         <div className="generate-area">
-          <button className="generate-button" onClick={generate} disabled={!!busy || imported}>
+          <button
+            className="generate-button"
+            onClick={generate}
+            disabled={!!busy || inspectionOnly}
+          >
             <span>
-              {imported
+              {inspectionOnly
                 ? 'Inspection only'
                 : project.graph
                   ? 'Regenerate network'
@@ -987,7 +1016,7 @@ export default function App() {
           </button>
           <div className="generate-caption">
             <span>
-              {imported
+              {inspectionOnly
                 ? 'Surface mapping required to generate'
                 : stale
                   ? 'Settings changed · regenerate'
@@ -1070,7 +1099,7 @@ export default function App() {
               <button
                 key={mode}
                 aria-label={`${mode[0].toUpperCase() + mode.slice(1)} mode`}
-                disabled={imported && mode === 'draw'}
+                disabled={inspectionOnly && mode === 'draw'}
                 aria-pressed={view.mode === mode}
                 className={view.mode === mode ? 'active' : ''}
                 onClick={() => setView((v) => ({ ...v, mode }))}
@@ -1133,15 +1162,17 @@ export default function App() {
           <div className="canvas-heading">
             <span className="eyebrow">
               {imported
-                ? 'IMPORTED TRIANGLE MESH'
+                ? mapped
+                  ? 'SUPPLIED OBJ UV CHART'
+                  : 'IMPORTED TRIANGLE MESH'
                 : displayParameters.strategy === 'n-sided-patch'
                   ? `${displayParameters.patchSides}-SIDED PATCH`
                   : project.surface.kind.toUpperCase()}{' '}
-              / {imported ? 'INSPECT' : activeFamily.name.toUpperCase()}
+              / {inspectionOnly ? 'INSPECT' : activeFamily.name.toUpperCase()}
             </span>
             <div>
               <span className={`state-indicator ${stale ? 'stale' : ''}`} />
-              {imported
+              {inspectionOnly
                 ? 'Imported surface · inspection only'
                 : !project.graph
                   ? 'Surface ready'
@@ -1175,7 +1206,7 @@ export default function App() {
           )}
           {view.mode === 'select' && (
             <div className="mode-hint">
-              {imported ? 'Select a source triangle' : 'Select a cell or vertex'}
+              {inspectionOnly ? 'Select a source triangle' : 'Select a cell or vertex'}
               <span>Connectivity and coordinates appear in the inspector</span>
             </div>
           )}
@@ -1277,7 +1308,7 @@ export default function App() {
           <span
             className={`quality-badge ${errors.length ? 'bad' : warnings.length || stale ? 'warn' : ''}`}
           >
-            {imported
+            {inspectionOnly
               ? 'IMPORTED'
               : !project.graph
                 ? 'NO RESULT'
@@ -1290,9 +1321,12 @@ export default function App() {
                       : 'CHECKED'}
           </span>
         </div>
-        {!imported && (
+        {!inspectionOnly && (
           <div className="inspector-tabs" role="tablist" aria-label="Inspector sections">
-            {(['measures', 'topology', 'compare', 'methods'] as const).map((t) => (
+            {(mapped
+              ? (['measures', 'topology', 'compare', 'methods', 'surface'] as const)
+              : (['measures', 'topology', 'compare', 'methods'] as const)
+            ).map((t) => (
               <button
                 key={t}
                 role="tab"
@@ -1300,17 +1334,22 @@ export default function App() {
                 onClick={() => setTab(t)}
                 className={tab === t ? 'active' : ''}
               >
-                {t === 'methods' ? 'Learn' : t[0].toUpperCase() + t.slice(1)}
+                {t === 'methods'
+                  ? 'Learn'
+                  : t === 'surface'
+                    ? 'Source'
+                    : t[0].toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
         )}
         <div
           className="inspector-content"
-          role={imported ? undefined : 'tabpanel'}
-          aria-label={imported ? 'Imported surface inspection' : tab}
+          role={inspectionOnly ? undefined : 'tabpanel'}
+          aria-label={inspectionOnly ? 'Imported surface inspection' : tab}
         >
-          {imported && (
+          {(inspectionOnly ||
+            (mapped && (tab === 'surface' || (!project.graph && tab === 'measures')))) && (
             <>
               <div className="display-toggles">
                 <Check
@@ -1343,7 +1382,7 @@ export default function App() {
               </div>
             </>
           )}
-          {!imported && tab === 'measures' && (
+          {!inspectionOnly && (!mapped || !!project.graph) && tab === 'measures' && (
             <>
               <div className="inspector-title">
                 <span className="eyebrow">{activeFamily.caption}</span>
@@ -1561,7 +1600,7 @@ export default function App() {
                   disabled={!project.graph}
                   onClick={() =>
                     download(
-                      referencesBibtex(relevantReferenceIds(displayParameters)),
+                      referencesBibtex(relevantReferenceIds(displayParameters, project.surface)),
                       `${projectFilename(project.name)}-references.bib`,
                       'text/plain'
                     )
@@ -1590,7 +1629,7 @@ export default function App() {
               </p>
             </>
           )}
-          {!imported && tab === 'topology' && (
+          {!inspectionOnly && tab === 'topology' && (
             <>
               <div className="inspector-title">
                 <span className="eyebrow">CONNECTIONS / FEATURES</span>
@@ -1710,7 +1749,7 @@ export default function App() {
               </div>
             </>
           )}
-          {!imported && tab === 'compare' && (
+          {!inspectionOnly && tab === 'compare' && (
             <>
               <div className="inspector-title">
                 <span className="eyebrow">CONTROLLED EXPLORATION</span>
@@ -1815,16 +1854,30 @@ export default function App() {
                     (v) =>
                       v.project.surface.kind !== variants[0].project.surface.kind ||
                       v.project.surface.size !== variants[0].project.surface.size ||
-                      v.project.surface.curvature !== variants[0].project.surface.curvature
+                      v.project.surface.curvature !== variants[0].project.surface.curvature ||
+                      (v.project.surface.kind === 'mesh' &&
+                        scientificSignature({
+                          surface: v.project.surface,
+                          parameters: project.parameters,
+                          guides: [],
+                        }) !==
+                          scientificSignature({
+                            surface: variants[0].project.surface,
+                            parameters: project.parameters,
+                            guides: [],
+                          }))
                   )
-                    ? 'These variants use different support geometry. Their metrics do not isolate the effect of topology.'
+                    ? 'These variants use different support geometry or mapping records. Their metrics do not isolate the effect of topology.'
                     : 'These variants share support geometry. Check total edge length and cell counts: equal target spacing does not imply equal material or feature budgets.'}
                 </div>
               )}
             </>
           )}
-          {!imported && tab === 'methods' && (
+          {!inspectionOnly && tab === 'methods' && (
             <>
+              {mapped && (
+                <MappedChartLesson surface={project.surface} parameters={displayParameters} />
+              )}
               <LearningPanel
                 parameters={displayParameters}
                 surface={project.surface}

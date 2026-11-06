@@ -1,4 +1,11 @@
-import type { Diagnostic, GraphStatistics, PatternGraph, SurfaceSpec, Vec3 } from './types';
+import type {
+  Diagnostic,
+  GraphStatistics,
+  PatternGraph,
+  SurfaceAttachment,
+  SurfaceSpec,
+  Vec3,
+} from './types';
 import { MAX_GRAPH_NODES, MAX_GRAPH_EDGES, MAX_GRAPH_CELLS } from './limits';
 import { areaVector, cross, dot, finite3, mean, norm, sub } from './math';
 import {
@@ -10,13 +17,191 @@ import {
   validateSurface,
 } from './surfaces';
 import { edgeKey } from './topology';
+import {
+  hasRectangularMapping,
+  mappedUVAtTriangle,
+  mappedUVPath,
+  MAPPED_ATTACHMENT_TOLERANCE,
+} from '../import/uv-mapping';
+
+/** Accept either incident source triangle at an edge/vertex; never replace known UV by closest-point projection. */
+export function mappedAttachmentMatches(
+  surface: SurfaceSpec,
+  position: Vec3,
+  attachment: SurfaceAttachment
+): boolean {
+  const mesh = surface.mesh,
+    bary = attachment?.barycentric,
+    face = attachment?.faceId;
+  if (
+    !hasRectangularMapping(surface) ||
+    !mesh ||
+    !attachment ||
+    attachment.surfaceRevision !== surface.revision ||
+    attachment.patch !== 0 ||
+    !Array.isArray(attachment.uv) ||
+    attachment.uv.length !== 2 ||
+    attachment.uv.some((x) => !Number.isFinite(x) || x < 0 || x > 1) ||
+    !Number.isInteger(face) ||
+    face! < 0 ||
+    face! >= mesh.indices.length / 3 ||
+    !Array.isArray(bary) ||
+    bary.length !== 3 ||
+    bary.some(
+      (x) =>
+        !Number.isFinite(x) ||
+        x < -MAPPED_ATTACHMENT_TOLERANCE ||
+        x > 1 + MAPPED_ATTACHMENT_TOLERANCE
+    ) ||
+    Math.abs(bary[0]! + bary[1]! + bary[2]! - 1) > MAPPED_ATTACHMENT_TOLERANCE ||
+    !finite3(position)
+  )
+    return false;
+  try {
+    const normalized = bary.map((value) => Math.max(0, Math.min(1, value))) as Vec3;
+    const total = normalized[0] + normalized[1] + normalized[2];
+    for (let i = 0; i < 3; i++) normalized[i]! /= total;
+    const uv = mappedUVAtTriangle(surface, face!, normalized);
+    if (uv.some((x, i) => Math.abs(x - attachment.uv[i]!) > 1e-8)) return false;
+    const point: Vec3 = [0, 0, 0];
+    for (let corner = 0; corner < 3; corner++) {
+      const vertex = mesh.indices[face! * 3 + corner]!;
+      for (let axis = 0; axis < 3; axis++)
+        point[axis]! += normalized[corner]! * mesh.positions[vertex * 3 + axis]!;
+    }
+    return norm(sub(point, position)) <= surface.size * 1e-8;
+  } catch {
+    return false;
+  }
+}
+
+/** One extra validation pass only: the synthetic coarse graph deliberately has no nested coarse metadata. */
+function validateMappedCoarse(graph: PatternGraph, surface: SurfaceSpec): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [],
+    tolerance = surface.size * 1e-8;
+  const report = (id: string, label: string, message: string, ids: string[] = []) =>
+    diagnostics.push({
+      id,
+      severity: 'error' as const,
+      label,
+      message,
+      tolerance,
+      toleranceUnits: 'm',
+      method:
+        'Bounded coarse-complex validation with the same mapped attachment and canonical path checks; ordered patch corners compared to evaluated coarse-node UV within 1e-8 × support size.',
+      entityIds: ids.slice(0, 20),
+    });
+  const coarse = graph.coarseTopology,
+    patches = graph.coarsePatches;
+  if (!Array.isArray(patches) || patches.length > 12000) {
+    report(
+      'coarse-patch-bound',
+      'Invalid coarse patch records',
+      'Coarse patches require an array of at most 12000 bounded records.'
+    );
+    return diagnostics;
+  }
+  if (!coarse) {
+    if (patches.length)
+      report(
+        'coarse-topology-missing',
+        'Missing coarse topology',
+        'Mapped coarse patch corners require their explicit coarse topology for validation.'
+      );
+    return diagnostics;
+  }
+  if (
+    !Array.isArray(coarse.nodes) ||
+    !Array.isArray(coarse.edges) ||
+    !Array.isArray(coarse.cells) ||
+    coarse.nodes.length > MAX_GRAPH_NODES ||
+    coarse.edges.length > MAX_GRAPH_EDGES ||
+    coarse.cells.length > MAX_GRAPH_CELLS
+  ) {
+    report(
+      'coarse-graph-bound',
+      'Invalid coarse graph',
+      'Coarse nodes, edges and cells must satisfy the shared bounded graph-array contract.'
+    );
+    return diagnostics;
+  }
+  const countPathPoints = (edges: PatternGraph['edges']) =>
+    edges.reduce((sum, edge) => sum + (Array.isArray(edge.path) ? edge.path.length : 0), 0);
+  const pathPoints = countPathPoints(graph.edges) + countPathPoints(coarse.edges);
+  if (pathPoints > 2_000_000) {
+    report(
+      'coarse-path-bound',
+      'Mapped paths too large',
+      'Final and coarse paths together exceed the two-million-point validation limit.'
+    );
+    return diagnostics;
+  }
+  const coarseGraph: PatternGraph = {
+    nodes: coarse.nodes,
+    edges: coarse.edges,
+    cells: coarse.cells,
+    coarsePatches: [],
+    provenance: graph.provenance,
+  };
+  for (const diagnostic of validateGraph(coarseGraph, surface))
+    if (diagnostic.severity === 'error')
+      diagnostics.push({
+        ...diagnostic,
+        id: `coarse-${diagnostic.id}`,
+        label: `Coarse ${diagnostic.label.toLowerCase()}`,
+      });
+  const nodes = new Map(coarse.nodes.map((node) => [node.id, node]));
+  const cells = new Map(coarse.cells.map((cell) => [cell.id, cell]));
+  const seen = new Set<string>(),
+    invalid: string[] = [];
+  for (const patch of patches) {
+    const cell = cells.get(patch.id);
+    if (
+      seen.has(patch.id) ||
+      !cell ||
+      patch.patch !== cell.patch ||
+      !Array.isArray(patch.corners) ||
+      patch.corners.length > 128 ||
+      patch.corners.length !== cell.nodes.length
+    ) {
+      invalid.push(patch.id);
+      continue;
+    }
+    seen.add(patch.id);
+    for (let i = 0; i < patch.corners.length; i++) {
+      const corner = patch.corners[i]!,
+        node = nodes.get(cell.nodes[i]!);
+      if (
+        !finite3(corner) ||
+        !node ||
+        !mappedAttachmentMatches(surface, node.position, node.attachment) ||
+        surfaceResidual(surface, corner) > tolerance ||
+        norm(sub(corner, evaluateSurface(surface, node.attachment.patch, ...node.attachment.uv))) >
+          tolerance
+      ) {
+        invalid.push(patch.id);
+        break;
+      }
+    }
+  }
+  for (const cell of coarse.cells) if (!seen.has(cell.id)) invalid.push(cell.id);
+  if (invalid.length)
+    report(
+      'coarse-patch-geometry',
+      'Invalid mapped coarse patch geometry',
+      'Each coarse cell needs exactly one patch with matching ordered corners, patch ID and canonical mapped coarse-node geometry; corners must lie on the support.',
+      invalid
+    );
+  return diagnostics;
+}
 
 export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagnostic[] {
   validateSurface(surface);
   const d: Diagnostic[] = [],
     scale = surface.size,
     tol = scale * 1e-8,
-    areaTol = scale * scale * 1e-14;
+    areaTol = scale * scale * 1e-14,
+    mapped = hasRectangularMapping(surface);
   const report = (id: string, label: string, message: string, ids: string[] = [], value?: number) =>
     d.push({
       id,
@@ -26,7 +211,7 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       ...(value !== undefined ? { value } : {}),
       tolerance: tol,
       method:
-        'Explicit oriented cellular-complex incidence and analytic surface tests; length tolerance 1e-8 × support size, area tolerance 1e-14 × size².',
+        'Explicit oriented cellular-complex incidence and support surface tests; length tolerance 1e-8 × support size, area tolerance 1e-14 × size².',
       entityIds: ids.slice(0, 20),
     });
   if (
@@ -46,6 +231,22 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
     report('graph-bound', 'Graph too large', 'Graph exceeds bounded validation limits.');
     return d;
   }
+  if (
+    mapped &&
+    (graph.edges.some((edge) => Array.isArray(edge.path) && edge.path.length > 1024) ||
+      graph.edges.reduce(
+        (sum, edge) => sum + (Array.isArray(edge.path) ? edge.path.length : 0),
+        0
+      ) > 2_000_000)
+  ) {
+    report(
+      'path-bound',
+      'Mapped paths too large',
+      'Mapped paths exceed 1024 samples per edge or the two-million-point validation limit.'
+    );
+    return d;
+  }
+  if (mapped) d.push(...validateMappedCoarse(graph, surface));
   const nodes = new Map(graph.nodes.map((n) => [n.id, n])),
     cells = new Map(graph.cells.map((c) => [c.id, c]));
   if (nodes.size !== graph.nodes.length)
@@ -67,7 +268,7 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
     report(
       'surface-membership',
       'Nodes leave surface',
-      'Analytic residual exceeds tolerance.',
+      'Support-surface residual exceeds tolerance.',
       off.map((n) => n.id)
     );
   const maxPatch = surface.kind === 'cube' || surface.kind === 'sphere' ? 5 : 0;
@@ -80,7 +281,8 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       n.attachment.patch > maxPatch ||
       !Array.isArray(n.attachment.uv) ||
       n.attachment.uv.length !== 2 ||
-      n.attachment.uv.some((x) => !Number.isFinite(x) || x < 0 || x > 1)
+      n.attachment.uv.some((x) => !Number.isFinite(x) || x < 0 || x > 1) ||
+      (mapped && !mappedAttachmentMatches(surface, n.position, n.attachment))
   );
   if (attach.length)
     report(
@@ -89,6 +291,7 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       'Node attachments require the current surface revision, patch and normalized UV.',
       attach.map((n) => n.id)
     );
+  const invalidAttachmentIds = new Set(attach.map((node) => node.id));
   if (!attach.length) {
     const mismatch = graph.nodes.filter(
       (n) =>
@@ -99,7 +302,7 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       report(
         'attachment-position',
         'Attachment/position mismatch',
-        'Node coordinates must match their analytic surface attachment.',
+        'Node coordinates must match their support-surface attachment.',
         mismatch.map((n) => n.id)
       );
   }
@@ -135,6 +338,26 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       )
     )
       flipped.push(c.id);
+    if (mapped && c.nodes.every((id) => !invalidAttachmentIds.has(id))) {
+      const uv = c.nodes.map((id) => nodes.get(id)!.attachment.uv);
+      const signed = uv.reduce(
+        (sum, point, i) =>
+          sum + point[0] * uv[(i + 1) % uv.length]![1] - point[1] * uv[(i + 1) % uv.length]![0],
+        0
+      );
+      const badCorner =
+        uv.length === 4 &&
+        uv.some((point, i) => {
+          const next = uv[(i + 1) % 4]!,
+            previous = uv[(i + 3) % 4]!;
+          return (
+            (next[0] - point[0]) * (previous[1] - point[1]) -
+              (next[1] - point[1]) * (previous[0] - point[0]) <=
+            1e-14
+          );
+        });
+      if (signed <= 1e-14 || badCorner) flipped.push(c.id);
+    }
     for (let i = 0; i < c.nodes.length; i++) {
       const a = c.nodes[i]!,
         b = c.nodes[(i + 1) % c.nodes.length]!,
@@ -163,12 +386,15 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
     report(
       'inverted-cells',
       'Inverted cells',
-      'Cell orientation or quad corner Jacobian is inconsistent with the outward surface normal.',
+      mapped
+        ? 'Cell orientation or quad corner Jacobian fails a positive normalized-UV check or the local 3D support-normal check.'
+        : 'Cell orientation or quad corner Jacobian is inconsistent with the outward surface normal.',
       flipped
     );
   const edgeIds = new Set<string>(),
     edgeKeys = new Set<string>(),
     badEdges: string[] = [],
+    badMappedPaths: string[] = [],
     nonmanifold: string[] = [],
     badOrientation: string[] = [];
   for (const e of graph.edges) {
@@ -192,17 +418,80 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       e.path &&
       (!Array.isArray(e.path) ||
         e.path.length < 2 ||
-        e.path.some((p) => !finite3(p) || surfaceResidual(surface, p) > tol) ||
+        e.path.some((p) => !finite3(p) || (!mapped && surfaceResidual(surface, p) > tol)) ||
         norm(sub(e.path[0]!, nodes.get(e.a)?.position ?? [Infinity, 0, 0])) > tol ||
         norm(sub(e.path[e.path.length - 1]!, nodes.get(e.b)?.position ?? [Infinity, 0, 0])) > tol)
     )
       badEdges.push(e.id);
+    if (mapped) {
+      const a = nodes.get(e.a),
+        b = nodes.get(e.b);
+      if (!e.path || !Array.isArray(e.path)) badMappedPaths.push(e.id);
+      else if (!a || !b || invalidAttachmentIds.has(e.a) || invalidAttachmentIds.has(e.b))
+        badEdges.push(e.id);
+      else {
+        const canonical = mappedUVPath(surface, a.attachment.uv, b.attachment.uv);
+        if (
+          canonical.length !== e.path.length ||
+          canonical.some((point, i) => !finite3(e.path![i]!) || norm(sub(point, e.path![i]!)) > tol)
+        )
+          badMappedPaths.push(e.id);
+      }
+    }
   }
   for (const [k, inc] of incidence) {
     if (!edgeKeys.has(k)) badEdges.push(k);
     if (inc.cells.length > 2) nonmanifold.push(k);
     if (inc.cells.length === 2 && inc.directions[0] === inc.directions[1]) badOrientation.push(k);
   }
+  if (mapped && !invalidAttachmentIds.size) {
+    const intervals: [number, number][][] = [[], [], [], []];
+    const boundaryIssues: string[] = [];
+    for (const [key, inc] of incidence) {
+      if (inc.cells.length !== 1) continue;
+      const a = nodes.get(inc.a)!.attachment.uv,
+        b = nodes.get(inc.b)!.attachment.uv;
+      const side =
+        Math.abs(a[1]) <= 1e-10 && Math.abs(b[1]) <= 1e-10
+          ? 0
+          : Math.abs(a[0] - 1) <= 1e-10 && Math.abs(b[0] - 1) <= 1e-10
+            ? 1
+            : Math.abs(a[1] - 1) <= 1e-10 && Math.abs(b[1] - 1) <= 1e-10
+              ? 2
+              : Math.abs(a[0]) <= 1e-10 && Math.abs(b[0]) <= 1e-10
+                ? 3
+                : -1;
+      if (side < 0) {
+        boundaryIssues.push(key);
+        continue;
+      }
+      const axis = side % 2 === 0 ? 0 : 1;
+      intervals[side]!.push([Math.min(a[axis]!, b[axis]!), Math.max(a[axis]!, b[axis]!)]);
+    }
+    for (let side = 0; side < 4; side++) {
+      let covered = 0;
+      for (const [start, end] of intervals[side]!.sort((a, b) => a[0] - b[0])) {
+        if (Math.abs(start - covered) > 1e-10 || end - start <= 1e-14)
+          boundaryIssues.push(`chart-side:${side}`);
+        covered = end;
+      }
+      if (Math.abs(covered - 1) > 1e-10) boundaryIssues.push(`chart-side:${side}`);
+    }
+    if (boundaryIssues.length)
+      report(
+        'chart-boundary',
+        'Incomplete rectangular chart boundary',
+        'Mapped graph boundary edges must cover each normalized rectangle side exactly once, without interior segments, gaps or overlaps (UV tolerance 1e-10).',
+        boundaryIssues
+      );
+  }
+  if (badMappedPaths.length)
+    report(
+      'mapped-path-convention',
+      'Mapped path convention mismatch',
+      'Mapped edge paths must match every canonical source-triangle crossing. Regenerate this graph with the current mapping convention before using or exporting it.',
+      badMappedPaths
+    );
   if (badEdges.length)
     report(
       'edge-incidence',
@@ -377,7 +666,9 @@ export function computeStatistics(
       const neighbors = boundaryNeighbors.get(n.id)!;
       const normalizedBoundaryDirection = (id: string): Vec3 => {
         const other = nodes.get(id)!;
-        return surface.kind === 'plane' || surface.kind === 'saddle'
+        return surface.kind === 'plane' ||
+          surface.kind === 'saddle' ||
+          hasRectangularMapping(surface)
           ? [
               other.attachment.uv[0] - n.attachment.uv[0],
               other.attachment.uv[1] - n.attachment.uv[1],

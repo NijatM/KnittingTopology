@@ -7,6 +7,7 @@ import type {
   Diagnostic,
 } from '../core/types';
 import { evaluateSurface, validateSurface } from '../core/surfaces';
+import { mappedAttachmentMatches } from '../core/diagnostics';
 import { validateImportedMesh } from '../import/mesh';
 import { createCitationRecord } from '../adapters/citations';
 import {
@@ -46,8 +47,10 @@ export function createProject(): ProjectState {
 }
 export function geometryChange(state: ProjectState, change: Partial<SurfaceSpec>): ProjectState {
   const surface = { ...state.surface, ...change, revision: `surface-${crypto.randomUUID()}` };
-  if (surface.kind !== 'mesh') delete surface.mesh;
-  else validateSurface(surface);
+  if (surface.kind !== 'mesh') {
+    delete surface.mesh;
+    delete surface.mapping;
+  } else validateSurface(surface);
   return {
     ...state,
     surface,
@@ -69,16 +72,48 @@ export function scientificSignature(
   input: Pick<ProjectState, 'surface' | 'parameters' | 'guides'>
 ): string {
   const data = JSON.stringify({
-    surface: input.surface,
+    surface:
+      input.surface.kind === 'mesh' && input.surface.mesh
+        ? { ...input.surface, mesh: importedMeshFingerprint(input.surface.mesh) }
+        : input.surface,
     parameters: input.parameters,
     guides: input.guides,
   });
+  return fingerprintText(data);
+}
+function fingerprintText(data: string): string {
   let hash = 2166136261;
   for (let i = 0; i < data.length; i++) {
     hash ^= data.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
   return `${data.length}:${(hash >>> 0).toString(16)}`;
+}
+const meshFingerprints = new WeakMap<NonNullable<SurfaceSpec['mesh']>, string>();
+function importedMeshFingerprint(mesh: NonNullable<SurfaceSpec['mesh']>): string {
+  const immutable =
+    Object.isFrozen(mesh) &&
+    Object.isFrozen(mesh.positions) &&
+    Object.isFrozen(mesh.indices) &&
+    Object.isFrozen(mesh.source) &&
+    Object.isFrozen(mesh.source.centerMeters) &&
+    Object.isFrozen(mesh.source.notes) &&
+    (!mesh.uvs || Object.isFrozen(mesh.uvs));
+  const cached = immutable ? meshFingerprints.get(mesh) : undefined;
+  if (cached) return cached;
+  const value = fingerprintText(JSON.stringify(mesh));
+  if (immutable) meshFingerprints.set(mesh, value);
+  return value;
+}
+/** Protect shared imported geometry; signatures can then reuse a content fingerprint. */
+export function freezeImportedMesh(mesh: NonNullable<SurfaceSpec['mesh']>): void {
+  Object.freeze(mesh.positions);
+  Object.freeze(mesh.indices);
+  if (mesh.uvs) Object.freeze(mesh.uvs);
+  Object.freeze(mesh.source.centerMeters);
+  Object.freeze(mesh.source.notes);
+  Object.freeze(mesh.source);
+  Object.freeze(mesh);
 }
 export function serializeProject(project: ProjectState): string {
   return JSON.stringify({
@@ -305,7 +340,11 @@ export function parseProject(contents: string): ProjectState {
   const revision = text(surface.revision, 'surface revision', 180);
   if (surface.kind === 'mesh') {
     surface.mesh = validateImportedMesh(surface.mesh);
-    if (state.graph !== null || !Array.isArray(state.guides) || state.guides.length !== 0)
+    freezeImportedMesh(surface.mesh as NonNullable<SurfaceSpec['mesh']>);
+    if (
+      surface.mapping !== 'rectangular-obj-uv-v1' &&
+      (state.graph !== null || !Array.isArray(state.guides) || state.guides.length !== 0)
+    )
       fail('imported surfaces cannot contain generated graphs or analytic guide attachments.');
   }
   validateSurface(surface as unknown as SurfaceSpec);
@@ -331,6 +370,15 @@ export function parseProject(contents: string): ProjectState {
       const position = sample.position as number[];
       if (Math.hypot(...expected.map((n, i) => n - position[i]!)) > Number(surface.size) * 1e-6)
         fail('guide position does not match its surface attachment.');
+      if (
+        surface.kind === 'mesh' &&
+        !mappedAttachmentMatches(
+          surface as unknown as SurfaceSpec,
+          sample.position as Vec3,
+          sample.attachment as import('../core/types').SurfaceAttachment
+        )
+      )
+        fail('mapped guide triangle or barycentric coordinates do not match its UV attachment.');
     }
   }
   if (state.graph !== null) validateGraphRecord(state.graph, revision);
@@ -374,15 +422,22 @@ function trimHistory(states: ProjectState[]): ProjectState[] {
     const state = states[i]!;
     const graph = state.graph;
     const mesh = state.surface.kind === 'mesh' ? state.surface.mesh : undefined;
-    const resource = graph ?? mesh;
-    if (resource && !resources.has(resource)) {
-      const cost = graph
-        ? graph.nodes.length + graph.edges.length + graph.cells.length
-        : mesh!.positions.length / 3 + mesh!.indices.length / 3;
-      if (resources.size >= 6 || (resources.size > 0 && entities + cost > 350_000)) break;
-      resources.add(resource);
-      entities += cost;
-    }
+    const additions = [
+      ...(graph
+        ? [{ resource: graph, cost: graph.nodes.length + graph.edges.length + graph.cells.length }]
+        : []),
+      ...(mesh
+        ? [{ resource: mesh, cost: mesh.positions.length / 3 + mesh.indices.length / 3 }]
+        : []),
+    ].filter(({ resource }) => !resources.has(resource));
+    const addedCost = additions.reduce((sum, item) => sum + item.cost, 0);
+    if (
+      resources.size > 0 &&
+      (resources.size + additions.length > 6 || entities + addedCost > 350_000)
+    )
+      break;
+    for (const item of additions) resources.add(item.resource);
+    entities += addedCost;
     selected.unshift(state);
   }
   return selected;

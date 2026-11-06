@@ -1,6 +1,20 @@
 import type { SurfaceAttachment, SurfaceMesh, SurfaceSpec, Vec3 } from './types';
 import { clamp, dot, finite3, lerp, mul, norm, unit } from './math';
 import { importedMeshSize, validateImportedMesh } from '../import/mesh';
+import {
+  evaluateMappedSurface,
+  hasRectangularMapping,
+  mappedDisplayUVs,
+  mappedNormal,
+  mappedResidual,
+  mappedSurfaceArea,
+  mappedUVPath,
+  projectMappedSurface,
+  requireRectangularUV,
+} from '../import/uv-mapping';
+
+// Immutable scientific mesh inputs are checked once, rather than cloned on every query.
+const validatedMeshes = new WeakMap<NonNullable<SurfaceSpec['mesh']>, number>();
 
 export function validateSurface(s: SurfaceSpec): void {
   if (!s || !['plane', 'cube', 'sphere', 'saddle', 'mesh'].includes(s.kind))
@@ -12,15 +26,27 @@ export function validateSurface(s: SurfaceSpec): void {
   if (typeof s.revision !== 'string' || s.revision.length === 0)
     throw new Error('Surface revision is required.');
   if (s.kind === 'mesh') {
-    const mesh = validateImportedMesh(s.mesh);
-    if (Math.abs(importedMeshSize(mesh) - s.size) > s.size * 1e-10)
+    if (!s.mesh) throw new Error('Imported surface requires mesh data.');
+    let size = validatedMeshes.get(s.mesh);
+    if (size === undefined) {
+      const mesh = validateImportedMesh(s.mesh);
+      size = importedMeshSize(mesh);
+      validatedMeshes.set(s.mesh, size);
+    }
+    if (Math.abs(size - s.size) > s.size * 1e-10)
       throw new Error('Imported surface size must match its recorded mesh extent.');
     if (s.curvature !== 0) throw new Error('Imported surfaces have no analytic curvature setting.');
-  } else if (s.mesh !== undefined) {
-    throw new Error('Analytic surfaces cannot contain imported mesh data.');
+    if (s.mapping !== undefined) {
+      if (s.mapping !== 'rectangular-obj-uv-v1') throw new Error('Unsupported imported mapping.');
+      requireRectangularUV(s.mesh);
+    }
+  } else if (s.mesh !== undefined || s.mapping !== undefined) {
+    throw new Error('Analytic surfaces cannot contain imported mesh data or mapping flags.');
   }
 }
 function requireAnalyticSurface(s: SurfaceSpec): void {
+  if (s.kind !== 'mesh' && s.mapping !== undefined)
+    throw new Error('Analytic surfaces cannot contain mapping flags.');
   if (s.kind === 'mesh')
     throw new Error(
       'Imported surfaces support inspection only; a verified surface mapping is required for generation and analytic projection.'
@@ -48,8 +74,12 @@ export function cubeCoordinates(patch: number, u: number, v: number): Vec3 {
   }
 }
 export function evaluateSurface(s: SurfaceSpec, patch: number, u: number, v: number): Vec3 {
-  requireAnalyticSurface(s);
   validateSurface(s);
+  if (hasRectangularMapping(s)) {
+    if (patch !== 0) throw new Error('Supplied rectangular mappings have only patch 0.');
+    return evaluateMappedSurface(s, u, v).position;
+  }
+  requireAnalyticSurface(s);
   if (
     !Number.isInteger(patch) ||
     !Number.isFinite(u) ||
@@ -75,8 +105,13 @@ export function projectToSurface(
   p: Vec3,
   preferredPatch?: number
 ): { position: Vec3; attachment: SurfaceAttachment } {
-  requireAnalyticSurface(s);
   validateSurface(s);
+  if (hasRectangularMapping(s)) {
+    if (preferredPatch !== undefined && preferredPatch !== 0)
+      throw new Error('Supplied rectangular mappings have only patch 0.');
+    return projectMappedSurface(s, p);
+  }
+  requireAnalyticSurface(s);
   if (!finite3(p)) throw new Error('Projection requires three finite coordinates.');
   let patch = 0,
     u = 0.5,
@@ -142,6 +177,12 @@ export function projectToSurface(
   };
 }
 export function surfaceNormal(s: SurfaceSpec, p: Vec3, patch?: number): Vec3 {
+  if (hasRectangularMapping(s)) {
+    validateSurface(s);
+    if (patch !== undefined && patch !== 0)
+      throw new Error('Supplied rectangular mappings have only patch 0.');
+    return mappedNormal(s, p);
+  }
   requireAnalyticSurface(s);
   if (s.kind === 'sphere') return unit(p);
   if (s.kind === 'cube')
@@ -152,6 +193,10 @@ export function surfaceNormal(s: SurfaceSpec, p: Vec3, patch?: number): Vec3 {
 }
 /** Analytic membership residual, meters. Cube and sphere use the centered implicit surface. */
 export function surfaceResidual(s: SurfaceSpec, p: Vec3): number {
+  if (hasRectangularMapping(s)) {
+    validateSurface(s);
+    return mappedResidual(s, p);
+  }
   requireAnalyticSurface(s);
   if (s.kind === 'sphere') return Math.abs(norm(p) - s.size / 2);
   if (s.kind === 'cube') return Math.abs(Math.max(...p.map(Math.abs)) - s.size / 2);
@@ -163,6 +208,10 @@ export function surfaceResidual(s: SurfaceSpec, p: Vec3): number {
   );
 }
 export function analyticSurfaceArea(s: SurfaceSpec): number {
+  if (hasRectangularMapping(s)) {
+    validateSurface(s);
+    return mappedSurfaceArea(s);
+  }
   requireAnalyticSurface(s);
   if (s.kind === 'sphere') return Math.PI * s.size * s.size;
   if (s.kind === 'cube') return 6 * s.size * s.size;
@@ -180,6 +229,18 @@ export function analyticSurfaceArea(s: SurfaceSpec): number {
 }
 /** Great-circle length on sphere. Other surfaces use the sampled embedded edge polyline. */
 export function embeddedEdgeLength(s: SurfaceSpec, a: Vec3, b: Vec3, path?: Vec3[]): number {
+  if (hasRectangularMapping(s)) {
+    validateSurface(s);
+    const pts = path ?? surfacePath(s, a, b);
+    let length = 0;
+    for (let i = 1; i < pts.length; i++)
+      length += norm([
+        pts[i][0] - pts[i - 1][0],
+        pts[i][1] - pts[i - 1][1],
+        pts[i][2] - pts[i - 1][2],
+      ]);
+    return length;
+  }
   requireAnalyticSurface(s);
   if (s.kind === 'sphere') {
     const pts = path ?? [a, b];
@@ -208,6 +269,14 @@ export function embeddedEdgeLength(s: SurfaceSpec, a: Vec3, b: Vec3, path?: Vec3
 }
 /** Projected chord. Cube seam breakpoints are inserted exactly; sphere samples a great circle. */
 export function surfacePath(s: SurfaceSpec, a: Vec3, b: Vec3): Vec3[] {
+  if (hasRectangularMapping(s)) {
+    validateSurface(s);
+    return mappedUVPath(
+      s,
+      projectMappedSurface(s, a).attachment.uv,
+      projectMappedSurface(s, b).attachment.uv
+    );
+  }
   requireAnalyticSurface(s);
   if (s.kind === 'plane') return [a, b];
   if (s.kind === 'cube') {
@@ -236,8 +305,10 @@ export function buildSurfaceMesh(s: SurfaceSpec, resolution = 24): SurfaceMesh {
       positions: s.mesh!.positions,
       indices: s.mesh!.indices,
       trianglePatches: new Array(s.mesh!.indices.length / 3).fill(0),
-      // Display buffers only. These zeros are not an imported parameterization.
-      uvs: new Array((s.mesh!.positions.length / 3) * 2).fill(0),
+      // Unselected imports retain display placeholders; selected charts use normalized UV.
+      uvs: hasRectangularMapping(s)
+        ? mappedDisplayUVs(s)
+        : new Array((s.mesh!.positions.length / 3) * 2).fill(0),
     };
   }
   if (!Number.isInteger(resolution) || resolution < 1 || resolution > 256)

@@ -10,7 +10,9 @@ import type {
   Vec3,
 } from './types';
 import { add, areaVector, clamp, cross, dot, lerp, mean, mul, norm, sub, unit } from './math';
-import { analyzeGraph, polygonArea } from './diagnostics';
+import { analyzeGraph, mappedAttachmentMatches, polygonArea } from './diagnostics';
+import { generateMappedPattern } from '../import/generate-mapped';
+import { hasRectangularMapping, requireRectangularUV } from '../import/uv-mapping';
 import { evaluateSurface, projectToSurface, surfaceNormal, validateSurface } from './surfaces';
 import { assemble, edgeKey, insetGraph, MeshBuilder, transformGraph } from './topology';
 
@@ -78,10 +80,13 @@ export function validateGenerationInput(input: GenerationInput) {
   if (!input || !input.parameters || !Array.isArray(input.guides))
     throw new Error('Generation requires a surface, parameters and guide array.');
   validateSurface(input.surface);
-  if (input.surface.kind === 'mesh')
-    throw new Error(
-      'Imported surfaces support inspection only. Pattern generation requires a verified surface mapping.'
-    );
+  if (input.surface.kind === 'mesh') {
+    if (!hasRectangularMapping(input.surface))
+      throw new Error(
+        'Imported surfaces support inspection only. Pattern generation requires a verified rectangular OBJ UV mapping.'
+      );
+    requireRectangularUV(input.surface.mesh!);
+  }
   const p = input.parameters;
   if (
     !['patch-grid', 'n-sided-patch'].includes(p.strategy) ||
@@ -144,6 +149,13 @@ export function validateGenerationInput(input: GenerationInput) {
       const a = sample.attachment;
       if (!Array.isArray(a.uv) || a.uv.length !== 2)
         throw new Error('Guide samples require analytic UV attachments.');
+      if (
+        hasRectangularMapping(input.surface) &&
+        !mappedAttachmentMatches(input.surface, sample.position, a)
+      )
+        throw new Error(
+          'Mapped guide samples require matching triangle, barycentric, position and normalized UV attachments.'
+        );
       const evaluated = evaluateSurface(input.surface, a.patch, ...a.uv);
       if (norm(sub(sample.position, evaluated)) > input.surface.size * 1e-8)
         throw new Error('Guide position must match its analytic surface attachment.');
@@ -611,6 +623,22 @@ function shapeGeometry(
   return { graph: result, before, after, maxMove };
 }
 export function generatePattern(
+  input: GenerationInput,
+  context?: GenerationContext
+): GenerationResult {
+  checkpoint(context, 0, 'Checking inputs');
+  if (input.surface.kind === 'mesh') {
+    if (!hasRectangularMapping(input.surface))
+      throw new Error(
+        'Imported surfaces support inspection only without a verified rectangular OBJ UV mapping before generation.'
+      );
+    requireRectangularUV(input.surface.mesh!, context);
+    validateGenerationInput(input);
+    return generateMappedPattern(input, context, generateAnalyticPattern);
+  }
+  return generateAnalyticPattern(input, context);
+}
+function generateAnalyticPattern(
   input: GenerationInput,
   context?: GenerationContext
 ): GenerationResult {

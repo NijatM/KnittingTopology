@@ -7,38 +7,48 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 252,
+    "passed": 319,
     "core": 104,
     "project_and_persistence": 32,
-    "duration_seconds": 16.74,
+    "duration_seconds": 18.34,
     "learning_and_citations": 32,
-    "import_parsing_and_projects": 84
+    "import_parsing_and_projects": 84,
+    "mapping_kernel_generation_and_projects": 67
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 377.56,
-    "lazy_viewer_js_kb": 578.57,
-    "initial_js_gzip_kb": 119.07,
-    "lazy_viewer_js_gzip_kb": 145.69,
-    "import_worker_js_kb": 18.5,
-    "generation_worker_js_kb": 60.73
+    "initial_js_kb": 414.79,
+    "lazy_viewer_js_kb": 580.72,
+    "initial_js_gzip_kb": 130.8,
+    "lazy_viewer_js_gzip_kb": 146.37,
+    "import_worker_js_kb": 27.85,
+    "generation_worker_js_kb": 91.24
   },
   "development_browser_tests": {
-    "command": "npx playwright test",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5174/KnittingTopology/ npx playwright test",
     "result": "pass",
-    "passed": 16,
+    "passed": 19,
     "page_or_console_errors": 0,
-    "duration_seconds": 90.75
+    "duration_seconds": 106.93
   },
   "production_browser_tests": {
     "command": "KNITTING_BASE_URL=http://127.0.0.1:4173/KnittingTopology/ npx playwright test",
     "result": "pass",
-    "passed": 16,
-    "duration_seconds": 83.76,
-    "page_or_console_errors": 0
+    "passed": 19,
+    "duration_seconds": 100.63,
+    "page_or_console_errors": 0,
+    "result_file": "tmp/qa/mapping-production-results.json (ignored QA artifact; Playwright does not store the base URL in it)"
+  },
+  "reconfirmation": {
+    "command": "npm run check",
+    "result": "pass",
+    "unit_tests_passed": 319,
+    "unit_duration_seconds": 16.65,
+    "build_sizes_identical": true,
+    "note": "Re-run on the unchanged source before the milestone commit; no source file changed after the production browser run."
   },
   "mobile": {
     "viewport_width": 375,
@@ -48,7 +58,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Imported surface inspection",
+  "milestone": "Supplied rectangular OBJ UV generation",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -75,7 +85,7 @@
     "units": ["mm", "cm", "m", "in"],
     "centering": "two-pass bounding-box centering with recorded source offset",
     "source_indexing": "OBJ declared position identity; STL exact-coordinate welding",
-    "inspection_only": true,
+    "inspection_only": false,
     "global_intersection_test": false,
     "caps": {
       "file_bytes": 20971520,
@@ -83,6 +93,20 @@
       "triangles": 200000,
       "polygon_sides": 256,
       "polygon_work": 5000000
-    }
+    },
+    "mapping_requirement": "Only eligible supplied rectangular OBJ charts can generate; other inputs remain inspection-only."
+  },
+  "mapping_coverage": {
+    "convention": "rectangular-obj-uv-v1",
+    "path_method": "rectangular-uv-edge-crossings-v2",
+    "supplied_chart_only": true,
+    "exact_predicate_certificate": false,
+    "global_3d_intersection_certificate": false,
+    "physical_validation": false,
+    "guide_space": "independently normalized UV",
+    "spacing_measure": "world polyline length of UV-straight edge",
+    "maximum_samples_per_edge": 1024,
+    "maximum_samples_final_and_coarse": 2000000,
+    "known_fail_closed": "Nested/Ambo strip counts3,1,1,1 fail existing planar orientation checks"
   }
 }

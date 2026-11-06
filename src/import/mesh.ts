@@ -24,9 +24,15 @@ const POLYGON_TOLERANCE = 1e-10;
 const MAX_SOURCE_COORDINATE_METERS = 1e9;
 const DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i;
 const OBJ_NOTES = [
-  'OBJ position indices are preserved; coincident declared vertices are not welded. Normals, UVs and materials are ignored.',
+  'OBJ position indices are preserved; coincident declared vertices are not welded. Normals and materials are ignored; compatible per-position UVs are retained.',
   'Planar simple polygons use ear clipping; relative planarity/intersection tolerance 1e-10; maximum 256 sides.',
 ];
+const LEGACY_OBJ_NOTE =
+  'OBJ position indices are preserved; coincident declared vertices are not welded. Normals, UVs and materials are ignored.';
+const UV_AVAILABLE_NOTE =
+  'Complete single-valued OBJ texture coordinates were retained; rectangular chart suitability requires separate validation.';
+const UV_UNAVAILABLE_NOTE =
+  'A complete single-valued OBJ UV chart was unavailable: missing, invalid, unsupported or seamed texture coordinates remain inspection-only.';
 const STL_NOTES = [
   'STL vertices are welded only when all three parsed coordinates are exactly equal; signed zero is canonicalized.',
   'Facet normals and binary attribute bytes are ignored; triangle orientation follows the vertex order.',
@@ -35,7 +41,12 @@ const HIGH_OFFSET_NOTE =
   'Large source offset relative to mesh extent limits positional precision in the parsed coordinates; centering cannot recover lost source precision.';
 const IGNORED_OBJ_STATEMENTS = ['vt', 'vn', 'o', 'g', 's', 'usemtl', 'mtllib'];
 function allowedSourceNote(note: string, format: ImportedMeshData['source']['format']): boolean {
-  if (note === HIGH_OFFSET_NOTE || (format === 'obj' ? OBJ_NOTES : STL_NOTES).includes(note))
+  if (
+    note === HIGH_OFFSET_NOTE ||
+    (format === 'obj' &&
+      [LEGACY_OBJ_NOTE, UV_AVAILABLE_NOTE, UV_UNAVAILABLE_NOTE].includes(note)) ||
+    (format === 'obj' ? OBJ_NOTES : STL_NOTES).includes(note)
+  )
     return true;
   if (
     format !== 'obj' ||
@@ -178,6 +189,17 @@ export function validateImportedMesh(value: unknown): ImportedMeshData {
     )
   )
     return fail('source notes must use recognized importer wording');
+  let uvs: number[] | undefined;
+  if (input.uvs !== undefined) {
+    if (
+      source.format !== 'obj' ||
+      !Array.isArray(input.uvs) ||
+      input.uvs.length !== (positions.length / 3) * 2 ||
+      [...input.uvs].some((v) => typeof v !== 'number' || !Number.isFinite(v) || Math.abs(v) > 1e9)
+    )
+      return fail('OBJ UV coordinates must be finite bounded pairs for every declared position');
+    uvs = [...input.uvs] as number[];
+  }
   if (source.format !== 'obj' && new Set(indices).size !== positions.length / 3)
     return fail('STL metadata cannot contain unused declared vertices');
   let hasArea = false;
@@ -191,6 +213,7 @@ export function validateImportedMesh(value: unknown): ImportedMeshData {
   return {
     positions,
     indices,
+    ...(uvs ? { uvs } : {}),
     source: {
       name: source.name,
       format: source.format,
@@ -363,11 +386,14 @@ function triangulate(
 function parseObj(
   text: string,
   context?: GenerationContext
-): { positions: number[]; indices: number[]; notes: string[] } {
+): { positions: number[]; indices: number[]; notes: string[]; uvs?: number[] } {
   const positions: number[] = [],
     indices: number[] = [],
     ignored = new Set<string>(),
     budget = { work: 0 };
+  const texture: ([number, number] | null)[] = [];
+  const assignedUV = new Map<number, [number, number]>();
+  let compatibleUV = true;
   for (const entry of textLines(text)) {
     if (entry.line % 256 === 1) checkpoint(context, (entry.offset / text.length) * 0.75);
     const comment = entry.text.indexOf('#');
@@ -386,6 +412,18 @@ function parseObj(
         return fail('OBJ homogeneous vertex weights other than 1 are unsupported');
       if (positions.length / 3 >= MAX_IMPORTED_VERTICES) return fail('vertex limit exceeded');
       positions.push(...tokens.slice(0, 3).map(numberToken));
+    } else if (command === 'vt') {
+      if (texture.length >= MAX_IMPORTED_VERTICES) return fail('texture-coordinate limit exceeded');
+      try {
+        if (tokens.length < 1 || tokens.length > 3)
+          throw new Error('Unsupported texture coordinate');
+        const values = tokens.map(numberToken);
+        if (values.some((v) => Math.abs(v) > 1e9) || (values.length === 3 && values[2] !== 0))
+          throw new Error('Unsupported texture coordinate');
+        texture.push([values[0]!, values[1] ?? 0]);
+      } catch {
+        texture.push(null);
+      }
     } else if (command === 'f') {
       if (tokens.length < 3 || tokens.length > MAX_POLYGON_VERTICES)
         return fail('OBJ faces require 3–256 vertices');
@@ -409,6 +447,18 @@ function parseObj(
         const resolved = index > 0 ? index - 1 : positions.length / 3 + index;
         if (resolved < 0 || resolved >= positions.length / 3)
           return fail('OBJ position index is out of range at its face declaration');
+        const textureIndex = fields[1] ? Number(fields[1]) : 0;
+        const resolvedTexture = textureIndex > 0 ? textureIndex - 1 : texture.length + textureIndex;
+        const uv =
+          textureIndex !== 0 && resolvedTexture >= 0 && resolvedTexture < texture.length
+            ? texture[resolvedTexture]
+            : null;
+        if (!uv) compatibleUV = false;
+        else {
+          const previous = assignedUV.get(resolved);
+          if (previous && (previous[0] !== uv[0] || previous[1] !== uv[1])) compatibleUV = false;
+          else assignedUV.set(resolved, uv);
+        }
         return resolved;
       });
       indices.push(...triangulate(face, positions, budget, context));
@@ -416,11 +466,17 @@ function parseObj(
       ignored.add(command);
     } else return fail(`unsupported OBJ statement '${command}'; only polygonal faces are imported`);
   }
+  const uvs =
+    compatibleUV && assignedUV.size === positions.length / 3 && texture.length > 0
+      ? Array.from({ length: positions.length / 3 }, (_, i) => assignedUV.get(i)!).flat()
+      : undefined;
   return {
     positions,
     indices,
+    ...(uvs ? { uvs } : {}),
     notes: [
       ...OBJ_NOTES,
+      uvs ? UV_AVAILABLE_NOTE : UV_UNAVAILABLE_NOTE,
       ...(ignored.size
         ? [`Ignored appearance/group statements: ${[...ignored].sort().join(', ')}.`]
         : []),
@@ -554,6 +610,7 @@ export function parseMeshFile(
   const mesh = validateImportedMesh({
     positions: parsed.positions,
     indices: parsed.indices,
+    ...('uvs' in parsed && parsed.uvs ? { uvs: parsed.uvs } : {}),
     source: {
       name: options.name,
       format: parsed.format,

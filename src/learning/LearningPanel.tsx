@@ -40,7 +40,7 @@ export default function LearningPanel({
   const [fallback, setFallback] = useState<{ label: string; text: string } | null>(null);
   const fallbackField = useRef<HTMLTextAreaElement>(null);
   const lesson = getLesson(reading ?? suggestedLesson(parameters));
-  const currentDescription = `${hasGraph ? 'Accepted graph' : 'Requested inputs (no generated result)'}: ${describeMethod(parameters, surface.kind)}`;
+  const currentDescription = `${hasGraph ? 'Accepted graph' : 'Requested inputs (no generated result)'}: ${describeMethod(parameters, surface)}`;
   const referenceIds = [...new Set(lesson.references.map((source) => source.id))];
   useEffect(() => {
     setFallback(null);

@@ -8,6 +8,8 @@ export interface ImportedMeshData {
   /** Centered positions in meters, with the original offset recorded below. */
   positions: number[];
   indices: number[];
+  /** Optional complete, single-valued OBJ texture coordinates, two per position. */
+  uvs?: number[];
   source: {
     name: string;
     format: 'obj' | 'stl-ascii' | 'stl-binary';
@@ -19,6 +21,7 @@ export interface ImportedMeshData {
   };
 }
 export interface ImportedMeshReport {
+  uvMapping?: RectangularUVReport;
   statistics: {
     vertices: number;
     usedVertices: number;
@@ -44,6 +47,17 @@ export interface ImportedMeshReport {
   };
   diagnostics: Diagnostic[];
 }
+export interface RectangularUVReport {
+  status: 'ready' | 'unavailable';
+  reason: string;
+  boundsMin?: Vec2;
+  boundsMax?: Vec2;
+  uvArea?: number;
+  minScaleM?: number;
+  maxScaleM?: number;
+  maxCondition?: number;
+  diagnostics: Diagnostic[];
+}
 export type TopologyPreset = 'regular' | 'inset' | 'alternating' | 'radial';
 export type PatternFamily = 'quad' | 'dual' | 'ambo' | 'kis' | 'gyro' | 'diagonal';
 export type StrategyKind = 'patch-grid' | 'n-sided-patch';
@@ -56,6 +70,8 @@ export interface SurfaceSpec {
   revision: string;
   /** Present only for imported, inspection-only surfaces. No analytic UV atlas is implied. */
   mesh?: ImportedMeshData;
+  /** User-supplied OBJ chart, revalidated before use; never an automatic unwrap. */
+  mapping?: 'rectangular-obj-uv-v1';
 }
 
 export interface SurfaceAttachment {

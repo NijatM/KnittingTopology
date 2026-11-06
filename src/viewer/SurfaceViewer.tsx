@@ -2,12 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildSurfaceMesh, evaluateSurface, projectToSurface } from '../core/surfaces';
+import {
+  hasRectangularMapping,
+  mappedUVAtTriangle,
+  mappedUVPath,
+  evaluateMappedSurface,
+} from '../import/uv-mapping';
 import type {
   GraphEdge,
   GuideSample,
   PatternGraph,
   SurfaceMesh,
   SurfaceSpec,
+  Vec2,
   Vec3,
 } from '../core/types';
 import type { SurfaceViewerProps, ViewerHandle } from './types';
@@ -102,6 +109,9 @@ function appendPath(segments: number[], path: Vec3[]) {
   for (let i = 1; i < path.length; i++) segments.push(...path[i - 1], ...path[i]);
 }
 function embeddedPath(surface: SurfaceSpec, path: Vec3[], samples = 6): Vec3[] {
+  // Mapped paths already include source-triangle crossings. Never reproject or
+  // resample their world chords: a folded support can have ambiguous projections.
+  if (hasRectangularMapping(surface)) return path;
   const result: Vec3[] = [];
   for (let i = 1; i < path.length; i++) {
     const a = v3(path[i - 1]);
@@ -116,6 +126,7 @@ function embeddedPath(surface: SurfaceSpec, path: Vec3[], samples = 6): Vec3[] {
   return result;
 }
 function edgePath(surface: SurfaceSpec, edge: GraphEdge, nodes: Map<string, Vec3>) {
+  if (hasRectangularMapping(surface)) return edge.path || [];
   if (edge.path && edge.path.length > 1)
     return embeddedPath(
       surface,
@@ -125,6 +136,46 @@ function edgePath(surface: SurfaceSpec, edge: GraphEdge, nodes: Map<string, Vec3
   const a = nodes.get(edge.a),
     b = nodes.get(edge.b);
   return a && b ? embeddedPath(surface, [a, b], 12) : [];
+}
+function supportsGuides(surface: SurfaceSpec) {
+  return surface.kind !== 'mesh' || hasRectangularMapping(surface);
+}
+function guidePath(surface: SurfaceSpec, samples: GuideSample[]): Vec3[] {
+  if (!hasRectangularMapping(surface))
+    return embeddedPath(
+      surface,
+      samples.map((sample) => sample.position),
+      4
+    );
+  const path: Vec3[] = [];
+  for (let i = 1; i < samples.length; i++) {
+    const segment = mappedUVPath(surface, samples[i - 1].attachment.uv, samples[i].attachment.uv);
+    path.push(...(path.length ? segment.slice(1) : segment));
+  }
+  return path;
+}
+// A boundary hit belongs to the first stored cell for deterministic shared-edge
+// ties. Selection uses chart polygons, never a chord triangulation in world space.
+function containsUV(point: Vec2, polygon: Vec2[]) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[j],
+      b = polygon[i];
+    const dx = b[0] - a[0],
+      dy = b[1] - a[1];
+    const cross = (point[0] - a[0]) * dy - (point[1] - a[1]) * dx;
+    if (
+      Math.abs(cross) <= 1e-10 * Math.max(1, Math.hypot(dx, dy)) &&
+      point[0] >= Math.min(a[0], b[0]) - 1e-10 &&
+      point[0] <= Math.max(a[0], b[0]) + 1e-10 &&
+      point[1] >= Math.min(a[1], b[1]) - 1e-10 &&
+      point[1] <= Math.max(a[1], b[1]) + 1e-10
+    )
+      return true;
+    if (a[1] > point[1] !== b[1] > point[1] && point[0] < a[0] + ((point[1] - a[1]) * dx) / dy)
+      inside = !inside;
+  }
+  return inside;
 }
 function pathLength(path: Vec3[]) {
   let length = 0;
@@ -361,22 +412,27 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
         );
       if (!hit || hit.faceIndex == null || !hit.face) return null;
       const patch = state.meshData.trianglePatches[hit.faceIndex];
-      const projected: GuideSample =
-        surface.kind === 'mesh'
-          ? {
-              position: tuple(hit.point),
-              // Imported triangles have no analytic chart. These placeholders
-              // never reach guide drawing; face/barycentrics identify the pick.
-              attachment: { surfaceRevision: surface.revision, patch: 0, uv: [0, 0] },
-            }
-          : projectToSurface(surface, tuple(hit.point), patch);
-      // Both analytic and imported picks retain the actual display triangle and
-      // barycentrics. Only analytic picks recover UV through the core projector.
       const attr = state.surfaceMesh.geometry.getAttribute('position');
       const a = new THREE.Vector3().fromBufferAttribute(attr, hit.face.a);
       const b = new THREE.Vector3().fromBufferAttribute(attr, hit.face.b);
       const c = new THREE.Vector3().fromBufferAttribute(attr, hit.face.c);
       const bary = THREE.Triangle.getBarycoord(hit.point, a, b, c, new THREE.Vector3());
+      let projected: GuideSample;
+      if (hasRectangularMapping(surface)) {
+        if (!bary) return null;
+        const uv = mappedUVAtTriangle(surface, hit.faceIndex, tuple(bary));
+        projected = {
+          position: evaluateSurface(surface, 0, ...uv),
+          attachment: { surfaceRevision: surface.revision, patch: 0, uv },
+        };
+      } else if (surface.kind === 'mesh') {
+        // Inspection-only placeholders never reach guide drawing or generation.
+        projected = {
+          position: tuple(hit.point),
+          attachment: { surfaceRevision: surface.revision, patch: 0, uv: [0, 0] },
+        };
+      } else projected = projectToSurface(surface, tuple(hit.point), patch);
+      // Source triangle ordering survives non-indexed render conversion.
       projected.attachment.faceId = hit.faceIndex;
       if (bary) projected.attachment.barycentric = tuple(bary);
       return projected;
@@ -388,15 +444,12 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const renderDraft = () => {
       clear(draftGroup);
       const segments: number[] = [];
-      appendPath(
-        segments,
-        stroke.map((sample) => sample.position)
-      );
+      appendPath(segments, guidePath(current.current.surface, stroke));
       lineSegments(draftGroup, segments, '#d09a4e');
       draw();
     };
     const addSample = (event: PointerEvent) => {
-      if (drawingBlocked || current.current.surface.kind === 'mesh') return;
+      if (drawingBlocked || !supportsGuides(current.current.surface)) return;
       const sample = pick(event);
       if (!sample) {
         if (stroke.length) drawingBlocked = true;
@@ -414,6 +467,12 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       if (
         previous &&
         (!lastScreen ||
+          previous.attachment.surfaceRevision !== current.current.surface.revision ||
+          (hasRectangularMapping(current.current.surface) &&
+            Math.hypot(
+              previous.attachment.uv[0] - sample.attachment.uv[0],
+              previous.attachment.uv[1] - sample.attachment.uv[1]
+            ) > 0.18) ||
           v3(previous.position).distanceTo(v3(sample.position)) >
             current.current.surface.size * 0.18)
       ) {
@@ -434,14 +493,22 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
             THREE.MathUtils.lerp(previous.attachment.uv[0], sample.attachment.uv[0], t),
             THREE.MathUtils.lerp(previous.attachment.uv[1], sample.attachment.uv[1], t),
           ];
-          stroke.push({
-            position: evaluateSurface(current.current.surface, sample.attachment.patch, ...uv),
-            attachment: {
-              surfaceRevision: current.current.surface.revision,
-              patch: sample.attachment.patch,
-              uv,
-            },
-          });
+          stroke.push(
+            hasRectangularMapping(current.current.surface)
+              ? evaluateMappedSurface(current.current.surface, ...uv)
+              : {
+                  position: evaluateSurface(
+                    current.current.surface,
+                    sample.attachment.patch,
+                    ...uv
+                  ),
+                  attachment: {
+                    surfaceRevision: current.current.surface.revision,
+                    patch: sample.attachment.patch,
+                    uv,
+                  },
+                }
+          );
         }
       }
       stroke.push(sample);
@@ -457,7 +524,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       draw();
       if (
         current.current.options.mode === 'draw' &&
-        current.current.surface.kind !== 'mesh' &&
+        supportsGuides(current.current.surface) &&
         samples.length >= 2 &&
         samples.every(
           (sample) => sample.attachment.surfaceRevision === current.current.surface.revision
@@ -468,7 +535,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const select = (event: PointerEvent) => {
       const sample = pick(event),
         graph = current.current.graph;
-      if (current.current.surface.kind === 'mesh') {
+      if (!supportsGuides(current.current.surface)) {
         current.current.onSelect(
           sample?.attachment.faceId != null
             ? { kind: 'triangle', id: String(sample.attachment.faceId) }
@@ -491,11 +558,35 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
           ((projected.x + 1) * rect.width) / 2 + rect.left - event.clientX,
           ((-projected.y + 1) * rect.height) / 2 + rect.top - event.clientY
         );
-        if (distance < 12 && (!nearest || distance < nearest.distance))
+        if (distance < 12 && (!nearest || distance < nearest.distance)) {
+          if (hasRectangularMapping(current.current.surface) && state.surfaceMesh) {
+            const visibilityRay = new THREE.Raycaster();
+            visibilityRay.setFromCamera(new THREE.Vector2(projected.x, projected.y), camera);
+            const front = visibilityRay.intersectObject(state.surfaceMesh, false)[0];
+            if (
+              front &&
+              front.point.distanceTo(v3(node.position)) > current.current.surface.size * 1e-5
+            )
+              continue;
+          }
           nearest = { id: node.id, distance };
+        }
       }
       if (nearest) {
         current.current.onSelect({ kind: 'node', id: nearest.id });
+        return;
+      }
+      if (hasRectangularMapping(current.current.surface)) {
+        const nodes = new Map(graph.nodes.map((node) => [node.id, node.attachment.uv]));
+        const cell = graph.cells.find((candidate) => {
+          const polygon = candidate.nodes.map((id) => nodes.get(id));
+          return (
+            polygon.length >= 3 &&
+            polygon.every((uv): uv is Vec2 => !!uv) &&
+            containsUV(sample.attachment.uv, polygon as Vec2[])
+          );
+        });
+        current.current.onSelect(cell ? { kind: 'cell', id: cell.id } : null);
         return;
       }
       if (state.cellMesh) {
@@ -514,7 +605,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const down = (event: PointerEvent) => {
       if (event.button !== 0) return;
       if (current.current.options.mode === 'draw') {
-        if (current.current.surface.kind === 'mesh') return;
+        if (!supportsGuides(current.current.surface)) return;
         if (activePointer !== null) return;
         event.preventDefault();
         activePointer = event.pointerId;
@@ -533,7 +624,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       const sample = pick(event);
       current.current.onHover?.(
         sample
-          ? `${current.current.surface.kind === 'mesh' ? `Triangle ${sample.attachment.faceId}` : `Patch ${sample.attachment.patch} · u ${sample.attachment.uv[0].toFixed(3)} · v ${sample.attachment.uv[1].toFixed(3)}`} · ${sample.position.map((value) => (value * 1000).toFixed(1)).join(', ')} mm`
+          ? `${current.current.surface.kind === 'mesh' ? `Triangle ${sample.attachment.faceId}${hasRectangularMapping(current.current.surface) ? ` · u ${sample.attachment.uv[0].toFixed(3)} · v ${sample.attachment.uv[1].toFixed(3)}` : ''}` : `Patch ${sample.attachment.patch} · u ${sample.attachment.uv[0].toFixed(3)} · v ${sample.attachment.uv[1].toFixed(3)}`} · ${sample.position.map((value) => (value * 1000).toFixed(1)).join(', ')} mm`
           : ''
       );
     };
@@ -667,7 +758,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     state.cellIds = [];
     const graph = props.graph;
     const light = props.options.background === 'light';
-    if (graph && props.surface.kind !== 'mesh') {
+    if (graph && supportsGuides(props.surface)) {
       const nodeMap = new Map(graph.nodes.map((node) => [node.id, node.position]));
       const degrees = new Map<string, number>();
       for (const edge of graph.edges) {
@@ -713,24 +804,41 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       }
       if (props.options.showCoarse) {
         const coarse: number[] = [];
-        graph.coarsePatches.forEach((patch) => {
-          if (patch.corners.length)
-            appendPath(
-              coarse,
-              embeddedPath(props.surface, [...patch.corners, patch.corners[0]], 32)
-            );
-        });
+        if (hasRectangularMapping(props.surface)) {
+          const topology = graph.coarseTopology;
+          if (topology) {
+            const nodes = new Map(topology.nodes.map((node) => [node.id, node]));
+            for (const edge of topology.edges) {
+              const a = nodes.get(edge.a),
+                b = nodes.get(edge.b);
+              if (edge.path?.length) appendPath(coarse, edge.path);
+              else if (a && b)
+                appendPath(coarse, mappedUVPath(props.surface, a.attachment.uv, b.attachment.uv));
+            }
+          }
+        } else
+          graph.coarsePatches.forEach((patch) => {
+            if (patch.corners.length)
+              appendPath(
+                coarse,
+                embeddedPath(props.surface, [...patch.corners, patch.corners[0]], 32)
+              );
+          });
         lineSegments(state.graphGroup, coarse, light ? '#696969' : '#a0a0a0', 0.85);
       }
-      const cells = makeCellMesh(
-        graph,
-        props.surface,
-        light,
-        props.options.overlay === 'patches' && !props.options.showSurface
-      );
-      state.cellMesh = cells.mesh;
-      state.cellIds = cells.ids;
-      state.graphGroup.add(cells.mesh);
+      // Mapped cells are selected in UV. World chord fills could leave a folded
+      // source surface, so only analytic surfaces use display cell triangles.
+      if (!hasRectangularMapping(props.surface)) {
+        const cells = makeCellMesh(
+          graph,
+          props.surface,
+          light,
+          props.options.overlay === 'patches' && !props.options.showSurface
+        );
+        state.cellMesh = cells.mesh;
+        state.cellIds = cells.ids;
+        state.graphGroup.add(cells.mesh);
+      }
     }
     state.draw();
   }, [
@@ -750,7 +858,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const state = runtime.current;
     if (!state || !ready) return;
     clear(state.guideGroup);
-    if (props.options.showGuides && props.surface.kind !== 'mesh') {
+    if (props.options.showGuides && supportsGuides(props.surface)) {
       const segments: number[] = [];
       props.guides
         .filter((guide) =>
@@ -758,16 +866,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
             (sample) => sample.attachment.surfaceRevision === props.surface.revision
           )
         )
-        .forEach((guide) =>
-          appendPath(
-            segments,
-            embeddedPath(
-              props.surface,
-              guide.samples.map((sample) => sample.position),
-              4
-            )
-          )
-        );
+        .forEach((guide) => appendPath(segments, guidePath(props.surface, guide.samples)));
       lineSegments(state.guideGroup, segments, '#d09a4e');
     }
     state.draw();
@@ -797,7 +896,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
         appendPath(segments, [...path, path[0]]);
         lineSegments(state.selectionGroup, segments, '#d09a4e');
       }
-    } else if (surface.kind !== 'mesh' && graph && selection) {
+    } else if (supportsGuides(surface) && graph && selection) {
       if (selection.kind === 'node') {
         const node = graph.nodes.find((candidate) => candidate.id === selection.id);
         if (node) pointsObject(state.selectionGroup, node.position, '#d09a4e', 10);
@@ -807,11 +906,31 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
           const nodes = new Map(graph.nodes.map((node) => [node.id, node.position]));
           const path = cell.nodes.map((id) => nodes.get(id)).filter((p): p is Vec3 => !!p);
           const segments: number[] = [];
-          if (path.length) appendPath(segments, embeddedPath(surface, [...path, path[0]], 12));
+          if (hasRectangularMapping(surface)) {
+            const edges = new Map(
+              graph.edges.map((edge) => [[edge.a, edge.b].sort().join('\0'), edge])
+            );
+            for (let i = 0; i < cell.nodes.length; i++) {
+              const edge = edges.get(
+                [cell.nodes[i], cell.nodes[(i + 1) % cell.nodes.length]].sort().join('\0')
+              );
+              if (edge) appendPath(segments, edgePath(surface, edge, nodes));
+            }
+          } else if (path.length)
+            appendPath(segments, embeddedPath(surface, [...path, path[0]], 12));
           lineSegments(state.selectionGroup, segments, '#d09a4e');
         }
       }
     }
+    // Draw selected entities after the translucent network lines, retaining
+    // depth testing against the support geometry and unchanged coordinates.
+    state.selectionGroup.traverse((object) => {
+      const drawable = object as THREE.Mesh;
+      if (!drawable.material) return;
+      const materials = Array.isArray(drawable.material) ? drawable.material : [drawable.material];
+      for (const material of materials) material.transparent = true;
+      object.renderOrder = 5;
+    });
     state.draw();
   }, [ready, props.graph, props.selection, props.surface]);
 
@@ -838,11 +957,11 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     if (wire) wire.visible = props.options.wireframe;
     const seams = state.surfaceGroup.getObjectByName('surface-seams');
     if (seams) seams.visible = props.options.showSeams;
-    const meshDraw = props.surface.kind === 'mesh' && props.options.mode === 'draw';
+    const meshDraw = !supportsGuides(props.surface) && props.options.mode === 'draw';
     state.controls.enabled = props.options.mode === 'orbit' || meshDraw;
     state.renderer.domElement.setAttribute(
       'aria-label',
-      props.surface.kind === 'mesh'
+      !supportsGuides(props.surface)
         ? 'Interactive imported mesh. Orbit to rotate, pan and zoom; select mode to inspect triangles.'
         : 'Interactive surface. Use orbit mode to rotate, pan and zoom; draw mode to draw a surface guide.'
     );

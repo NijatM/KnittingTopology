@@ -2,6 +2,23 @@ import type { ReferenceId, ScientificReference } from './types';
 
 /** Bibliography for the implemented methods, not a claim of full paper reproduction. */
 export const REFERENCES: Record<ReferenceId, ScientificReference> = {
+  lipman2014: {
+    id: 'lipman2014',
+    type: 'article-journal',
+    title: 'Bijective Mappings of Meshes with Boundary and the Degree in Mesh Processing',
+    authors: [{ given: 'Yaron', family: 'Lipman' }],
+    year: 2014,
+    containerTitle: 'SIAM Journal on Imaging Sciences',
+    volume: '7',
+    issue: '2',
+    pages: '1263–1283',
+    doi: '10.1137/130939754',
+    url: 'https://doi.org/10.1137/130939754',
+    pdfUrl: 'https://arxiv.org/pdf/1310.0955',
+    accessed: '2026-11-06',
+    verificationNote:
+      'Publication metadata verified against SIAM. Theorem 1 appears on pages 3 and 10 of the public arXiv preprint. It motivates the nondegenerate, consistent-orientation and bijective-boundary checks; this project does not implement the paper’s optimization or an exact-predicate certificate.',
+  },
   takayama2014: {
     id: 'takayama2014',
     type: 'article-journal',

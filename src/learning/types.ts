@@ -1,6 +1,6 @@
 import type { PatternFamily, PatternParameters, AnalyticSurfaceKind } from '../core/types';
 
-export type ReferenceId = 'takayama2014' | 'oval2018' | 'hart';
+export type ReferenceId = 'takayama2014' | 'oval2018' | 'hart' | 'lipman2014';
 export interface ScientificReference {
   id: ReferenceId;
   type: 'article-journal' | 'paper-conference' | 'webpage';

@@ -1,4 +1,5 @@
 import { analyzeImportedMesh, parseMeshFile, validateImportedMesh } from '../import/mesh';
+import { checkRectangularUV } from '../import/uv-mapping';
 import type { MeshWorkerRequest, ImportResponse } from './import-protocol';
 
 const scope = globalThis as unknown as {
@@ -16,6 +17,7 @@ scope.onmessage = ({ data: request }) => {
       const mesh = validateImportedMesh(request.mesh);
       progress(0.3, 'Checking triangle incidence and geometry');
       const report = analyzeImportedMesh(mesh);
+      report.uvMapping = checkRectangularUV(mesh);
       scope.postMessage({ type: 'analysis', jobId, inputRevision, report });
       return;
     }
@@ -32,14 +34,19 @@ scope.onmessage = ({ data: request }) => {
     validateImportedMesh(mesh);
     progress(0.75, 'Checking triangle incidence and geometry');
     const report = analyzeImportedMesh(mesh);
+    report.uvMapping = checkRectangularUV(mesh);
     const surface = {
       kind: 'mesh' as const,
+      ...(report.uvMapping.status === 'ready' ? { mapping: 'rectangular-obj-uv-v1' as const } : {}),
       mesh,
       size,
       curvature: 0,
       revision: crypto.randomUUID(),
     };
-    progress(1, 'Surface inspection ready');
+    progress(
+      1,
+      report.uvMapping.status === 'ready' ? 'Supplied UV mapping ready' : 'Surface inspection ready'
+    );
     scope.postMessage({ type: 'result', jobId, inputRevision, surface, report });
   } catch (error) {
     scope.postMessage({

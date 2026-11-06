@@ -193,7 +193,7 @@ describe('bounded OBJ geometry import', () => {
       s = analyzeImportedMesh(mesh).statistics;
     expect(s).toMatchObject({ triangles: 4, boundaryEdges: 6, nonManifoldVertices: 0 });
     expect(s.areaM2).toBeCloseTo(3, 12);
-    expect(mesh.source.notes.join(' ')).toMatch(/Normals, UVs and materials are ignored/);
+    expect(mesh.source.notes.join(' ')).toMatch(/Normals and materials are ignored/);
   });
   it('preserves reversed polygon orientation', () => {
     const { mesh } = obj('v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 4//1 3//1 2//1 1//1');

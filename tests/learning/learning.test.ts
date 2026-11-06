@@ -224,7 +224,7 @@ describe('method-appropriate references and citation export', () => {
     expect(JSON.parse(JSON.stringify(csl))).toEqual(csl);
   });
   it('the checked-in bibliography matches the same records used for downloads', () => {
-    const ids: ReferenceId[] = ['takayama2014', 'oval2018', 'hart'];
+    const ids: ReferenceId[] = ['takayama2014', 'oval2018', 'hart', 'lipman2014'];
     expect(bibliography.trim()).toBe(referencesBibtex(ids).trim());
   });
 });
