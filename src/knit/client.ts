@@ -1,7 +1,7 @@
 // One bounded, disposable worker per explicit request. Abort terminates all numerical work.
 import type { ProjectState } from '../core/types';
 import type { KnitBuild, KnitProgram } from './program';
-import { planeMapping, shapeMapping } from './mapping';
+import { chartMapping, planeMapping, shapeMapping } from './mapping';
 
 export type KnitInput = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
 export type KnitWorkerBuild =
@@ -68,7 +68,12 @@ export function generateKnitInWorker(
           ok: true,
           program: {
             ...p,
-            mapping: p.shape ? shapeMapping(p.shape) : planeMapping(input.surface, p.w, p.h),
+            mapping: p.shape
+              ? shapeMapping(p.shape)
+              : input.surface.kind !== 'plane' ||
+                  (p.settings.startEdge && p.settings.startEdge !== 'v0')
+                ? chartMapping(input.surface, p.w, p.h, p.settings.startEdge)
+                : planeMapping(input.surface, p.w, p.h),
           },
         });
       } catch (cause) {

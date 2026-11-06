@@ -95,6 +95,10 @@ test('knit program: size, split view, linked provenance, exports, swatches and u
   await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('2');
   await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('1.5');
   await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Cancel knit program generation', exact: true })
+  ).toHaveCount(0);
   const size = await page.evaluate(() => {
     const label = document.querySelector('.knit-bitmap canvas')?.getAttribute('aria-label') ?? '';
     return label;
@@ -116,7 +120,7 @@ test('knit program is offered only where it works', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('button', { name: /^Sphere / }).click();
   await expect(page.locator('.knit-controls')).toContainText(
-    'Knit programs support plane, saddle and mapped rectangular OBJ charts; network mode remains plane-only.'
+    'Knit programs support plane, saddle and supplied rectangular OBJ charts.'
   );
   await expect(page.getByRole('button', { name: 'Show program beside the surface' })).toHaveCount(
     0
@@ -162,7 +166,7 @@ test('shape program: saddle measurement, explicit generation, start-edge undo an
   await expect(bitmap).toBeVisible();
   await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeDisabled();
-  await expect(page.locator('.knit-export-blockers')).toContainText('Shape preview is stale');
+  await expect(page.locator('.knit-export-blockers')).toContainText('Program preview is stale');
   await expect(page.getByRole('button', { name: 'Report TXT', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Start edge', exact: true })).toHaveValue('v0');
@@ -197,7 +201,7 @@ test('shape program: saddle measurement, explicit generation, start-edge undo an
     )
     .toBe(terminated + 1);
   await expect(bitmap).toHaveAttribute('aria-label', oldLabel!);
-  await expect(page.locator('.knit-export-blockers')).toContainText('Shape preview is stale');
+  await expect(page.locator('.knit-export-blockers')).toContainText('Program preview is stale');
   // Supersede a running request with a different start edge; the input change terminates it.
   await page.evaluate(async () => {
     [...document.querySelectorAll<HTMLButtonElement>('button')]
@@ -239,4 +243,98 @@ test('shape start-edge overlay does not survive into an unmapped inspection surf
   await expect(page.getByRole('button', { name: 'Inspection only', exact: true })).toBeDisabled();
   await expect(page.locator('[data-testid="surface-viewer"] canvas')).toBeVisible();
   await expect(page.locator('.error-panel')).toHaveCount(0);
+});
+
+test('curved combined program, immutable tile painting, undo and rectangular network mode', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('both');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Edge lines', exact: true }).selectOption('');
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap/ });
+  await expect(bitmap).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  const label = await bitmap.getAttribute('aria-label');
+  const box = (await bitmap.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.locator('.knit-loop')).toContainText(/course.*cell/);
+  await page.getByText('Structure tile editor', { exact: true }).click();
+  await page.getByRole('combobox', { name: 'Copy tile from' }).selectOption('jersey');
+  await page.getByRole('textbox', { name: 'Tile name' }).fill('Diagonal test');
+  await page.getByRole('spinbutton', { name: 'Tile needles' }).fill('2');
+  await page.getByRole('spinbutton', { name: 'Tile passes' }).fill('2');
+  await page.getByRole('combobox', { name: 'Tile paint operation' }).selectOption('kb');
+  await page
+    .getByRole('button', { name: 'Tile needle 1, pass 1: knit front', exact: true })
+    .click();
+  await page
+    .getByRole('button', { name: 'Tile needle 2, pass 2: knit front', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Save new tile', exact: true }).click();
+  const fill = page.getByRole('combobox', { name: 'Cell fill', exact: true });
+  await fill.selectOption({ label: 'Diagonal test' });
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(fill).toHaveValue('jersey');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(fill.locator('option', { hasText: 'Diagonal test' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(fill).toHaveValue(/^custom:/);
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Cancel knit program generation', exact: true })
+  ).toHaveCount(0);
+  await expect(bitmap).toHaveAttribute('aria-label', label!);
+  await expect(page.locator('.knit-table')).toContainText('assumed = jersey');
+  const saved = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Save')));
+  expect(saved.project.knit.tiles[0]).toMatchObject({
+    name: 'Diagonal test',
+    w: 2,
+    h: 2,
+    rows: [
+      ['kf', 'kb'],
+      ['kb', 'kf'],
+    ],
+  });
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('network');
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Cancel knit program generation', exact: true })
+  ).toHaveCount(0);
+  await expect(bitmap).toHaveAttribute('aria-label', label!);
+  await expect(page.getByRole('region', { name: 'Shape report' })).toContainText(
+    'Shaping transfers are not applied'
+  );
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await page.screenshot({ path: 'tmp/qa/m3-curved-pattern-tile.png', fullPage: true });
+});
+
+test('typed curved network uses declared pixel dimensions without measured gauge', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await page.getByRole('combobox', { name: 'Program size' }).selectOption('typed');
+  await page.getByRole('spinbutton', { name: 'Needles', exact: true }).fill('30');
+  await page.getByRole('spinbutton', { name: 'Passes', exact: true }).fill('25');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(
+    page.getByRole('img', { name: /Knit program bitmap, 30 needles by 25 passes/ })
+  ).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Shape report' })).toHaveCount(0);
+  await expect(page.locator('.knit-panel')).toContainText('no measured physical size');
 });

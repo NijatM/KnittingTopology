@@ -2,6 +2,7 @@
 // mesh. Ported as data from KnittingPixelArtEditor `src/grammar/structures.ts` (MIT License, (c) 2026 Nijat
 // Mahamaliyev); ids, names, rows and notes are unchanged.
 import type { Key } from './keys';
+import type { KnitTile } from '../core/types';
 
 /** Rows are stored top (last pass) first, like the image. */
 export interface Structure {
@@ -76,8 +77,13 @@ export const STRUCTURES_2: readonly Structure[] = [
   S('hold2', 'hold (both float)', ['fl2'], 'nothing knits here'),
 ];
 
-export const structuresForKey = (key: Key): readonly Structure[] =>
-  key.mode === 2 ? STRUCTURES_2 : STRUCTURES_1;
+export const structuresForKey = (
+  key: Key,
+  tiles: readonly KnitTile[] = []
+): readonly Structure[] => [
+  ...(key.mode === 2 ? STRUCTURES_2 : STRUCTURES_1),
+  ...tiles.filter((s) => s.keyId === key.id),
+];
 
 /** Op id at 0-based needle j and 0-based pass k (pass 1 = k 0); tiles repeat from needle 1 and pass 1. */
 export function tileOp(s: Structure, j: number, k: number): string {

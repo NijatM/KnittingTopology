@@ -59,3 +59,7 @@ Grid: needle j runs left to right, and pass 1 is the bottom row. Every program c
 - a text report.
 
 Round trips are tested against fixtures written by Knit Grammar's own code.
+
+Network and combined modes support the plane, saddle and supplied rectangular OBJ charts. Measured layouts reuse one course/loop mapping across modes; network-only output fills unused bitmap cells and reports the added passes. Typed network layouts use a rectangular UV grid and do not predict physical shape. Network assignments use original-chart cell containment and a local loop-scale metric for edge and node marks; these are sampled project mappings, not geodesic or material guarantees. User structure tiles are saved as bounded, immutable copies using known key operations; new copies do not inherit measurements. Required shaping or operation conflicts in combined mode block BMP and Knit Grammar JSON export.
+
+Optional `knit.tiles` stores at most 24 user structures, each at most 16 × 16 operations, with a unique ID, name, key ID and rows stored last-pass-first. Built-in structures remain unchanged.

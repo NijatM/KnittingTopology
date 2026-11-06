@@ -1074,8 +1074,8 @@ export default function App() {
                   onToggleEdgePicking={() => setPickingKnitEdge((v) => !v)}
                   settings={knitSettings}
                   open={knitOpen}
-                  status={`${knitStatus}${knitJob.outdated ? ' · Shape settings pending generation' : ''}`}
-                  shapeJob={knitSettings.mode === 'shape' ? knitJob : undefined}
+                  status={`${knitStatus}${knitJob.outdated ? ' · Program settings pending generation' : ''}`}
+                  shapeJob={knitJob.usesWorker ? knitJob : undefined}
                   onChange={changeKnit}
                   onToggleOpen={() => setKnitOpen((v) => !v)}
                 />
@@ -1085,8 +1085,7 @@ export default function App() {
                     <span>04</span> Knit program <i />
                   </h2>
                   <p className="hint">
-                    Knit programs support plane, saddle and mapped rectangular OBJ charts; network
-                    mode remains plane-only.
+                    Knit programs support plane, saddle and supplied rectangular OBJ charts.
                   </p>
                 </section>
               )}
@@ -1252,13 +1251,9 @@ export default function App() {
                 selection={knitHoverSelection ?? selection}
                 marker={knitMarker}
                 startEdge={
-                  knitSettings.mode === 'shape' && knitSupported(project.surface)
-                    ? (knitSettings.startEdge ?? 'v0')
-                    : undefined
+                  knitSupported(project.surface) ? (knitSettings.startEdge ?? 'v0') : undefined
                 }
-                pickStartEdge={
-                  knitSettings.mode === 'shape' && knitSupported(project.surface) && pickingKnitEdge
-                }
+                pickStartEdge={knitSupported(project.surface) && pickingKnitEdge}
                 onStartEdge={(edge) => {
                   changeKnit({ ...knitSettings, startEdge: edge });
                   setPickingKnitEdge(false);
@@ -1413,7 +1408,7 @@ export default function App() {
                   onHover={setKnitHover}
                   onPick={(i) => {
                     if (!knitProgram) return;
-                    if (knitProgram.shape) {
+                    if (knitProgram.shape && knitSettings.mode === 'shape') {
                       setKnitMarks([i]);
                       setTab('knit');
                       return;

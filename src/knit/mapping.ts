@@ -5,6 +5,9 @@ import { gaugeOf, GAUGE_REFERENCE, type Gauge } from './gauge';
 import { MAX_SIDE } from './grid';
 import { hasRectangularMapping } from '../import/uv-mapping';
 import type { ShapeResult } from './shape-types';
+import { evaluateSurface, projectToSurface } from '../core/surfaces';
+import { originalShapeUV } from './shape-geometry';
+import type { StartEdge } from './shape-types';
 
 export interface KnitMapping {
   needles: number;
@@ -18,6 +21,42 @@ export interface KnitMapping {
 /** Surfaces with a knit program in this version. */
 export const knitSupported = (surface: SurfaceSpec) =>
   surface.kind === 'plane' || surface.kind === 'saddle' || hasRectangularMapping(surface);
+
+/** Typed rectangular chart coordinates; no physical sizing or shaping claim. */
+export function chartMapping(
+  surface: SurfaceSpec,
+  needles: number,
+  passes: number,
+  edge: StartEdge = 'v0'
+): KnitMapping {
+  return {
+    needles,
+    passes,
+    method: 'typed-rectangular-chart-v1: normalized UV grid; physical shape not predicted',
+    toSurface: ([x, y]) =>
+      evaluateSurface(
+        surface,
+        0,
+        ...originalShapeUV(
+          Math.max(0, Math.min(1, x / needles)),
+          Math.max(0, Math.min(1, y / passes)),
+          edge
+        )
+      ),
+    toGrid: (p) => {
+      const [u, v] = projectToSurface(surface, p, 0).attachment.uv;
+      const q =
+        edge === 'v0'
+          ? [u, v]
+          : edge === 'u1'
+            ? [v, 1 - u]
+            : edge === 'v1'
+              ? [1 - u, 1 - v]
+              : [1 - v, u];
+      return [q[0]! * needles, q[1]! * passes];
+    },
+  };
+}
 
 /** Loop centres on shaped programs. Holds have no surface point and return NaN coordinates. */
 export function shapeMapping(shape: ShapeResult): KnitMapping {

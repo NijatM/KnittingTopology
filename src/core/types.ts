@@ -227,6 +227,16 @@ export type KnitCellRule =
   | { kind: 'coarse'; palette: string[] }
   /** Two-colouring of the cell adjacency; odd cycles are reported as conflicts. */
   | { kind: 'alternating'; palette: string[] };
+export interface KnitTile {
+  id: string;
+  name: string;
+  keyId: string;
+  w: number;
+  h: number;
+  /** Image order: row zero is the tile's last pass. */
+  rows: string[][];
+  note?: string;
+}
 export interface KnitSettings {
   mode: KnitMode;
   /** Chart side used for the first course. Missing in older projects means v0. */
@@ -234,6 +244,8 @@ export interface KnitSettings {
   /** Initial action on an opened needle; unconfirmed lab convention, default knit. */
   newLoop?: 'knit' | 'tuck';
   keyId: string;
+  /** Immutable saved copies. New designs get new IDs and do not inherit measurements. */
+  tiles?: KnitTile[];
   /** From the jersey swatch and the surface size, or typed directly. */
   size: { source: 'gauge' } | { source: 'typed'; needles: number; passes: number };
   cells: { fill: string; rule: KnitCellRule; overrides: Record<string, string> };

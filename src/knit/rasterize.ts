@@ -62,7 +62,7 @@ const centreRange = (lo: number, hi: number, n: number): [number, number] => [
 ];
 
 /** Assigns a structure id to every graph cell from the rule, then the manual overrides. */
-function assignCells(
+export function assignCells(
   graph: PatternGraph,
   cellPolys: Poly[],
   mapping: KnitMapping,
@@ -188,7 +188,7 @@ export function rasterizeNetwork(
   const w = mapping.needles,
     h = mapping.passes,
     issues: string[] = [];
-  const library = structuresForKey(key);
+  const library = structuresForKey(key, settings.tiles);
   const byId = new Map(library.map((s) => [s.id, s]));
   const structures: Structure[] = [];
   const slot = new Map<string, number>();

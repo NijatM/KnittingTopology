@@ -80,8 +80,6 @@ export function loopText(p: KnitProgram, graph: PatternGraph | null, i: number):
           ]),
         ].join(' / ')
       : '';
-  if (p.shape)
-    return `Needle ${needleOf(p.w, i) + 1}, pass ${passOf(p.w, p.h, i) + 1}: ${op?.name ?? 'unknown'} · ${structure?.name ?? '?'} · ${placement ? `${roles} · course ${placement.course + 1} · ${placement.loop.id}` : 'held / outside course'}`;
   const id =
     kind === SOURCE.cell
       ? graph?.cells[e]?.id
@@ -90,6 +88,8 @@ export function loopText(p: KnitProgram, graph: PatternGraph | null, i: number):
         : kind === SOURCE.node || kind === SOURCE.extraordinary
           ? graph?.nodes[e]?.id
           : undefined;
+  if (p.shape)
+    return `Needle ${needleOf(p.w, i) + 1}, pass ${passOf(p.w, p.h, i) + 1}: ${op?.name ?? 'unknown'} · ${structure?.name ?? '?'} · ${placement ? `${p.settings.mode === 'network' ? 'reference ' : ''}${roles} · course ${placement.course + 1} · ${placement.loop.id}` : p.rectification ? 'rectangular fill (no surface reference)' : 'held / outside course'}${p.settings.mode !== 'shape' ? ` · ${SOURCE_NAMES[kind]}${id ? ` ${id}` : ''}` : ''}`;
   const moved = p.transfers.find(
     (t) => t.needle === needleOf(p.w, i) && t.pass === passOf(p.w, p.h, i)
   );

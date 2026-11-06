@@ -1,5 +1,5 @@
 // Sidebar section 04: how the accepted network becomes a knit program. Only what works is offered.
-import type { KnitCellRule, KnitSettings } from '../../core/types';
+import type { KnitCellRule, KnitSettings, KnitTile } from '../../core/types';
 import { keyById, BASIC } from '../../knit/keys';
 import { structuresForKey } from '../../knit/structures';
 import { MAX_SIDE } from '../../knit/grid';
@@ -28,13 +28,15 @@ function StructureSelect({
   value,
   onChange,
   none,
+  tiles,
 }: {
   label: string;
   value: string | null;
   onChange: (id: string | null) => void;
   none?: string;
+  tiles?: KnitTile[];
 }) {
-  const options = structuresForKey(BASIC);
+  const options = structuresForKey(BASIC, tiles);
   return (
     <label className="select-label">
       {label}
@@ -121,8 +123,12 @@ export default function KnitControls({
         <span>04</span> Knit program <i />
       </h2>
       <p className="hint">
-        {s.mode === 'shape' ? 'Shape mode' : 'Network mode'} · {key.name} · one pixel = one needle
-        in one pass, bottom row = pass 1.
+        {s.mode === 'shape'
+          ? 'Shape mode'
+          : s.mode === 'both'
+            ? 'Shape and network'
+            : 'Network mode'}{' '}
+        · {key.name} · one pixel = one needle in one pass, bottom row = pass 1.
       </p>
       <button
         type="button"
@@ -145,51 +151,47 @@ export default function KnitControls({
           onChange={(e) =>
             set({
               mode: e.target.value as KnitSettings['mode'],
-              ...(e.target.value === 'shape' ? { size: { source: 'gauge' } } : {}),
+              ...(e.target.value !== 'network' ? { size: { source: 'gauge' } } : {}),
             })
           }
         >
           <option value="network">Network only</option>
           <option value="shape">Shape only</option>
-          <option value="both" disabled>
-            Both (planned)
-          </option>
+          <option value="both">Shape and network</option>
         </select>
       </label>
-      {s.mode === 'shape' && (
-        <>
-          <label className="select-label">
-            Start edge (pass 1)
-            <select
-              aria-label="Start edge"
-              value={s.startEdge ?? 'v0'}
-              onChange={(e) => set({ startEdge: e.target.value as KnitSettings['startEdge'] })}
-            >
-              <option value="v0">v = 0 (default)</option>
-              <option value="u1">u = 1</option>
-              <option value="v1">v = 1</option>
-              <option value="u0">u = 0</option>
-            </select>
-          </label>
-          <button type="button" aria-pressed={pickingEdge} onClick={onToggleEdgePicking}>
-            {pickingEdge ? 'Cancel start edge picking' : 'Pick start edge on surface'}
-          </button>
-          <p className="hint">
-            Shape uses measured fill gauge, with jersey fallback. A jersey measurement is required.
-            Click near a chart boundary when picking.
-          </p>
-        </>
-      )}
+      <>
+        <label className="select-label">
+          Start edge (pass 1)
+          <select
+            aria-label="Start edge"
+            value={s.startEdge ?? 'v0'}
+            onChange={(e) => set({ startEdge: e.target.value as KnitSettings['startEdge'] })}
+          >
+            <option value="v0">v = 0 (default)</option>
+            <option value="u1">u = 1</option>
+            <option value="v1">v = 1</option>
+            <option value="u0">u = 0</option>
+          </select>
+        </label>
+        <button type="button" aria-pressed={pickingEdge} onClick={onToggleEdgePicking}>
+          {pickingEdge ? 'Cancel start edge picking' : 'Pick start edge on surface'}
+        </button>
+        <p className="hint">
+          Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts
+          are unmeasured. Click near a chart boundary when picking.
+        </p>
+      </>
       {shapeJob && (
         <div className="knit-shape-job">
           <button type="button" disabled={!!shapeJob.progress} onClick={shapeJob.generate}>
-            Generate shape
+            {s.mode === 'shape' ? 'Generate shape' : 'Generate knit program'}
           </button>
           {shapeJob.progress && (
             <>
               <p role="status">{shapeJob.progress}</p>
               <button type="button" onClick={shapeJob.cancel}>
-                Cancel shape generation
+                {s.mode === 'shape' ? 'Cancel shape generation' : 'Cancel knit program generation'}
               </button>
             </>
           )}
@@ -201,7 +203,7 @@ export default function KnitControls({
         <select
           aria-label="Program size"
           value={s.size.source}
-          disabled={s.mode === 'shape'}
+          disabled={s.mode !== 'network'}
           onChange={(e) =>
             set({
               size:
@@ -212,14 +214,14 @@ export default function KnitControls({
           }
         >
           <option value="gauge">
-            {s.mode === 'shape'
+            {s.mode !== 'network' || s.size.source === 'gauge'
               ? 'From the fill measurement (jersey fallback)'
               : 'From the jersey measurement'}
           </option>
           <option value="typed">Typed needles × passes</option>
         </select>
       </label>
-      {s.mode !== 'shape' && s.size.source === 'typed' && (
+      {s.mode === 'network' && s.size.source === 'typed' && (
         <div className="boundary-counts knit-pair">
           <NumberField
             label="Needles"
@@ -243,6 +245,7 @@ export default function KnitControls({
       )}
 
       <StructureSelect
+        tiles={s.tiles}
         label="Cell fill"
         value={s.cells.fill}
         onChange={(id) => set({ cells: { ...s.cells, fill: id ?? 'jersey' } })}
@@ -268,6 +271,7 @@ export default function KnitControls({
           {rule.kind === 'sides' &&
             SIDE_CLASSES.map((n) => (
               <StructureSelect
+                tiles={s.tiles}
                 key={n}
                 label={`${n}-sided cells`}
                 value={rule.bySides[n] ?? null}
@@ -283,6 +287,7 @@ export default function KnitControls({
           {(rule.kind === 'alternating' || rule.kind === 'coarse') &&
             rule.palette.map((id, i) => (
               <StructureSelect
+                tiles={s.tiles}
                 key={i}
                 label={`${rule.kind === 'coarse' ? 'Coarse colour' : 'Alternate'} ${i + 1}`}
                 value={id}
@@ -309,6 +314,7 @@ export default function KnitControls({
           )}
 
           <StructureSelect
+            tiles={s.tiles}
             label="Edge lines"
             value={s.edges.structure}
             none="None"
@@ -331,12 +337,14 @@ export default function KnitControls({
             />
           </div>
           <StructureSelect
+            tiles={s.tiles}
             label="Node marks"
             value={s.nodes.structure}
             none="None"
             onChange={(structure) => set({ nodes: { ...s.nodes, structure } })}
           />
           <StructureSelect
+            tiles={s.tiles}
             label="Extraordinary nodes"
             value={s.nodes.extraordinary}
             none="As other nodes"

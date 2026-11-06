@@ -7,40 +7,40 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 409,
+    "passed": 425,
     "core": 104,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 89
+    "knit_program": 105
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 495.46,
+    "initial_js_kb": 511.02,
     "lazy_viewer_js_kb": 582.06,
-    "initial_js_gzip_kb": 158.69,
+    "initial_js_gzip_kb": 163.48,
     "lazy_viewer_js_gzip_kb": 146.84,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 93.38,
-    "knit_worker_js_kb": 53.34
+    "knit_worker_js_kb": 64.48
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m2-dev-final-results",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m3-development-results",
     "result": "pass",
-    "passed": 23,
+    "passed": 25,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 2.2
+    "duration_minutes_reported": 2.8
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m2-production-results",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m3-production-results",
     "result": "pass",
-    "passed": 23,
+    "passed": 25,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 2.0
+    "duration_minutes_reported": 2.6
   },
   "mobile": {
     "viewport_width": 375,
@@ -50,7 +50,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Open-surface knit shaping (M2)",
+  "milestone": "Curved network and combined modes; immutable tile editor (M3)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -117,7 +117,7 @@
       "bmp": "4.S52 basic key: 7200 exact, 0 snapped, 0 unknown",
       "page_or_console_errors": 0
     },
-    "available": "network mode on plane; shape mode on plane, saddle and eligible supplied rectangular OBJ charts; 4.S52 basic key",
+    "available": "shape, network and combined modes on plane, saddle and eligible supplied rectangular OBJ charts; 4.S52 basic key",
     "physical_validation": false,
     "lab_rules_confirmed": false,
     "shaping": {
@@ -137,6 +137,21 @@
       "distance_error_bound_certified": false,
       "machine_simulation": false,
       "physical_validation": false
+    },
+    "surface_network": {
+      "registration": "original chart UV identities; shared measured course/loop layout across modes",
+      "mark_metric": "sampled local loop coordinates; not certified geodesic widths",
+      "typed_mode": "network-only normalized chart grid; no measured physical size prediction",
+      "rectification": "added reference cells and maximum extra passes reported; not physical shape error",
+      "custom_tiles": {
+        "maximum": 24,
+        "maximum_side": 16,
+        "immutable_saved_copies": true,
+        "known_operations_only": true,
+        "project_round_trip_tested": true
+      },
+      "coincident_3d_chart_identity_test": true,
+      "work_cap_candidate_visits": 50000000
     }
   }
 }

@@ -34,6 +34,11 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
         ? `Size from the jersey measurement (${mm(jersey.stitchWidth)} per needle, ${mm(jersey.courseHeight)} per pass) over the ${mm(surfaceSize)} plane.`
         : 'Size typed by the user; it is not derived from a measurement.',
     `Mapping: ${p.mapping.method}.`,
+    ...(p.rectification
+      ? [
+          `Network-only reference layout: ${p.rectification.addedCells} filled cells; maximum ${p.rectification.maxAddedPasses} added passes per needle, ${mm(p.rectification.maxAddedCourseLengthM)} nominal course-height accumulation. Shaping transfers are not applied. This is not physical shape error or a shape prediction.`,
+        ]
+      : []),
     ...(p.shape
       ? [
           'Source: Mariana Adriana Popescu (2019), KnitCrete, sections 5.2 and 6.2. https://doi.org/10.3929/ethz-b-000408640',
@@ -42,8 +47,8 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
           `Start edge: ${s.startEdge ?? 'v0'}; chart grid: ${p.shape.geometry.resolution} intervals per side.`,
           `Courses: ${p.shape.geometry.courses.length}; contour rounding max abs: ${mm(Math.max(0, ...p.shape.geometry.contourRounding.map(Math.abs)))}; course rounding max abs: ${mm(Math.max(0, ...p.shape.geometry.courseRounding.map(Math.abs)))}.`,
           `Maximum alignment offset: ${p.shape.geometry.maxLinkOffset.toFixed(6)} measured course heights. No certified distance-field error bound.`,
-          `Shaping: ${p.shape.needles.steps.filter((x) => x.role === 'turn').length} turn endpoints, ${p.shape.needles.steps.filter((x) => x.role === 'increase').length} interior increases, ${p.shape.needles.steps.filter((x) => x.role === 'edge increase').length} edge increases, ${p.shape.needles.steps.filter((x) => x.role === 'decrease').length} decreases.`,
-          `Required sideways transfers: ${p.shape.needles.moves.length}; unresolved shaping steps: ${p.shape.needles.unresolved.length}; yarn jumps: ${p.shape.needles.yarnJumps}.`,
+          `${p.rectification ? 'Reference shaping (not applied)' : 'Shaping'}: ${p.shape.needles.steps.filter((x) => x.role === 'turn').length} turn endpoints, ${p.shape.needles.steps.filter((x) => x.role === 'increase').length} interior increases, ${p.shape.needles.steps.filter((x) => x.role === 'edge increase').length} edge increases, ${p.shape.needles.steps.filter((x) => x.role === 'decrease').length} decreases.`,
+          `${p.rectification ? 'Reference sideways transfers (not applied)' : 'Required sideways transfers'}: ${p.shape.needles.moves.length}; unresolved shaping steps: ${p.shape.needles.unresolved.length}; yarn jumps: ${p.shape.needles.yarnJumps}.`,
           ...p.shape.needles.steps
             .slice(0, LIST_LIMIT)
             .map(
@@ -67,7 +72,7 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
       : []),
     '',
     'Assignment',
-    ...(p.shape
+    ...(s.mode === 'shape'
       ? [
           `  shape fill: ${s.cells.fill}; network cell rules, overrides, edges and node marks are not applied.`,
         ]
@@ -76,6 +81,15 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
           `  edge lines: ${s.edges.structure ? `${s.edges.structure}, ${s.edges.width} loops wide, boundary ${s.edges.boundary ? 'included' : 'excluded'}` : 'none'}`,
           `  node marks: ${s.nodes.structure ? `${s.nodes.structure}, ${s.nodes.size} x ${s.nodes.size} loops` : 'none'}; extraordinary nodes: ${s.nodes.extraordinary ?? 'as other nodes'}`,
         ]),
+    ...(s.tiles?.length
+      ? [
+          'User structure tiles',
+          ...s.tiles.map(
+            (t) =>
+              `  ${t.id}: ${t.name}, ${t.w} x ${t.h}, ${t.keyId}; rows top (last pass) first: ${t.rows.map((r) => r.join(' ')).join(' / ')}`
+          ),
+        ]
+      : []),
     '',
     'Structures',
     pad('  id', 14) + pad('loops', 9) + 'gauge',

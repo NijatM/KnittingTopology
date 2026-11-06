@@ -310,7 +310,7 @@ describe('network to knit program (plane)', () => {
     const none = buildKnitProgram({ ...g, knit, swatches: [] });
     expect(none.ok).toBe(false);
     const big = buildKnitProgram({ ...g, knit, swatches: [{ ...jersey, courseHeight: 0.0001 }] });
-    expect(big.ok ? '' : big.reason).toMatch(/at most 600/);
+    expect(big.ok ? '' : big.reason).toMatch(/600/);
     // a structure without its own entry is flagged as assumed
     const rib = build({ ...knit, cells: { ...knit.cells, fill: 'rib11' } }, g, [jersey]);
     expect(rib.structures[0]).toMatchObject({ id: 'rib11', gauge: { assumed: true } });

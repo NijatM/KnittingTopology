@@ -1,0 +1,296 @@
+// Original-chart containment with a local anisotropic loop metric. Project mapping, not geodesic distance.
+import type {
+  GenerationContext,
+  KnitSettings,
+  PatternGraph,
+  SurfaceSpec,
+  Vec2,
+  Vec3,
+} from '../core/types';
+import { evaluateSurface, projectToSurface } from '../core/surfaces';
+import { extraordinaryNodeIds } from '../core/diagnostics';
+import { assignCells, SOURCE, type Raster } from './rasterize';
+import { structuresForKey } from './structures';
+import type { Key } from './keys';
+import type { Gauge } from './gauge';
+import type { ShapeCourse, ShapePlacement } from './shape-types';
+import { imageIndex } from './grid';
+import type { KnitMapping } from './mapping';
+import { hasRectangularMapping } from '../import/uv-mapping';
+
+type Metric = [number, number, number, number];
+const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const unit = (a: Vec3): Vec3 => {
+  const n = Math.hypot(...a);
+  if (!(n > 1e-14)) throw new Error('Degenerate local loop frame.');
+  return a.map((x) => x / n) as Vec3;
+};
+function inside(p: Vec2, poly: Vec2[]) {
+  let hit = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!,
+      b = poly[j]!;
+    if (
+      a[1] > p[1] !== b[1] > p[1] &&
+      p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]
+    )
+      hit = !hit;
+  }
+  return hit;
+}
+function bounds(points: Vec2[]): [number, number, number, number] {
+  let x0 = Infinity,
+    y0 = Infinity,
+    x1 = -Infinity,
+    y1 = -Infinity;
+  for (const [x, y] of points) {
+    x0 = Math.min(x0, x);
+    y0 = Math.min(y0, y);
+    x1 = Math.max(x1, x);
+    y1 = Math.max(y1, y);
+  }
+  return [x0, y0, x1, y1];
+}
+export function rasterizeSurfaceNetwork(
+  graph: PatternGraph,
+  surface: SurfaceSpec,
+  layout: { w: number; h: number; placements: readonly ShapePlacement[]; courses?: ShapeCourse[] },
+  settings: KnitSettings,
+  key: Key,
+  gauge: Gauge | null,
+  context?: GenerationContext
+): Raster {
+  const { w, h, placements } = layout,
+    issues: string[] = [];
+  const library = structuresForKey(key, settings.tiles),
+    structures: Raster['structures'] = [],
+    slots = new Map<string, number>(),
+    unknown = new Set<string>();
+  const resolve = (id: string) => {
+    let s = library.find((x) => x.id === id);
+    if (!s) {
+      unknown.add(id);
+      s = library.find((x) => x.id === settings.cells.fill) ?? library[0]!;
+    }
+    let i = slots.get(s.id);
+    if (i === undefined) {
+      i = structures.length;
+      structures.push(s);
+      slots.set(s.id, i);
+    }
+    return i;
+  };
+  const structure = new Uint16Array(w * h).fill(resolve(settings.cells.fill)),
+    kind = new Uint8Array(w * h),
+    element = new Int32Array(w * h).fill(-1);
+  // Use chart identities, not a nearest-3D projection at coincident or intersecting chart locations.
+  const chartPoints = new Map<Vec3, Vec2>();
+  for (const n of [...graph.nodes, ...(graph.coarseTopology?.nodes ?? [])])
+    chartPoints.set(n.position, n.attachment.uv);
+  const uvOf = (p: Vec3) => chartPoints.get(p) ?? projectToSurface(surface, p, 0).attachment.uv;
+  const nodes = new Map(graph.nodes.map((n) => [n.id, n.attachment.uv]));
+  // Supplied-chart edges are canonically UV-straight; their 3D crossing samples can be ambiguous in 3D.
+  const edgeLines = graph.edges.map((e) =>
+    !hasRectangularMapping(surface) && e.path && e.path.length >= 2
+      ? e.path.map(uvOf)
+      : [nodes.get(e.a)!, nodes.get(e.b)!]
+  );
+  const edgeIndex = new Map(
+    graph.edges.map((e, i) => [e.a < e.b ? `${e.a}|${e.b}` : `${e.b}|${e.a}`, i])
+  );
+  const polys = graph.cells.map((c) =>
+    c.nodes.flatMap((a, i) => {
+      const b = c.nodes[(i + 1) % c.nodes.length]!,
+        ei = edgeIndex.get(a < b ? `${a}|${b}` : `${b}|${a}`);
+      if (ei === undefined) return [nodes.get(a)!];
+      const line = edgeLines[ei]!;
+      return (graph.edges[ei]!.a === a ? line : [...line].reverse()).slice(0, -1);
+    })
+  );
+  const uvMapping: KnitMapping = {
+    needles: w,
+    passes: h,
+    method: 'original chart UV',
+    toGrid: uvOf,
+    toSurface: ([u, v]) => evaluateSurface(surface, 0, u, v),
+  };
+  const cellStructure = assignCells(
+    graph,
+    polys.map((p) => p.flat()),
+    uvMapping,
+    settings,
+    issues
+  );
+  const side = Math.min(128, Math.max(8, Math.ceil(Math.sqrt(placements.length)))),
+    buckets: number[][] = Array.from({ length: side * side }, () => []);
+  const bin = (x: number) => Math.max(0, Math.min(side - 1, Math.floor(x * side)));
+  const metrics: Metric[] = [];
+  let radiusUV = 0,
+    work = 0;
+  const tick = () => {
+    if (++work > 50_000_000)
+      throw new Error(
+        'Surface rasterization work limit exceeded. Reduce network density, program size or mark widths.'
+      );
+    if ((work & 1023) === 0 && context?.cancelled?.()) {
+      const e = new Error('Surface rasterization cancelled.');
+      e.name = 'AbortError';
+      throw e;
+    }
+  };
+  const maxMark = Math.max(
+    settings.edges.structure ? settings.edges.width / 2 : 0,
+    settings.nodes.structure || settings.nodes.extraordinary ? settings.nodes.size / 2 : 0
+  );
+  placements.forEach((p, i) => {
+    tick();
+    const [u, v] = p.loop.uv;
+    if (![u, v].every(Number.isFinite) || u < 0 || u > 1 || v < 0 || v > 1)
+      throw new Error('Surface rasterization requires original UV in [0,1].');
+    buckets[bin(v) * side + bin(u)]!.push(i);
+    let m: Metric;
+    if (!gauge) {
+      const e = settings.startEdge ?? 'v0';
+      m =
+        e === 'v0'
+          ? [w, 0, 0, h]
+          : e === 'u1'
+            ? [0, w, -h, 0]
+            : e === 'v1'
+              ? [-w, 0, 0, -h]
+              : [0, -w, h, 0];
+    } else {
+      const eps = 1e-5;
+      const derivative = (axis: 0 | 1): Vec3 => {
+        const a: Vec2 = [u, v],
+          b: Vec2 = [u, v];
+        a[axis] = Math.max(0, a[axis] - eps);
+        b[axis] = Math.min(1, b[axis] + eps);
+        return sub(evaluateSurface(surface, 0, ...b), evaluateSurface(surface, 0, ...a)).map(
+          (x) => x / (b[axis] - a[axis])
+        ) as Vec3;
+      };
+      const du = derivative(0),
+        dv = derivative(1),
+        points = layout.courses?.[p.course]?.points;
+      let tangent: Vec3;
+      if (points && points.length > 1) {
+        let k = 1;
+        while (k < points.length - 1 && points[k]!.across < p.loop.across) k++;
+        tangent = sub(points[k]!.position, points[k - 1]!.position);
+      } else tangent = du;
+      const x = unit(tangent),
+        e = settings.startEdge ?? 'v0';
+      const hint =
+        e === 'v0'
+          ? dv
+          : e === 'u1'
+            ? (du.map((x) => -x) as Vec3)
+            : e === 'v1'
+              ? (dv.map((x) => -x) as Vec3)
+              : du;
+      const y = unit(hint.map((q, k) => q - dot(hint, x) * x[k]!) as Vec3);
+      m = [
+        dot(du, x) / gauge.stitchWidth,
+        dot(dv, x) / gauge.stitchWidth,
+        dot(du, y) / gauge.courseHeight,
+        dot(dv, y) / gauge.courseHeight,
+      ];
+    }
+    const det = m[0] * m[3] - m[1] * m[2];
+    if (!Number.isFinite(det) || Math.abs(det) < 1e-12)
+      throw new Error('Degenerate local UV-to-loop metric.');
+    radiusUV = Math.max(
+      radiusUV,
+      (Math.SQRT2 * maxMark * Math.max(Math.hypot(m[3], m[1]), Math.hypot(m[2], m[0]))) /
+        Math.abs(det)
+    );
+    metrics.push(m);
+  });
+  const visit = (
+    box: [number, number, number, number],
+    pad: number,
+    fn: (p: ShapePlacement, li: number, i: number) => void
+  ) => {
+    const [x0, y0, x1, y1] = box;
+    for (let by = bin(y0 - pad); by <= bin(y1 + pad); by++)
+      for (let bx = bin(x0 - pad); bx <= bin(x1 + pad); bx++)
+        for (const li of buckets[by * side + bx]!) {
+          tick();
+          const p = placements[li]!,
+            uv = p.loop.uv;
+          if (uv[0] >= x0 - pad && uv[0] <= x1 + pad && uv[1] >= y0 - pad && uv[1] <= y1 + pad)
+            fn(p, li, imageIndex(w, h, p.needle, p.course));
+        }
+  };
+  polys.forEach((poly, ci) => {
+    const slot = resolve(cellStructure[ci]!);
+    visit(bounds(poly), 0, (p, _li, i) => {
+      if (kind[i] === SOURCE.background && inside(p.loop.uv, poly)) {
+        structure[i] = slot;
+        kind[i] = SOURCE.cell;
+        element[i] = ci;
+      }
+    });
+  });
+  const metricPoint = (q: Vec2, p: Vec2, m: Metric): Vec2 => [
+    m[0] * (q[0] - p[0]) + m[1] * (q[1] - p[1]),
+    m[2] * (q[0] - p[0]) + m[3] * (q[1] - p[1]),
+  ];
+  if (settings.edges.structure) {
+    const slot = resolve(settings.edges.structure),
+      r = settings.edges.width / 2;
+    graph.edges.forEach((edge, ei) => {
+      if (edge.cells.length < 2 && !settings.edges.boundary) return;
+      const line = edgeLines[ei]!;
+      for (let s = 1; s < line.length; s++)
+        visit(bounds([line[s - 1]!, line[s]!]), radiusUV, (p, li, i) => {
+          let a = metricPoint(line[s - 1]!, p.loop.uv, metrics[li]!),
+            b = metricPoint(line[s]!, p.loop.uv, metrics[li]!);
+          if (b[0] < a[0] || (b[0] === a[0] && b[1] < a[1])) [a, b] = [b, a];
+          const dx = b[0] - a[0],
+            dy = b[1] - a[1],
+            len = Math.hypot(dx, dy),
+            t = len ? (-a[0] * dx - a[1] * dy) / (len * len) : 0;
+          const hit =
+            len && t >= 0 && t <= 1
+              ? (dx * -a[1] - dy * -a[0]) / len > -r + 1e-9 &&
+                (dx * -a[1] - dy * -a[0]) / len <= r + 1e-9
+              : Math.hypot(...(t > 1 ? b : a)) < r;
+          if (hit) {
+            structure[i] = slot;
+            kind[i] = SOURCE.edge;
+            element[i] = ei;
+          }
+        });
+    });
+  }
+  const boundary = new Set(
+      graph.edges.filter((e) => e.cells.length < 2).flatMap((e) => [e.a, e.b])
+    ),
+    special = extraordinaryNodeIds(graph, surface);
+  graph.nodes.forEach((node, ni) => {
+    if (boundary.has(node.id) && !settings.edges.boundary) return;
+    const odd = special.has(node.id),
+      id = (odd && settings.nodes.extraordinary) || settings.nodes.structure;
+    if (!id) return;
+    const uv = nodes.get(node.id)!,
+      slot = resolve(id),
+      r = settings.nodes.size / 2;
+    visit([uv[0], uv[1], uv[0], uv[1]], radiusUV, (p, li, i) => {
+      const [x, y] = metricPoint(uv, p.loop.uv, metrics[li]!);
+      if (x >= -r - 1e-9 && x < r - 1e-9 && y >= -r - 1e-9 && y < r - 1e-9) {
+        structure[i] = slot;
+        kind[i] = odd && settings.nodes.extraordinary ? SOURCE.extraordinary : SOURCE.node;
+        element[i] = ni;
+      }
+    });
+  });
+  if (unknown.size)
+    issues.push(`Unknown structures: ${[...unknown].join(', ')}; fill used instead.`);
+  issues.push(
+    'Network marks use an original-UV local loop metric; widths on curved charts are sampled approximations, not geodesic guarantees.'
+  );
+  return { w, h, structure, kind, element, structures, cellStructure, issues };
+}

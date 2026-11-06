@@ -4,7 +4,7 @@ import type { KnitSettings, PatternGraph, SwatchEntry } from '../../core/types';
 import type { ViewerSelection } from '../../viewer/types';
 import type { KnitBuild } from '../../knit/program';
 import { BASIC } from '../../knit/keys';
-import { structuresForKey } from '../../knit/structures';
+import { structuresForKey, type Structure } from '../../knit/structures';
 import { SOURCE } from '../../knit/rasterize';
 import { bmpBytes, grammarJson } from '../../knit/files';
 import { knitReport } from '../../knit/report';
@@ -12,6 +12,7 @@ import { parseSwatchFile, swatchFileText, validateSwatches } from '../../knit/ga
 import { download, projectFilename } from '../../adapters/export';
 import { loopText } from './provenance';
 import { referencesBibtex, referencesCSL } from '../../learning/citations';
+import TileEditor from './TileEditor';
 
 interface Props {
   build: KnitBuild;
@@ -27,16 +28,16 @@ interface Props {
   onMark: (cells: number[] | null) => void;
 }
 
-const STRUCTURES = structuresForKey(BASIC);
-const nameOf = (id: string) => STRUCTURES.find((s) => s.id === id)?.name ?? id;
 const mm = (m: number) => +(m * 1000).toFixed(4);
 
 function SwatchForm({
+  structures: STRUCTURES,
   entry,
   taken,
   onSave,
   onRemove,
 }: {
+  structures: readonly Structure[];
   entry: SwatchEntry | null;
   taken: Set<string>;
   onSave: (e: SwatchEntry) => string | null;
@@ -167,6 +168,8 @@ function SwatchForm({
 
 export default function KnitPanel(props: Props) {
   const { build, settings: s, swatches, graph } = props;
+  const STRUCTURES = structuresForKey(BASIC, s.tiles);
+  const nameOf = (id: string) => STRUCTURES.find((x) => x.id === id)?.name ?? id;
   const [importError, setImportError] = useState('');
   const program = build.ok ? build.program : null;
   const file = projectFilename(props.projectName);
@@ -234,8 +237,8 @@ export default function KnitPanel(props: Props) {
             {program.sizeSource === 'gauge' && program.sizeGauge
               ? `Size from ${program.sizeGauge.assumed ? 'assumed = jersey' : `the ${program.sizeGauge.measuredOn} measurement`}: ${mm(program.sizeGauge.stitchWidth)} mm per needle, ${mm(program.sizeGauge.courseHeight)} mm per pass.`
               : 'Size typed; not derived from a measurement.'}{' '}
-            {program.shape
-              ? `${program.shape.needles.placements.length} surface loops; network assignments are not applied in shape mode.`
+            {program.settings.mode === 'shape'
+              ? `${program.shape?.needles.placements.length} surface loops; network assignments are not applied in shape mode.`
               : `Loops from cells ${counts[0]}, edges ${counts[1]}, nodes ${counts[2]}, extraordinary nodes ${counts[3]}.`}
             {program.staleNetwork && ' The network is stale; regenerate to match the settings.'}
           </p>
@@ -295,8 +298,17 @@ export default function KnitPanel(props: Props) {
                 . The distance field, alignment and needle operations are project adaptations; this
                 is not an exact reproduction.
               </p>
+              {program.rectification && (
+                <p className="hint">
+                  Network-only rectangular output: {program.rectification.addedCells} filled
+                  reference cells; up to {program.rectification.maxAddedPasses} extra passes per
+                  needle ({mm(program.rectification.maxAddedCourseLengthM)} mm of nominal
+                  course-height accumulation). Shaping transfers are not applied; physical target
+                  shape is not predicted.
+                </p>
+              )}
               <p className="hint">
-                {program.shape.geometry.courses.length} courses ·{' '}
+                {program.shape.geometry.courses.length} reference courses ·{' '}
                 {program.shape.needles.steps.filter((x) => x.role === 'turn').length} turns ·{' '}
                 {program.shape.needles.steps.filter((x) => x.role.includes('increase')).length}{' '}
                 increases ·{' '}
@@ -434,6 +446,7 @@ export default function KnitPanel(props: Props) {
         </div>
       )}
 
+      <TileEditor settings={s} swatches={swatches} onChange={props.onSettings} />
       <h3 className="knit-heading">Measurement table</h3>
       <p className="hint">
         From your swatches; values are never filled in for you. Unmeasured structures use the jersey
@@ -445,6 +458,7 @@ export default function KnitPanel(props: Props) {
             {nameOf(x.structure)} · {mm(x.stitchWidth)} × {mm(x.courseHeight)} mm
           </summary>
           <SwatchForm
+            structures={STRUCTURES}
             entry={x}
             taken={taken}
             onSave={(e) => saveSwatch(e, true)}
@@ -456,6 +470,7 @@ export default function KnitPanel(props: Props) {
         <details className="swatch-entry" open={swatches.length === 0}>
           <summary>Add a measurement</summary>
           <SwatchForm
+            structures={STRUCTURES}
             key={swatches.length}
             entry={null}
             taken={taken}

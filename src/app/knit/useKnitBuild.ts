@@ -7,15 +7,20 @@ type Input = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
 /** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. */
 export function useKnitBuild(input: Input, staleNetwork: boolean) {
   const shape = input.knit?.mode === 'shape';
+  const usesWorker =
+    input.knit?.mode === 'both' ||
+    shape ||
+    input.surface.kind !== 'plane' ||
+    input.knit?.size.source !== 'typed' ||
+    (input.knit.startEdge !== undefined && input.knit.startEdge !== 'v0');
+  const graphSignature = useMemo(() => JSON.stringify(input.graph), [input.graph]);
   const surfaceSignature = useMemo(() => JSON.stringify(input.surface), [input.surface]);
   const settingsSignature = useMemo(
     () => JSON.stringify([input.knit, input.swatches]),
     [input.knit, input.swatches]
   );
   // Shape generation has no graph input. Reuse the large immutable surface serialization.
-  const signature = shape
-    ? `${surfaceSignature}:${settingsSignature}`
-    : `network:${settingsSignature}`;
+  const signature = `${surfaceSignature}:${settingsSignature}:${shape ? '' : graphSignature}`;
   const [accepted, setAccepted] = useState<{
     signature: string;
     surface: string;
@@ -31,13 +36,13 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
     setProgress(null);
   }, [signature]);
   useEffect(() => () => controller.current?.abort(), []);
-  const outdated = shape && accepted?.signature !== signature;
+  const outdated = usesWorker && accepted?.signature !== signature;
   let build: KnitBuild;
   const networkBuild = useMemo(
-    () => (shape ? null : buildKnitProgram(input, staleNetwork)),
-    [shape, input.surface, input.graph, input.knit, input.swatches, staleNetwork]
+    () => (usesWorker ? null : buildKnitProgram(input, staleNetwork)),
+    [usesWorker, input.surface, input.graph, input.knit, input.swatches, staleNetwork]
   );
-  if (!shape) build = networkBuild!;
+  if (!usesWorker) build = networkBuild!;
   else if (accepted && accepted.surface === surfaceSignature) {
     build =
       accepted.build.ok && outdated
@@ -45,20 +50,41 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
             ok: true,
             program: {
               ...accepted.build.program,
+              staleNetwork: !shape && staleNetwork,
               exportBlockers: [
                 ...accepted.build.program.exportBlockers,
-                'Shape preview is stale. Generate the current settings before operation export.',
+                'Program preview is stale. Generate the current settings before operation export.',
               ],
             },
           }
-        : accepted.build;
-  } else build = { ok: false, reason: 'Generate shape after entering a jersey measurement.' };
+        : accepted.build.ok
+          ? {
+              ...accepted.build,
+              program: { ...accepted.build.program, staleNetwork: !shape && staleNetwork },
+            }
+          : accepted.build;
+  } else
+    build = {
+      ok: false,
+      reason: 'Generate the knit program after entering measurements or a typed network size.',
+    };
+  const needsGauge =
+    (shape || input.knit?.mode === 'both' || input.knit?.size.source !== 'typed') &&
+    !input.swatches?.some((s) => s.structure === 'jersey');
+  const preflight = needsGauge
+    ? shape || input.knit?.mode === 'both'
+      ? 'Shape and combined modes need a measured jersey swatch.'
+      : 'No jersey measurement. Add one or type needles and passes.'
+    : !shape && !input.graph
+      ? 'Generate a network first.'
+      : '';
+  if (!accepted && preflight) build = { ok: false, reason: preflight };
   async function generate() {
     controller.current?.abort();
     const job = new AbortController();
     controller.current = job;
     setError('');
-    setProgress('Starting shape generation');
+    setProgress('Starting knit program generation');
     try {
       const result = await generateKnitInWorker(
         shape ? { ...input, graph: null } : input,
@@ -81,7 +107,8 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
     build,
     outdated,
     progress,
-    error,
+    error: preflight || error,
+    usesWorker,
     generate,
     cancel: () => {
       controller.current?.abort();

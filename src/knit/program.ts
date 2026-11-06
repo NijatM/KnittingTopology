@@ -12,6 +12,7 @@ import { needleOf, passOf } from './grid';
 import { defaultKnitSettings } from './settings';
 import type { ShapeResult } from './shape-types';
 import { buildShapeProgram } from './shape-program';
+import { buildTypedSurfaceProgram } from './typed-program';
 
 export interface StructureUse {
   id: string;
@@ -29,7 +30,7 @@ export interface KnitProgram {
   firstDir: 1 | -1;
   settings: KnitSettings;
   sizeSource: 'gauge' | 'typed';
-  /** Jersey measurement behind a gauge-derived size. */
+  /** Reference fill measurement (or flagged jersey fallback) behind a gauge-derived layout. */
   sizeGauge: Gauge | null;
   mapping: KnitMapping;
   raster: Raster;
@@ -43,6 +44,8 @@ export interface KnitProgram {
   /** Required shaping or operation failures. Reports/preview remain available. */
   exportBlockers: string[];
   shape?: ShapeResult;
+  /** Network-only fills cells without reference-surface loops. */
+  rectification?: { addedCells: number; maxAddedPasses: number; maxAddedCourseLengthM: number };
 }
 
 export type KnitBuild = { ok: true; program: KnitProgram } | { ok: false; reason: string };
@@ -64,14 +67,25 @@ export function buildKnitProgram(
       reason: 'Knit programs need a plane, saddle or supplied rectangular OBJ chart.',
     };
   if (settings.mode === 'shape') return buildShapeProgram(project, settings, swatches, context);
-  if (settings.mode !== 'network')
-    return { ok: false, reason: 'Combined shape and network mode is planned for a later release.' };
-  if (project.surface.kind !== 'plane')
+  if (!project.graph) return { ok: false, reason: 'Generate a network first.' };
+  if (project.graph.provenance.surfaceRevision !== project.surface.revision)
     return {
       ok: false,
-      reason: 'Network mode is available for the plane; use shape mode on this surface.',
+      reason: 'The network belongs to another surface revision. Regenerate it first.',
     };
-  if (!project.graph) return { ok: false, reason: 'Generate a network first.' };
+  if (settings.mode === 'both' || settings.size.source === 'gauge') {
+    if (settings.mode === 'network' && !gaugeOf('jersey', swatches))
+      return {
+        ok: false,
+        reason:
+          'No jersey measurement. Add one to the measurement table, or type the needles and passes.',
+      };
+    const result = buildShapeProgram(project, settings, swatches, context);
+    if (result.ok) result.program.staleNetwork = staleNetwork;
+    return result;
+  }
+  if (project.surface.kind !== 'plane' || (settings.startEdge && settings.startEdge !== 'v0'))
+    return buildTypedSurfaceProgram(project, settings, swatches, staleNetwork, context);
   const size = programSize(project.surface, settings, swatches);
   if (!size.ok) return { ok: false, reason: size.reason };
   const key = keyById(settings.keyId) ?? BASIC;

@@ -4,6 +4,7 @@ import { MAX_GRAPH_CELLS } from '../core/limits';
 import { PRESET_KEYS } from './keys';
 import { DEFAULT_LIMITS } from './checks';
 import { MAX_SIDE } from './grid';
+import { validateTiles } from './tiles';
 
 export const MAX_LINE_LOOPS = 40;
 export const MAX_PALETTE = 8;
@@ -95,6 +96,7 @@ export function validateKnitSettings(value: unknown): KnitSettings {
       ? {}
       : { newLoop: pick(s.newLoop, 'new loop action', ['knit', 'tuck'] as const) }),
     keyId,
+    ...(s.tiles === undefined ? {} : { tiles: validateTiles(s.tiles) }),
     size:
       source === 'gauge'
         ? { source }

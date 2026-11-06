@@ -1782,3 +1782,33 @@ kbd {
 .knit-shape-job p {
   font-size: 11px;
 }
+
+.knit-tile-editor {
+  border: 1px solid var(--line);
+  padding: 8px;
+  margin: 16px 0;
+  min-width: 0;
+}
+.knit-tile-editor > summary {
+  cursor: pointer;
+}
+.knit-tile-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 10px 0;
+}
+.knit-tile-grid {
+  display: grid;
+  gap: 1px;
+  width: max-content;
+}
+.knit-tile-grid button {
+  width: 32px;
+  height: 32px;
+  font-size: 8px;
+  padding: 0;
+}
+.knit-tile-editor .inline-actions {
+  justify-content: space-between;
+  overflow-wrap: anywhere;
+}

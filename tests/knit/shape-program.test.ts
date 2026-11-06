@@ -86,15 +86,15 @@ describe('surface to shape bitmap integration', () => {
       'loop parents differ'
     );
   });
-  it('does not enable curved network or combined modes prematurely', () => {
+  it('requires a generated network for network and combined modes', () => {
     const saddle = { ...plane, kind: 'saddle' as const, curvature: 0.5 };
     expect(buildKnitProgram(input({ mode: 'network' }, saddle))).toMatchObject({
       ok: false,
-      reason: expect.stringContaining('plane'),
+      reason: expect.stringContaining('Generate a network'),
     });
     expect(buildKnitProgram(input({ mode: 'both' }))).toMatchObject({
       ok: false,
-      reason: expect.stringContaining('later release'),
+      reason: expect.stringContaining('Generate a network'),
     });
   });
   it('saves optional start-edge and new-loop settings without changing schema', () => {
