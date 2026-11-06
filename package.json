@@ -1,0 +1,35 @@
+{
+  "name": "knitting-topology",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "check": "npm run typecheck && npm test && npm run build",
+    "format": "prettier --write src tests index.html vite.config.ts playwright.config.ts docs README.md",
+    "format:check": "prettier --check src tests index.html vite.config.ts playwright.config.ts docs README.md"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "prettier": "^3.9.10",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "^4.0.0"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "project": "Knit Topology Lab",
+  "status": "development-blueprint",
+  "prepared": "2026-11-06",
+  "product": "Machine-agnostic browser app for surface pattern and topology generation and exploration",
+  "hosting": "GitHub Pages",
+  "development_environment": "VS Code",
+  "requested_models": {
+    "openai": "gpt-6.1-sol",
+    "anthropic": "claude-opus-5-5"
+  },
+  "v1_outputs": [
+    "surface fields",
+    "curves and cell networks",
+    "explicit pattern topology",
+    "layer/join/opening semantics where implemented",
+    "versioned project JSON",
+    "geometry exports"
+  ],
+  "design_intents": [
+    "tension",
+    "compression",
+    "mixed loading",
+    "nonstructural surface",
+    "surface-area exploration",
+    "pockets",
+    "directional flow",
+    "artistic expression"
+  ],
+  "scope_limits": [
+    "No machine-specific compiler in v1",
+    "No CAD plugin in v1",
+    "No unvalidated structural performance claims",
+    "No required AI service at website runtime"
+  ],
+  "initial_stack_recommendation": [
+    "TypeScript",
+    "React",
+    "Vite",
+    "Three.js",
+    "Web Workers"
+  ],
+  "first_milestone": "Plane/saddle + surface drawing + guided pattern + spacing + topology diagnostics + undo + save/load",
+  "open_decisions": [
+    "Primary editable graph semantics",
+    "Initial import format and mesh size",
+    "Course/wale annotations in first strategy",
+    "Specific meaning of each flow/area/compression objective"
+  ]
+}

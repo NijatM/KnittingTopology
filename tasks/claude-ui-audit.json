@@ -1,0 +1,19 @@
+{
+  "task_id": "CLAUDE-UI-003",
+  "role": "independent application and interaction reviewer",
+  "objective": "Review the supplied React app, Three.js viewer, project/worker protocol and exporters for concrete high-impact defects in normal user workflows: initial generation, surface switching, guide drawing and picking, stale worker output, cancellation, undo/redo, project save/load, browser persistence, projected exports and memory cleanup. Look for subtle stale React refs and graph-camera-selection inconsistencies. Review code only: do not claim executed tests. Return at most 1200 words, prioritized reproducible findings and narrow fixes. Distinguish user-facing scientific claim mismatch from backend limitations. Ignore styling tastes and don't demand deferred arbitrary mesh import, machine compilation or structural simulation. Core numerical operations are being independently repaired and tested; do not redesign them. Files are explicitly approved for export to Anthropic's Claude service through subscription. No tools, no Git, no subagents. One bounded review.",
+  "input_artifacts": [
+    "src/app/App.tsx",
+    "src/app/project.ts",
+    "src/viewer/types.ts",
+    "src/viewer/SurfaceViewer.tsx",
+    "src/viewer/README.md",
+    "src/core/types.ts",
+    "src/core/limits.ts",
+    "src/workers/protocol.ts",
+    "src/workers/generation.worker.ts",
+    "src/adapters/export.ts"
+  ],
+  "owned_paths": [],
+  "stop_condition": "One prioritized code-only review, no tools or implementation"
+}

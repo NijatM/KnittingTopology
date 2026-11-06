@@ -1,0 +1,110 @@
+{
+  "status": "proposed-not-executed",
+  "cases": [
+    {
+      "id": "G01",
+      "case": "Plane",
+      "checks": [
+        "zero-curvature behavior",
+        "undefined curvature-direction policy",
+        "boundary preservation"
+      ]
+    },
+    {
+      "id": "G02",
+      "case": "Sphere of known radius",
+      "checks": [
+        "curvature convention",
+        "dimensional scaling",
+        "nonunique principal-direction handling"
+      ]
+    },
+    {
+      "id": "G03",
+      "case": "Cylinder of known radius",
+      "checks": [
+        "principal curvature magnitudes",
+        "orientation consistency"
+      ]
+    },
+    {
+      "id": "G04",
+      "case": "Analytic saddle",
+      "checks": [
+        "reference local geometry",
+        "stroke attachment",
+        "refinement"
+      ]
+    },
+    {
+      "id": "F01",
+      "case": "Surface diffusion",
+      "checks": [
+        "boundary behavior",
+        "discretization/time-step behavior",
+        "seed reproducibility"
+      ]
+    },
+    {
+      "id": "T01",
+      "case": "Two-layer open pocket",
+      "checks": [
+        "distinct layers",
+        "joined boundary",
+        "preserved opening",
+        "save/load topology"
+      ]
+    },
+    {
+      "id": "T02",
+      "case": "Deliberately invalid graph",
+      "checks": [
+        "diagnosis of forbidden connectivity or intersection"
+      ]
+    },
+    {
+      "id": "A01",
+      "case": "Same geometry at different tessellations",
+      "checks": [
+        "area-score consistency within approximation error"
+      ]
+    },
+    {
+      "id": "W01",
+      "case": "Rapid edits during worker calculation",
+      "checks": [
+        "cancellation",
+        "stale-result rejection"
+      ]
+    },
+    {
+      "id": "R01",
+      "case": "Project save/reload in fresh session",
+      "checks": [
+        "units",
+        "graph identity",
+        "constraints",
+        "seed/algorithm metadata"
+      ]
+    },
+    {
+      "id": "P01",
+      "case": "Production build under repository subpath",
+      "checks": [
+        "assets",
+        "workers",
+        "import/export",
+        "no server dependency"
+      ]
+    },
+    {
+      "id": "E01",
+      "case": "Unsupported compression claim",
+      "checks": [
+        "missing mechanism identified",
+        "no invented material constant",
+        "useful next evidence proposed"
+      ]
+    }
+  ]
+}

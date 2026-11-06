@@ -1,0 +1,22 @@
+{
+  "claim_id": null,
+  "statement": null,
+  "evidence_class": "design-intent",
+  "allowed_evidence_classes": [
+    "design-intent",
+    "geometric-result",
+    "model-result",
+    "physically-validated",
+    "manufacturing-validated"
+  ],
+  "source_ids": [],
+  "source_locations": [],
+  "access_depth": null,
+  "assumptions": [],
+  "units": null,
+  "applicability": [],
+  "limitations": [],
+  "counterevidence": [],
+  "falsification_check": null,
+  "validation_artifacts": []
+}

@@ -1,0 +1,37 @@
+# Surface viewer
+
+`SurfaceViewer.tsx` implements the shared `types.ts` contract. It owns rendering only. Geometry and picked analytic attachments come from `core/surfaces.ts`; the component never mutates the graph or guides. Coordinates are meters, centered and Z-up. Hover text converts coordinates to millimeters.
+
+The scene and camera survive graph replacement and option changes. Geometry changes fit the camera. `onReady` returns fit, perspective/top/front/right presets, and PNG capture. ResizeObserver resizes the canvas; device pixel ratio is capped at 2. Scene geometry/materials and pointer/resize/orbit handlers are disposed on unmount. WebGL creation/context loss reports an error through the callback and an accessible fallback.
+
+Orbit mode supports OrbitControls mouse/touch rotation, pan and zoom. Draw mode disables navigation, captures one primary pointer and emits one stroke on release. Pointer cancellation discards the draft. Samples are raycast against outward-facing surface triangles, projected by the core, and retain display triangle IDs/barycentric coordinates plus analytic patch/UV/revision. Intermediate samples interpolate analytic UV within one chart; these intentionally have no fabricated picking triangle. A missing hit or a jump over 18% of surface size stops adding points until release, avoiding silhouette/backface bridges. Strokes with outdated surface revisions are discarded. Select mode chooses a visible nearby node within 12 screen pixels, otherwise an ordered cell triangulated in its analytic chart. Node/cell selection returns existing stable IDs.
+
+Display options:
+
+- Plain: neutral surface and bright graph edges.
+- Valence: degree 4 is neutral; edges incident to another degree and non-degree-4 nodes are amber. This is connectivity degree, not a physical defect classification; ordinary boundary nodes may be amber.
+- Spacing: white/dark edges indicate zero relative deviation from the generating target. Amber increases with absolute relative deviation and saturates at 50%. Values use supplied embedded path polyline lengths; missing paths use densified core-projected display paths. Colors are a visual aid, not independent diagnostic tolerances or a uniform-spacing guarantee.
+- Patches: shades encode actual analytic surface patch IDs. If the surface is hidden, graph cells are shaded by their recorded patch IDs. These colors are categorical and carry no numerical quality meaning.
+- Seams: display atlas boundaries from the actual surface mesh plus graph edges explicitly tagged crease, seam or boundary. Render deduplication of coincident atlas boundaries does not create scientific graph identities.
+- Coarse: boundaries from the graph's recorded coarse patch corners. Nodes, guides, surface triangulation wireframe and selection highlights use separate draw groups.
+
+Graph edge paths and guide/coarse boundaries are densified through the core projector to avoid spherical chords disappearing into the surface. These display subdivisions never modify stored scientific paths. Surface/cell display triangles approximate curved geometry; cell picking is a display triangulation in patch UV, not an analytic point-in-cell certificate. WebGL line widths are one device-supported pixel. There is no screen-space thick-line dependency. No numeric overlay or physical claim is invented when graph data is absent.
+
+## Actual verification
+
+- `npm run typecheck` passed after implementation (TypeScript 7.0.2, Three.js 0.186.1).
+- Temporary isolated React harness, Vite 8.3.4, Playwright with installed Google Chrome and SwiftShader: WebGL canvas created, no browser page errors; plane drag emitted nothing before release and 31 samples after release, all exactly on Z=0 with current surface revision; 16 direct picks included triangle IDs and barycentrics. Intermediate UV samples retain only analytic attachment provenance.
+- PNG before and after a completed draw was byte-identical when guides were not added by the harness, checking that drawing did not move the camera or leave a draft.
+- A four-node analytic plane fixture returned stable IDs `cellA` for a cell click and `node0` for a vertex click. Spacing overlay screenshot visually inspected.
+- A sphere drag returned 16 samples, all carrying the sphere revision; maximum measured radius error was 1.3877787807814457e-17 m for radius 0.09 m. This is a local analytic picking check, not a spacing/refinement claim.
+- PNG export returned a valid PNG data URL; sphere patch overlay screenshot visually inspected. Temporary harness files and server were removed/stopped afterward.
+
+Full-app browser flows, hardware GPU coverage, mobile touch devices and manual screen-reader testing remain coordinator integration checks. No Claude/provider calls, Git operations or deployment occurred in this implementation task.
+
+## Native Metal visibility repair
+
+A native Apple M2 Pro / ANGLE Metal screenshot revealed intermittent sphere-edge occlusion where straight rendered line segments and the independently tessellated surface had nearly equal depth. Sphere graph/guide/selection/draft draw groups and atlas-seam lines now receive a display-only radial scale of `1.0015`: an outward analytic-normal lift of 0.15% of radius, or 0.135 mm at diameter 180 mm. The surface picking mesh, stored positions/attachments, diagnostic measurements and geometry exports are unchanged. Cube/plane/saddle display groups reset to scale 1.
+
+Verification used isolated headless installed Google Chrome sessions with both native Metal (no GPU override) and SwiftShader. Both rendered sphere lines and cube sharp seams without console/page errors. Native screenshots were visually inspected: no visible floating network at the tested 180 mm size and default fit. In each renderer a sphere drag produced 17 samples, max analytic radius error 1.3877787807814457e-17 m, and current surface revisions. Cube selection returned the existing ID `v:f661` in both renderers. Screenshots are in `tmp/qa/{native,software}-{sphere-bias,cube-seams}.png`. Very large zoom and every possible curve density are outside this bounded screenshot check.
+
+Camera presets retain Z-up for the lifetime of OrbitControls. Top uses direction `[0,-1e-3,1]` to avoid the exact pole without changing the cached up-axis transform. A targeted native Metal probe observed actual uploaded model-view matrices before and after a 10×2 px orbit drag from top: all entries finite; rotation determinants 1.0000000463 and 1.0000000170; camera distance unchanged at 0.4423036873 m; world-Y to screen-Y components 0.9999995232 and 0.9970942140 (small continuous roll). No browser errors. Both top/orbit screenshots were visually checked. Reproduce with `node tests/browser/camera-check.mjs`.

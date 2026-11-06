@@ -1,0 +1,22 @@
+{
+  "task_id": "CLAUDE-CODE-002",
+  "role": "independent scientific software auditor",
+  "objective": "Audit the supplied implementation against its actual claims and the two previously reviewed papers. This is a concrete code review, not a new architecture design. Prioritize demonstrable bugs in manifold topology/seams/strip density, UV/surface attachments, edge-length measurement, guide tangent alignment and inversion protection, genuine graph transformations, unsupported paper claims, cancellation/stale results, and project parsing/round-trips. The app intentionally implements a documented subset (not the complete Takayama kernel library), cubical closed-surface extensions, and no textile/mechanical validation. Do not require deferred medial-axis/poles/machine/structural functionality. Inspect code and tests independently; distinguish proven findings from suspicions. Return at most 1600 words, concrete file/function references, small reproducing input or mathematical argument for each P0/P1 finding, and minimal fixes/checks. No tools, no Git, no implementation, no recursive agents. Notes: guides now use actual cross-field tangent corrections, input signature is a freshness hint not a security check; raw graph degree overlay is intentionally distinct from adjusted boundary-valence statistic. Approval explicitly includes exporting these src/tests/docs/tasks artifacts to Anthropic Claude via subscription.",
+  "input_artifacts": [
+    "docs/data-contract.md",
+    "src/core/types.ts",
+    "src/core/math.ts",
+    "src/core/surfaces.ts",
+    "src/core/topology.ts",
+    "src/core/strips.ts",
+    "src/core/generate.ts",
+    "src/core/diagnostics.ts",
+    "tests/core/generation.test.ts",
+    "src/app/project.ts",
+    "tests/app/project.test.ts",
+    "src/workers/protocol.ts",
+    "src/workers/generation.worker.ts"
+  ],
+  "owned_paths": [],
+  "stop_condition": "One bounded independent audit with reproducible prioritized findings; do not execute or claim tests"
+}

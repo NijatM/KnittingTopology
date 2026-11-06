@@ -1,0 +1,86 @@
+{
+  "mode": "supervised-template",
+  "primary_coordinator_provider": "openai",
+  "global_worker_limit": 2,
+  "tasks": [
+    {
+      "task_id": "M1-001",
+      "status": "queued",
+      "role": "coordinator",
+      "objective": "Settle the minimal project data contract and divide the first vertical slice.",
+      "dependencies": [],
+      "deliverables": [
+        "initial representation decision",
+        "owned-path task packets",
+        "selected supported toolchain versions"
+      ]
+    },
+    {
+      "task_id": "M1-002",
+      "status": "queued",
+      "role": "research",
+      "objective": "Review surface-guided pattern/retopology precedents and isolate assumptions relevant to a minimal browser prototype.",
+      "dependencies": [],
+      "deliverables": [
+        "three bounded evidence cards",
+        "implementation limits"
+      ]
+    },
+    {
+      "task_id": "M1-003",
+      "status": "queued",
+      "role": "geometry",
+      "objective": "Implement plane/saddle fixtures, surface attachments and the agreed minimal graph primitives.",
+      "dependencies": [
+        "M1-001"
+      ],
+      "deliverables": [
+        "core geometry implementation",
+        "meaningful numerical/graph checks"
+      ]
+    },
+    {
+      "task_id": "M1-004",
+      "status": "queued",
+      "role": "interaction",
+      "objective": "Implement viewer, drawing and project controls against the agreed contract.",
+      "dependencies": [
+        "M1-001"
+      ],
+      "deliverables": [
+        "viewer workflow",
+        "save/load and undo flow",
+        "worker integration"
+      ]
+    },
+    {
+      "task_id": "M1-005",
+      "status": "queued",
+      "role": "fields",
+      "objective": "Implement one surface-guided direction/spacing pattern strategy on the agreed primitives.",
+      "dependencies": [
+        "M1-003"
+      ],
+      "deliverables": [
+        "pattern generation",
+        "recorded settings",
+        "diagnostics"
+      ]
+    },
+    {
+      "task_id": "M1-006",
+      "status": "queued",
+      "role": "validation",
+      "objective": "Independently review and exercise the integrated first vertical slice.",
+      "dependencies": [
+        "M1-004",
+        "M1-005"
+      ],
+      "deliverables": [
+        "actual acceptance results",
+        "concrete findings",
+        "verification limits"
+      ]
+    }
+  ]
+}

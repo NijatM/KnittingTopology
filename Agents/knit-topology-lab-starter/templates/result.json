@@ -1,0 +1,23 @@
+{
+  "task_id": null,
+  "task_revision": null,
+  "status": "review",
+  "provider": null,
+  "model_id": null,
+  "client_version": null,
+  "base_revision": null,
+  "output_revision": null,
+  "artifacts": [],
+  "checks_run": [],
+  "checks_not_run": [],
+  "findings": [],
+  "assumptions": [],
+  "uncertainty": [],
+  "unresolved_dependencies": [],
+  "usage": {
+    "elapsed_seconds": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "cost": null
+  }
+}

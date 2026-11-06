@@ -1,0 +1,834 @@
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { buildSurfaceMesh, evaluateSurface, projectToSurface } from '../core/surfaces';
+import type {
+  GraphEdge,
+  GuideSample,
+  PatternGraph,
+  SurfaceMesh,
+  SurfaceSpec,
+  Vec3,
+} from '../core/types';
+import type { SurfaceViewerProps, ViewerHandle } from './types';
+
+/** The viewer never writes scientific state: picked samples are returned to the app. */
+type Runtime = {
+  renderer: THREE.WebGLRenderer;
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  controls: OrbitControls;
+  surfaceGroup: THREE.Group;
+  graphGroup: THREE.Group;
+  guideGroup: THREE.Group;
+  selectionGroup: THREE.Group;
+  draftGroup: THREE.Group;
+  surfaceMesh: THREE.Mesh | null;
+  meshData: SurfaceMesh | null;
+  cellMesh: THREE.Mesh | null;
+  cellIds: string[];
+  draw: () => void;
+  fit: () => void;
+  resize: () => void;
+};
+const v3 = (p: Vec3) => new THREE.Vector3(...p);
+const tuple = (p: THREE.Vector3): Vec3 => [p.x, p.y, p.z];
+// Render-only radial lift: 0.15% of sphere radius (0.135 mm at Ø180 mm).
+// Straight display segments approximate embedded curves and can otherwise sink
+// slightly behind the independently tessellated surface on native Metal GPUs.
+// On a sphere this scale is exactly an outward analytic-normal displacement.
+// Scientific coordinates, surface picking, attachments and exports stay intact.
+const SPHERE_DISPLAY_SCALE = 1.0015;
+
+function clear(group: THREE.Group) {
+  group.traverse((object) => {
+    const drawable = object as THREE.Mesh;
+    drawable.geometry?.dispose();
+    const materials = Array.isArray(drawable.material) ? drawable.material : [drawable.material];
+    materials.forEach((material) => material?.dispose());
+  });
+  group.clear();
+}
+function geometry(points: number[]) {
+  const result = new THREE.BufferGeometry();
+  result.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+  return result;
+}
+function lineSegments(
+  group: THREE.Group,
+  points: number[],
+  color: THREE.ColorRepresentation,
+  opacity = 1,
+  colors?: number[]
+) {
+  if (!points.length) return;
+  const geo = geometry(points);
+  if (colors) geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const material = new THREE.LineBasicMaterial({
+    color,
+    transparent: opacity < 1,
+    opacity,
+    vertexColors: !!colors,
+    depthWrite: false,
+  });
+  const lines = new THREE.LineSegments(geo, material);
+  lines.renderOrder = 2;
+  group.add(lines);
+}
+function pointsObject(
+  group: THREE.Group,
+  positions: number[],
+  color: THREE.ColorRepresentation,
+  size = 4,
+  colors?: number[]
+) {
+  if (!positions.length) return;
+  const geo = geometry(positions);
+  if (colors) geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const points = new THREE.Points(
+    geo,
+    new THREE.PointsMaterial({
+      color,
+      size,
+      sizeAttenuation: false,
+      vertexColors: !!colors,
+      depthWrite: false,
+    })
+  );
+  points.renderOrder = 3;
+  group.add(points);
+}
+function appendPath(segments: number[], path: Vec3[]) {
+  for (let i = 1; i < path.length; i++) segments.push(...path[i - 1], ...path[i]);
+}
+function embeddedPath(surface: SurfaceSpec, path: Vec3[], samples = 6): Vec3[] {
+  const result: Vec3[] = [];
+  for (let i = 1; i < path.length; i++) {
+    const a = v3(path[i - 1]);
+    const b = v3(path[i]);
+    // Analytic projection is core-owned. Densification makes spherical edges visible
+    // without replacing the graph's scientific embedded paths or measurements.
+    for (let j = 0; j < samples; j++) {
+      result.push(projectToSurface(surface, tuple(a.clone().lerp(b, j / samples))).position);
+    }
+  }
+  if (path.length) result.push(path[path.length - 1]);
+  return result;
+}
+function edgePath(surface: SurfaceSpec, edge: GraphEdge, nodes: Map<string, Vec3>) {
+  if (edge.path && edge.path.length > 1)
+    return embeddedPath(
+      surface,
+      edge.path,
+      surface.kind === 'sphere' || surface.kind === 'saddle' ? 3 : 1
+    );
+  const a = nodes.get(edge.a),
+    b = nodes.get(edge.b);
+  return a && b ? embeddedPath(surface, [a, b], 12) : [];
+}
+function pathLength(path: Vec3[]) {
+  let length = 0;
+  for (let i = 1; i < path.length; i++) length += v3(path[i]).distanceTo(v3(path[i - 1]));
+  return length;
+}
+function surfaceBoundarySegments(mesh: SurfaceMesh) {
+  const counts = new Map<string, { a: number; b: number; count: number }>();
+  for (let i = 0; i < mesh.indices.length; i += 3) {
+    const triangle = mesh.indices.slice(i, i + 3);
+    for (let j = 0; j < 3; j++) {
+      const a = triangle[j],
+        b = triangle[(j + 1) % 3];
+      const key = a < b ? `${a}:${b}` : `${b}:${a}`;
+      const entry = counts.get(key);
+      if (entry) entry.count++;
+      else counts.set(key, { a, b, count: 1 });
+    }
+  }
+  const positions: number[] = [];
+  const drawn = new Set<string>();
+  for (const edge of counts.values()) {
+    if (edge.count !== 1) continue;
+    const a = mesh.positions.slice(edge.a * 3, edge.a * 3 + 3);
+    const b = mesh.positions.slice(edge.b * 3, edge.b * 3 + 3);
+    // Deduplication affects display only: the atlas mesh intentionally duplicates
+    // vertices at chart seams. Scientific graph identities remain core-owned.
+    const aKey = a.map((value) => value.toPrecision(12)).join(',');
+    const bKey = b.map((value) => value.toPrecision(12)).join(',');
+    const key = aKey < bKey ? `${aKey}:${bKey}` : `${bKey}:${aKey}`;
+    if (!drawn.has(key)) {
+      positions.push(...a, ...b);
+      drawn.add(key);
+    }
+  }
+  return positions;
+}
+function scalarColor(value: number, light: boolean) {
+  return new THREE.Color(light ? '#343434' : '#e6e6e6').lerp(
+    new THREE.Color('#d09a4e'),
+    Math.min(1, Math.max(0, value))
+  );
+}
+function makeCellMesh(graph: PatternGraph, surface: SurfaceSpec, light: boolean, patches: boolean) {
+  const nodeMap = new Map(graph.nodes.map((node) => [node.id, node.position]));
+  const positions: number[] = [],
+    colors: number[] = [],
+    ids: string[] = [];
+  for (const cell of graph.cells) {
+    const p = cell.nodes.map((id) => nodeMap.get(id));
+    if (p.length < 3 || p.some((position) => !position)) continue;
+    const shade = patches ? (light ? 0.52 : 0.18) + ((cell.patch * 37) % 7) * 0.045 : 0.2;
+    const color = new THREE.Color().setRGB(shade, shade, shade);
+    const contour = p.map(
+      (position) =>
+        new THREE.Vector2(...projectToSurface(surface, position!, cell.patch).attachment.uv)
+    );
+    for (const triangle of THREE.ShapeUtils.triangulateShape(contour, [])) {
+      positions.push(...p[triangle[0]]!, ...p[triangle[1]]!, ...p[triangle[2]]!);
+      colors.push(...color.toArray(), ...color.toArray(), ...color.toArray());
+      ids.push(cell.id);
+    }
+  }
+  const geo = geometry(positions);
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(
+    geo,
+    new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.8,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+      depthWrite: false,
+    })
+  );
+  mesh.visible = patches;
+  return { mesh, ids };
+}
+
+export default function SurfaceViewer(props: SurfaceViewerProps) {
+  const host = useRef<HTMLDivElement>(null);
+  const current = useRef(props);
+  current.current = props;
+  const runtime = useRef<Runtime | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const container = host.current;
+    if (!container) return;
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        preserveDrawingBuffer: true,
+        alpha: false,
+      });
+    } catch (cause) {
+      const message = `WebGL viewer unavailable: ${cause instanceof Error ? cause.message : 'Could not create a rendering context.'}`;
+      setError(message);
+      current.current.onError?.(message);
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const canvas = renderer.domElement;
+    canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;outline:none;';
+    canvas.setAttribute(
+      'aria-label',
+      'Interactive surface. Use orbit mode to rotate, pan and zoom; draw mode to draw a surface guide.'
+    );
+    canvas.setAttribute('role', 'img');
+    container.appendChild(canvas);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.00001, 100);
+    camera.up.set(0, 0, 1);
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = false;
+    controls.screenSpacePanning = true;
+    const surfaceGroup = new THREE.Group(),
+      graphGroup = new THREE.Group(),
+      guideGroup = new THREE.Group(),
+      selectionGroup = new THREE.Group(),
+      draftGroup = new THREE.Group();
+    scene.add(surfaceGroup, graphGroup, guideGroup, selectionGroup, draftGroup);
+    scene.add(new THREE.AmbientLight(0xffffff, 1.65));
+    const key = new THREE.DirectionalLight(0xffffff, 2.6);
+    key.position.set(2, -3, 5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.7);
+    fill.position.set(-2, 1, 0);
+    scene.add(fill);
+    const draw = () => renderer.render(scene, camera);
+    const fit = () => {
+      const size = current.current.surface.size;
+      const radius = size * (current.current.surface.kind === 'cube' ? 0.92 : 0.8);
+      const distance =
+        radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.min(1, camera.aspect);
+      const direction = camera.position.clone().sub(controls.target);
+      if (direction.lengthSq() < 1e-10) direction.set(1.4, -1.8, 1.4);
+      camera.position.copy(direction.normalize().multiplyScalar(distance));
+      controls.target.set(0, 0, 0);
+      camera.near = Math.max(size / 10000, 1e-8);
+      camera.far = size * 1000;
+      controls.minDistance = size * 0.12;
+      controls.maxDistance = size * 100;
+      camera.updateProjectionMatrix();
+      controls.update();
+      draw();
+    };
+    const resize = () => {
+      const width = Math.max(1, container.clientWidth),
+        height = Math.max(1, container.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      draw();
+    };
+    const state: Runtime = {
+      renderer,
+      scene,
+      camera,
+      controls,
+      surfaceGroup,
+      graphGroup,
+      guideGroup,
+      selectionGroup,
+      draftGroup,
+      surfaceMesh: null,
+      meshData: null,
+      cellMesh: null,
+      cellIds: [],
+      draw,
+      fit,
+      resize,
+    };
+    runtime.current = state;
+    controls.addEventListener('change', draw);
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    camera.position.set(1.4, -1.8, 1.4);
+    resize();
+    fit();
+    const handle: ViewerHandle = {
+      fit,
+      view(preset) {
+        const directions = {
+          perspective: [1.4, -1.8, 1.4],
+          top: [0, -1e-3, 1],
+          front: [0, -1, 0],
+          right: [1, 0, 0],
+        };
+        camera.position.fromArray(directions[preset]);
+        // OrbitControls caches the up-axis transform during construction. Keep
+        // Z-up fixed; a tiny top-view tilt avoids the polar singularity.
+        camera.up.set(0, 0, 1);
+        controls.target.set(0, 0, 0);
+        fit();
+      },
+      screenshot() {
+        draw();
+        return canvas.toDataURL('image/png');
+      },
+    };
+    current.current.onReady?.(handle);
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const pick = (event: PointerEvent): GuideSample | null => {
+      if (!state.surfaceMesh || !state.meshData) return null;
+      const rect = canvas.getBoundingClientRect();
+      pointer.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        (-(event.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster
+        .intersectObject(state.surfaceMesh, false)
+        .find(
+          (intersection) =>
+            !intersection.face || intersection.face.normal.dot(raycaster.ray.direction) < 0
+        );
+      if (!hit || hit.faceIndex == null || !hit.face) return null;
+      const surface = current.current.surface;
+      const patch = state.meshData.trianglePatches[hit.faceIndex];
+      const projected = projectToSurface(surface, tuple(hit.point), patch);
+      // Recover analytic UV via the core projector, retaining the actual display
+      // triangle and barycentrics as picking provenance.
+      const attr = state.surfaceMesh.geometry.getAttribute('position');
+      const a = new THREE.Vector3().fromBufferAttribute(attr, hit.face.a);
+      const b = new THREE.Vector3().fromBufferAttribute(attr, hit.face.b);
+      const c = new THREE.Vector3().fromBufferAttribute(attr, hit.face.c);
+      const bary = THREE.Triangle.getBarycoord(hit.point, a, b, c, new THREE.Vector3());
+      projected.attachment.faceId = hit.faceIndex;
+      if (bary) projected.attachment.barycentric = tuple(bary);
+      return projected;
+    };
+    let activePointer: number | null = null;
+    let stroke: GuideSample[] = [];
+    let lastScreen: [number, number] | null = null;
+    let drawingBlocked = false;
+    const renderDraft = () => {
+      clear(draftGroup);
+      const segments: number[] = [];
+      appendPath(
+        segments,
+        stroke.map((sample) => sample.position)
+      );
+      lineSegments(draftGroup, segments, '#d09a4e');
+      draw();
+    };
+    const addSample = (event: PointerEvent) => {
+      if (drawingBlocked) return;
+      const sample = pick(event);
+      if (!sample) {
+        if (stroke.length) drawingBlocked = true;
+        lastScreen = null;
+        return;
+      }
+      if (
+        lastScreen &&
+        Math.hypot(event.clientX - lastScreen[0], event.clientY - lastScreen[1]) < 2
+      )
+        return;
+      const previous = stroke[stroke.length - 1];
+      // A missed surface or a large occlusion jump ends the connected stroke.
+      // Never bridge a silhouette or the rear of a closed surface.
+      if (
+        previous &&
+        (!lastScreen ||
+          v3(previous.position).distanceTo(v3(sample.position)) >
+            current.current.surface.size * 0.18)
+      ) {
+        drawingBlocked = true;
+        return;
+      }
+      if (previous && previous.attachment.patch === sample.attachment.patch) {
+        const count = Math.min(
+          12,
+          Math.ceil(
+            v3(previous.position).distanceTo(v3(sample.position)) /
+              (current.current.surface.size * 0.015)
+          )
+        );
+        for (let j = 1; j < count; j++) {
+          const t = j / count;
+          const uv: [number, number] = [
+            THREE.MathUtils.lerp(previous.attachment.uv[0], sample.attachment.uv[0], t),
+            THREE.MathUtils.lerp(previous.attachment.uv[1], sample.attachment.uv[1], t),
+          ];
+          stroke.push({
+            position: evaluateSurface(current.current.surface, sample.attachment.patch, ...uv),
+            attachment: {
+              surfaceRevision: current.current.surface.revision,
+              patch: sample.attachment.patch,
+              uv,
+            },
+          });
+        }
+      }
+      stroke.push(sample);
+      lastScreen = [event.clientX, event.clientY];
+      renderDraft();
+    };
+    const finishStroke = () => {
+      const samples = stroke;
+      stroke = [];
+      activePointer = null;
+      lastScreen = null;
+      clear(draftGroup);
+      draw();
+      if (
+        current.current.options.mode === 'draw' &&
+        samples.length >= 2 &&
+        samples.every(
+          (sample) => sample.attachment.surfaceRevision === current.current.surface.revision
+        )
+      )
+        current.current.onStroke(samples);
+    };
+    const select = (event: PointerEvent) => {
+      const sample = pick(event),
+        graph = current.current.graph;
+      if (!sample || !graph) {
+        current.current.onSelect(null);
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      let nearest: { id: string; distance: number } | null = null;
+      for (const node of graph.nodes) {
+        const position = v3(node.position);
+        if (position.distanceTo(v3(sample.position)) > current.current.surface.size * 0.08)
+          continue;
+        const projected = position.project(camera);
+        const distance = Math.hypot(
+          ((projected.x + 1) * rect.width) / 2 + rect.left - event.clientX,
+          ((-projected.y + 1) * rect.height) / 2 + rect.top - event.clientY
+        );
+        if (distance < 12 && (!nearest || distance < nearest.distance))
+          nearest = { id: node.id, distance };
+      }
+      if (nearest) {
+        current.current.onSelect({ kind: 'node', id: nearest.id });
+        return;
+      }
+      if (state.cellMesh) {
+        const hits = raycaster.intersectObject(state.cellMesh, false);
+        const hit = hits.find(
+          (candidate) =>
+            candidate.point.distanceTo(v3(sample.position)) < current.current.surface.size * 0.2
+        );
+        if (hit?.faceIndex != null) {
+          current.current.onSelect({ kind: 'cell', id: state.cellIds[hit.faceIndex] });
+          return;
+        }
+      }
+      current.current.onSelect(null);
+    };
+    const down = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      if (current.current.options.mode === 'draw') {
+        if (activePointer !== null) return;
+        event.preventDefault();
+        activePointer = event.pointerId;
+        stroke = [];
+        lastScreen = null;
+        drawingBlocked = false;
+        canvas.setPointerCapture(event.pointerId);
+        addSample(event);
+      } else if (current.current.options.mode === 'select') select(event);
+    };
+    const move = (event: PointerEvent) => {
+      if (activePointer === event.pointerId) {
+        addSample(event);
+        return;
+      }
+      const sample = pick(event);
+      current.current.onHover?.(
+        sample
+          ? `Patch ${sample.attachment.patch} · u ${sample.attachment.uv[0].toFixed(3)} · v ${sample.attachment.uv[1].toFixed(3)} · ${sample.position.map((value) => (value * 1000).toFixed(1)).join(', ')} mm`
+          : ''
+      );
+    };
+    const up = (event: PointerEvent) => {
+      if (activePointer === event.pointerId) finishStroke();
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    };
+    const cancel = (event: PointerEvent) => {
+      if (activePointer === event.pointerId) {
+        stroke = [];
+        activePointer = null;
+        lastScreen = null;
+        clear(draftGroup);
+        draw();
+      }
+    };
+    const leave = () => current.current.onHover?.('');
+    const contextLost = (event: Event) => {
+      event.preventDefault();
+      const message = 'The WebGL context was lost. Reload the page to restore the viewer.';
+      setError(message);
+      current.current.onError?.(message);
+    };
+    canvas.addEventListener('pointerdown', down);
+    canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointerup', up);
+    canvas.addEventListener('pointercancel', cancel);
+    canvas.addEventListener('pointerleave', leave);
+    canvas.addEventListener('webglcontextlost', contextLost);
+    setReady(true);
+    return () => {
+      observer.disconnect();
+      controls.dispose();
+      canvas.removeEventListener('pointerdown', down);
+      canvas.removeEventListener('pointermove', move);
+      canvas.removeEventListener('pointerup', up);
+      canvas.removeEventListener('pointercancel', cancel);
+      canvas.removeEventListener('pointerleave', leave);
+      canvas.removeEventListener('webglcontextlost', contextLost);
+      [surfaceGroup, graphGroup, guideGroup, selectionGroup, draftGroup].forEach(clear);
+      renderer.dispose();
+      canvas.remove();
+      runtime.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const state = runtime.current;
+    if (!state || !ready) return;
+    try {
+      clear(state.surfaceGroup);
+      state.surfaceMesh = null;
+      state.meshData = null;
+      const mesh = buildSurfaceMesh(props.surface, 32);
+      const indexed = geometry(mesh.positions);
+      indexed.setIndex(mesh.indices);
+      indexed.computeVertexNormals();
+      const geo = indexed.toNonIndexed();
+      indexed.dispose();
+      const patchColors: number[] = [];
+      mesh.trianglePatches.forEach((patch) => {
+        const shade = 0.32 + ((patch * 37) % 7) * 0.085;
+        for (let vertex = 0; vertex < 3; vertex++) patchColors.push(shade, shade, shade);
+      });
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(patchColors, 3));
+      const material = new THREE.MeshStandardMaterial({
+        color: props.options.background === 'light' ? '#c8c8c8' : '#252525',
+        roughness: 0.92,
+        metalness: 0.05,
+        side: THREE.DoubleSide,
+        polygonOffset: true,
+        polygonOffsetFactor: 2,
+        polygonOffsetUnits: 2,
+      });
+      const object = new THREE.Mesh(geo, material);
+      state.surfaceMesh = object;
+      state.meshData = mesh;
+      state.surfaceGroup.add(object);
+      const wire = new THREE.LineSegments(
+        new THREE.WireframeGeometry(geo),
+        new THREE.LineBasicMaterial({
+          color: '#686868',
+          transparent: true,
+          opacity: 0.22,
+          depthWrite: false,
+        })
+      );
+      wire.name = 'surface-wire';
+      state.surfaceGroup.add(wire);
+      const seams = new THREE.Group();
+      seams.name = 'surface-seams';
+      lineSegments(seams, surfaceBoundarySegments(mesh), '#909090', 0.8);
+      state.surfaceGroup.add(seams);
+      const displayScale = props.surface.kind === 'sphere' ? SPHERE_DISPLAY_SCALE : 1;
+      for (const group of [
+        state.graphGroup,
+        state.guideGroup,
+        state.selectionGroup,
+        state.draftGroup,
+        seams,
+      ])
+        group.scale.setScalar(displayScale);
+      setError('');
+      state.fit();
+    } catch (cause) {
+      const message = `Surface display failed: ${cause instanceof Error ? cause.message : String(cause)}`;
+      setError(message);
+      current.current.onError?.(message);
+    }
+    // Camera fit follows scientific geometry, not graph or display changes.
+  }, [
+    ready,
+    props.surface.kind,
+    props.surface.size,
+    props.surface.curvature,
+    props.surface.revision,
+  ]);
+
+  useEffect(() => {
+    const state = runtime.current;
+    if (!state || !ready) return;
+    clear(state.graphGroup);
+    state.cellMesh = null;
+    state.cellIds = [];
+    const graph = props.graph;
+    const light = props.options.background === 'light';
+    if (graph) {
+      const nodeMap = new Map(graph.nodes.map((node) => [node.id, node.position]));
+      const degrees = new Map<string, number>();
+      for (const edge of graph.edges) {
+        degrees.set(edge.a, (degrees.get(edge.a) || 0) + 1);
+        degrees.set(edge.b, (degrees.get(edge.b) || 0) + 1);
+      }
+      const segments: number[] = [],
+        colors: number[] = [],
+        features: number[] = [];
+      const target = graph.provenance.parameters.spacing;
+      for (const edge of graph.edges) {
+        const path = edgePath(props.surface, edge, nodeMap);
+        let color = new THREE.Color(light ? '#303030' : '#e1e1e1');
+        if (props.options.overlay === 'spacing') {
+          const measured = edge.path?.length ? pathLength(edge.path) : pathLength(path);
+          color = scalarColor(target > 0 ? (Math.abs(measured - target) / target) * 2 : 0, light);
+        } else if (props.options.overlay === 'valence') {
+          color = scalarColor(
+            degrees.get(edge.a) === 4 && degrees.get(edge.b) === 4 ? 0 : 1,
+            light
+          );
+        }
+        const start = segments.length;
+        appendPath(segments, path);
+        for (let j = start; j < segments.length; j += 3) colors.push(...color.toArray());
+        if (edge.feature && props.options.showSeams) appendPath(features, path);
+      }
+      if (props.options.showGraph)
+        lineSegments(state.graphGroup, segments, '#ffffff', 0.96, colors);
+      if (props.options.showSeams) lineSegments(state.graphGroup, features, '#d09a4e', 0.95);
+      if (props.options.showNodes) {
+        const positions: number[] = [],
+          nodeColors: number[] = [];
+        graph.nodes.forEach((node) => {
+          positions.push(...node.position);
+          const color =
+            props.options.overlay === 'valence'
+              ? scalarColor(degrees.get(node.id) === 4 ? 0 : 1, light)
+              : new THREE.Color(light ? '#1b1b1b' : '#ffffff');
+          nodeColors.push(...color.toArray());
+        });
+        pointsObject(state.graphGroup, positions, '#ffffff', 4, nodeColors);
+      }
+      if (props.options.showCoarse) {
+        const coarse: number[] = [];
+        graph.coarsePatches.forEach((patch) => {
+          if (patch.corners.length)
+            appendPath(
+              coarse,
+              embeddedPath(props.surface, [...patch.corners, patch.corners[0]], 32)
+            );
+        });
+        lineSegments(state.graphGroup, coarse, light ? '#696969' : '#a0a0a0', 0.85);
+      }
+      const cells = makeCellMesh(
+        graph,
+        props.surface,
+        light,
+        props.options.overlay === 'patches' && !props.options.showSurface
+      );
+      state.cellMesh = cells.mesh;
+      state.cellIds = cells.ids;
+      state.graphGroup.add(cells.mesh);
+    }
+    state.draw();
+  }, [
+    ready,
+    props.graph,
+    props.surface,
+    props.options.showGraph,
+    props.options.showSeams,
+    props.options.showNodes,
+    props.options.showCoarse,
+    props.options.overlay,
+    props.options.background,
+    props.options.showSurface,
+  ]);
+
+  useEffect(() => {
+    const state = runtime.current;
+    if (!state || !ready) return;
+    clear(state.guideGroup);
+    if (props.options.showGuides) {
+      const segments: number[] = [];
+      props.guides
+        .filter((guide) =>
+          guide.samples.every(
+            (sample) => sample.attachment.surfaceRevision === props.surface.revision
+          )
+        )
+        .forEach((guide) =>
+          appendPath(
+            segments,
+            embeddedPath(
+              props.surface,
+              guide.samples.map((sample) => sample.position),
+              4
+            )
+          )
+        );
+      lineSegments(state.guideGroup, segments, '#d09a4e');
+    }
+    state.draw();
+  }, [ready, props.guides, props.surface, props.options.showGuides]);
+
+  useEffect(() => {
+    const state = runtime.current;
+    if (!state || !ready) return;
+    clear(state.selectionGroup);
+    const { graph, selection, surface } = props;
+    if (graph && selection) {
+      if (selection.kind === 'node') {
+        const node = graph.nodes.find((candidate) => candidate.id === selection.id);
+        if (node) pointsObject(state.selectionGroup, node.position, '#d09a4e', 10);
+      } else {
+        const cell = graph.cells.find((candidate) => candidate.id === selection.id);
+        if (cell) {
+          const nodes = new Map(graph.nodes.map((node) => [node.id, node.position]));
+          const path = cell.nodes.map((id) => nodes.get(id)).filter((p): p is Vec3 => !!p);
+          const segments: number[] = [];
+          if (path.length) appendPath(segments, embeddedPath(surface, [...path, path[0]], 12));
+          lineSegments(state.selectionGroup, segments, '#d09a4e');
+        }
+      }
+    }
+    state.draw();
+  }, [ready, props.graph, props.selection, props.surface]);
+
+  useEffect(() => {
+    const state = runtime.current;
+    if (!state || !ready) return;
+    state.scene.background = new THREE.Color(
+      props.options.background === 'light' ? '#e4e4e4' : '#0b0b0b'
+    );
+    if (state.surfaceMesh) {
+      state.surfaceMesh.visible = props.options.showSurface;
+      // Raycasting remains available even when the render surface is hidden.
+      const material = state.surfaceMesh.material as THREE.MeshStandardMaterial;
+      const patches = props.options.overlay === 'patches';
+      material.color.set(
+        patches ? '#ffffff' : props.options.background === 'light' ? '#c8c8c8' : '#252525'
+      );
+      if (material.vertexColors !== patches) {
+        material.vertexColors = patches;
+        material.needsUpdate = true;
+      }
+    }
+    const wire = state.surfaceGroup.getObjectByName('surface-wire');
+    if (wire) wire.visible = props.options.wireframe;
+    const seams = state.surfaceGroup.getObjectByName('surface-seams');
+    if (seams) seams.visible = props.options.showSeams;
+    state.controls.enabled = props.options.mode === 'orbit';
+    state.renderer.domElement.style.cursor =
+      props.options.mode === 'draw'
+        ? 'crosshair'
+        : props.options.mode === 'select'
+          ? 'pointer'
+          : 'grab';
+    state.draw();
+  }, [ready, props.options, props.surface]);
+
+  return (
+    <div
+      ref={host}
+      data-testid="surface-viewer"
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        minHeight: 240,
+        overflow: 'hidden',
+      }}
+    >
+      {error && (
+        <div
+          role="alert"
+          style={{
+            position: 'absolute',
+            inset: 20,
+            padding: 16,
+            border: '1px solid #555',
+            color: '#d09a4e',
+            background: '#141414',
+            zIndex: 2,
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {!ready && !error && (
+        <div role="status" style={{ position: 'absolute', inset: 20, color: '#8a8a8a' }}>
+          Preparing surface viewer…
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,15 @@
+{
+  "purpose": "Planning record; not a recognized provider client configuration or executable dispatcher.",
+  "providers": {
+    "openai": {
+      "model": "gpt-6.1-sol"
+    },
+    "anthropic": {
+      "model": "claude-opus-5-5"
+    }
+  },
+  "initial_primary_coordinator": "openai",
+  "initial_research_and_review": "anthropic",
+  "assignment_policy": "Use project benchmarks to adjust; no intrinsic provider-to-domain superiority assumed.",
+  "execution": "Native profiles within a provider; explicit handoffs across providers until a dispatcher is implemented."
+}

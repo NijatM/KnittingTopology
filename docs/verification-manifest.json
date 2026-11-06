@@ -1,0 +1,107 @@
+{
+  "generated_at_utc": "2026-11-06T14:18:47.005Z",
+  "node": "v26.11.1",
+  "checks": {
+    "date": "2026-11-06",
+    "typecheck": {
+      "command": "npm run typecheck",
+      "result": "pass"
+    },
+    "unit_tests": {
+      "command": "npm test",
+      "result": "pass",
+      "passed": 135,
+      "core": 104,
+      "project_and_persistence": 31,
+      "duration_seconds": 16.73
+    },
+    "production_build": {
+      "command": "npm run build",
+      "result": "pass",
+      "base": "/KnittingTopology/",
+      "worker": "separate ES module",
+      "initial_js_kb": 288.33,
+      "lazy_viewer_js_kb": 577.24
+    },
+    "development_browser_tests": {
+      "command": "npx playwright test",
+      "result": "pass",
+      "passed": 7,
+      "duration_seconds": 56.1,
+      "page_or_console_errors": 0
+    },
+    "production_browser_tests": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4173/KnittingTopology/ npx playwright test",
+      "result": "pass",
+      "passed": 7,
+      "duration_seconds": 55.5,
+      "page_or_console_errors": 0
+    },
+    "production_network": {
+      "requests": 17,
+      "worker_js": 3,
+      "font_assets": 4,
+      "scripts": 7,
+      "failed_requests": 0,
+      "external_requests": 0,
+      "subpath_violations": 0
+    },
+    "native_gpu": {
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)",
+      "context_lost": false,
+      "errors": 0
+    },
+    "mobile": {
+      "viewport_width": 375,
+      "document_width": 375,
+      "body_width": 375,
+      "physical_device": false
+    },
+    "independent_reviews": {
+      "provider": "Anthropic",
+      "reported_model": "claude-opus-5-5",
+      "completed": 4,
+      "tools_enabled": false,
+      "authentication": "Claude Code subscription",
+      "reviews_executed_tests": false
+    },
+    "git_actions_performed": false,
+    "deployed": false,
+    "physical_or_manufacturing_validation": false
+  },
+  "source_sha256": {
+    "index.html": "aff9f6ac5f5b8f70c3125ee45ffbcfea03fb4658104f47814f385145dd853f6a",
+    "package-lock.json": "d0060377ea7d98f073e9085255598f16c4d994af2595e6eb15149b06a18cd357",
+    "package.json": "9a798535fd308f84218d02e3bcc7bfcd8068e65bc479a8b630d67a95bc96a880",
+    "playwright.config.ts": "371a037b42004cbe6e28d97e8efa0f0ada9cd6e0b46411f7bd87dcc59e6113dc",
+    "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
+    "src/app/App.tsx": "bcbef6a7553c7571f5c35e57c588a16541638e3b9dbc437f8a2e10096200c7ba",
+    "src/app/persistence.ts": "d06887d9338e84201da76426721f4678047584cbe8120d0ec870c0dd33ef9b0c",
+    "src/app/project.ts": "5872a8cc958ba591d34e459bca081031118f8e4bf4b2f56f99311ae3a3b76c00",
+    "src/core/README.md": "0da67978af9c3f4a745435c634e275c88ffe46865e45baa15ddfaf85491b9659",
+    "src/core/diagnostics.ts": "83d1d66a7558f62982b6a2ef5b2403a8b6a7b162b5c17f855810f111f293ab24",
+    "src/core/generate.ts": "7f5163dbfbef0e61b4ae1ab526291bc729d1fefc68da72f91acf2711d66e71fd",
+    "src/core/limits.ts": "0eb1570cfe84b26b75490ede098fa90018dae7d3a249b15d837c36d895ce685f",
+    "src/core/math.ts": "f7a97ae1b32a5369b0e101d0d8deb9dd9bcedcc075a7ae96eba5355164e71d4b",
+    "src/core/strips.ts": "cf1e459385a447eb62f21145a3918126551dec28546a3199487d9378b97cdeb5",
+    "src/core/surfaces.ts": "2912e4f4fe83f4ebaa7027b4d1ca50f46fd0af3a9d688148a9b0316dc5977de4",
+    "src/core/topology.ts": "9c53a8af1562170686bdd5ede6f10352c73f50c47981f2508e0bdb35af3f7af5",
+    "src/core/types.ts": "47d376c1b3e7792e5c7f457340c9965793c686287a7c7a86e261db36d3802652",
+    "src/main.tsx": "2e321c8d93adfc7e6c1616ebd55e6d2f35d7a114d701bb010172aaeb3e2cab19",
+    "src/styles.css": "f6a398aec2a02ef453a837b78ed543ed50c27dcd0a6e93e8c9b84cf635e421a0",
+    "src/viewer/README.md": "234d07c94463021f3b4b91168fbdbed69bc305fd690758e29008f5190eebb8ab",
+    "src/viewer/SurfaceViewer.tsx": "731a19b333263acaff1129345127307193000c29e0d745ecf3fa3743cb1a0fcb",
+    "src/viewer/types.ts": "ca11b6a81204c61a3e74fe7b34cdedc58e247c48ebcfe23778120e0332ae87c4",
+    "src/workers/generation.worker.ts": "34a24d024af12a3056d070a91f409d7ee3930d32d8e07e78b35b86e40a79a6b2",
+    "src/workers/protocol.ts": "ebd32a2d468b89aa61b3850c6a17936d71cda92cd37e6eeb09bcd75e1a1fe2eb",
+    "tests/app/persistence.test.ts": "019d02828e5d55abe2ffc6ae93ba89327fa583ddcf5d8beccc45340afb13f720",
+    "tests/app/project.test.ts": "0509d29376cb7bc8d119bd0c9f4edd9495082830fea72e88144aece9a9c39bb6",
+    "tests/browser/README.md": "7414e38dccd5e0b89293f019a1ad42c3250d9971ae38e637da4e2414bd0b62d3",
+    "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
+    "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
+    "tests/core/audit.test.ts": "2766318b75fb01907bcd6433bc640a1a9ab06aacb2d2c11b504e3d69ccd1e3fb",
+    "tests/core/generation.test.ts": "a6fef7bbdfdb061b08cd42b2067487c06d764040b8f02e389a273d60c072d3c1",
+    "tsconfig.json": "4a4fff72cdc41b0563fabf044679250b8966bf52b7993e5a62924ee189452153",
+    "vite.config.ts": "961f88838d87faf68dc5c0f81f4bd2926f9d37480609c941cf10ae7704173953"
+  }
+}
