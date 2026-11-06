@@ -44,6 +44,8 @@ export function restoreFromStorage(storage: StorageLike): RestoreResult {
   };
   try {
     const project = parseProject(raw);
+    // Imported geometry is reanalyzed off the UI thread by the inspector hook.
+    // No cached mesh diagnostics are accepted as scientific evidence.
     if (project.graph) {
       const checked = analyzeGraph(
         project.graph,

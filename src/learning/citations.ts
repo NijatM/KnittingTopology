@@ -93,11 +93,14 @@ const numeric = (n: number) =>
   Number.isFinite(n) ? String(Number(n.toPrecision(8))) : 'unspecified';
 
 export function describeMethod(p: PatternParameters, surfaceKind: SurfaceKind): string {
+  if (surfaceKind === 'mesh')
+    return 'An imported triangle mesh is retained for geometric and connectivity inspection. Source units are converted explicitly to meters, and the bounding-box center translation is recorded. No generated cell network, verified surface parameterization or retopology method has been applied.';
   const surfaces: Record<SurfaceKind, string> = {
     plane: 'a plane',
     cube: 'a cube with shared crease identities',
     sphere: 'a sphere with a shared cubical atlas',
     saddle: 'an analytic saddle',
+    mesh: 'an imported triangle mesh',
   };
   const families = {
     quad: 'the untransformed quad network',

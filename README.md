@@ -28,7 +28,7 @@ The browser configuration uses installed Google Chrome on macOS, with isolated c
 
 ## Explore
 
-1. Choose a **plane, cube, sphere, or saddle**. Dimensions and spacing are displayed in millimeters; scientific state uses meters.
+1. Choose a **plane, cube, sphere, or saddle**. Import OBJ/STL for [surface inspection](docs/imported-surfaces.md) with an explicit unit declaration; imported meshes are inspection-only until a surface mapping is verified. Dimensions and spacing are displayed in millimeters; scientific state uses meters.
 2. Choose **Surface patch network** for regular, inset, alternating or nested control topology. Set target spacing, or edit compatible strip subdivisions in the Topology inspector.
 3. Use **Draw guide** to sketch soft direction preferences on the surface. Orbiting the camera does not move attached strokes. **Field orientation** defines the background tangent cross-field.
 4. Press **Generate / Regenerate** (G). Generation is explicit and cancellable; obsolete results cannot replace newer edits. The previous accepted result stays visible while computing on the same surface.
@@ -67,8 +67,9 @@ src/app/        React workspace, immutable project history, validated serializat
 src/workers/    revision-tagged background generation and progress protocol
 src/adapters/   explicit geometry/projection/project exports
 src/learning/   method lessons, construction diagrams and citation registry
+src/import/     bounded mesh parsing, local diagnostics and import interface
 tests/         numerical, project and isolated browser verification
 research/      primary-source register and scientific references
 ```
 
-Arbitrary surface import, direct graph grammar editing, pseudo-quads/poles, calibrated mechanics, textile semantics, and machine adapters are future work. The contracts preserve a boundary for them without claiming they are implemented.
+Pattern generation on arbitrary imported surfaces, direct graph grammar editing, pseudo-quads/poles, calibrated mechanics, textile semantics, and machine adapters are future work. The contracts preserve a boundary for them without claiming they are implemented.

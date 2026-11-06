@@ -7,12 +7,14 @@ import type {
   ViewerSelection,
 } from '../viewer/types';
 import type {
+  AnalyticSurfaceKind,
+  ImportedMeshReport,
+  SurfaceSpec,
   Diagnostic,
   GuideSample,
   PatternFamily,
   PatternParameters,
   ProjectState,
-  SurfaceKind,
   TopologyPreset,
 } from '../core/types';
 import { analyzeGraph } from '../core/diagnostics';
@@ -46,9 +48,12 @@ import LearningPanel from '../learning/LearningPanel';
 import type { LearningExample } from '../learning/types';
 import { createCitationRecord } from '../adapters/citations';
 import { referencesBibtex, relevantReferenceIds } from '../learning/citations';
+import ImportControls from '../import/ImportControls';
+import MeshInspector from '../import/MeshInspector';
+import { seedMeshReport, useMeshReport } from '../import/useMeshReport';
 
 const SurfaceViewer = lazy(() => import('../viewer/SurfaceViewer'));
-const SURFACES: { key: SurfaceKind; name: string; caption: string }[] = [
+const SURFACES: { key: AnalyticSurfaceKind; name: string; caption: string }[] = [
   { key: 'plane', name: 'Plane', caption: 'Open / flat' },
   { key: 'cube', name: 'Cube', caption: 'Closed / creased' },
   { key: 'sphere', name: 'Sphere', caption: 'Closed / curved' },
@@ -112,7 +117,7 @@ function Icon({ name, size = 15 }: { name: string; size?: number }) {
     </svg>
   );
 }
-function SurfaceGlyph({ kind }: { kind: SurfaceKind }) {
+function SurfaceGlyph({ kind }: { kind: AnalyticSurfaceKind }) {
   return (
     <svg
       viewBox="0 0 80 52"
@@ -277,6 +282,8 @@ export default function App() {
     future: [],
   }));
   const project = history.present;
+  const imported = project.surface.kind === 'mesh';
+  const meshInspection = useMeshReport(project.surface);
   const [nameDraft, setNameDraft] = useState(project.name);
   useEffect(() => setNameDraft(project.name), [project.name]);
   const [cacheNotice, setCacheNotice] = useState(
@@ -289,6 +296,9 @@ export default function App() {
   const projectRef = useRef(project);
   projectRef.current = project;
   const [view, setView] = useState<ViewerOptions>(DEFAULT_VIEW);
+  useEffect(() => {
+    if (imported) setView((v) => (v.mode === 'draw' ? { ...v, mode: 'orbit' } : v));
+  }, [imported]);
   const [selection, setSelection] = useState<ViewerSelection | null>(null);
   const [tab, setTab] = useState<'measures' | 'topology' | 'compare' | 'methods'>('measures');
   const [variants, setVariants] = useState<{ id: number; name: string; project: ProjectState }[]>(
@@ -336,6 +346,12 @@ export default function App() {
     cancel(false);
     setError(null);
     const snapshot = projectRef.current;
+    if (snapshot.surface.kind === 'mesh') {
+      setStatus(
+        'Imported surface inspection. Pattern generation requires a verified surface mapping.'
+      );
+      return;
+    }
     const signature = scientificSignature(snapshot);
     const id = ++sequence.current;
     let worker: Worker;
@@ -406,7 +422,7 @@ export default function App() {
   useEffect(() => {
     if (!initialGeneration.current) {
       initialGeneration.current = true;
-      if (!projectRef.current.graph) generate();
+      if (!projectRef.current.graph && projectRef.current.surface.kind !== 'mesh') generate();
       else setStatus(initialRestore.notice || 'Restored your locally saved project.');
     }
     return () => {
@@ -468,7 +484,8 @@ export default function App() {
         event.shiftKey ? redo() : undo();
       } else if (event.metaKey || event.ctrlKey || event.altKey) return;
       else if (event.key.toLowerCase() === 'g' && !event.metaKey && !event.ctrlKey) generate();
-      else if (event.key.toLowerCase() === 'd') setView((v) => ({ ...v, mode: 'draw' }));
+      else if (event.key.toLowerCase() === 'd' && projectRef.current.surface.kind !== 'mesh')
+        setView((v) => ({ ...v, mode: 'draw' }));
       else if (event.key.toLowerCase() === 'v') setView((v) => ({ ...v, mode: 'orbit' }));
       else if (event.key.toLowerCase() === 'f') viewer.current?.fit();
       else if (event.key === 'Escape') {
@@ -489,10 +506,13 @@ export default function App() {
       `parameters:${Object.keys(change).sort().join(',')}`
     );
   };
-  const changeSurface = (kind: SurfaceKind) => {
+  const changeSurface = (kind: AnalyticSurfaceKind) => {
     cancel(false);
     const current = projectRef.current;
-    const next = geometryChange(current, { kind });
+    const next = geometryChange(current, {
+      kind,
+      ...(current.surface.kind === 'mesh' ? { size: 0.18 } : {}),
+    });
     if (kind !== 'plane')
       next.parameters = { ...next.parameters, strategy: 'patch-grid', stripOverrides: undefined };
     else next.parameters = { ...next.parameters, stripOverrides: undefined };
@@ -608,6 +628,43 @@ export default function App() {
     viewer.current = handle;
   }, []);
   const viewerError = useCallback((message: string) => setError(message), []);
+  const acceptImportedSurface = useCallback(
+    (surface: SurfaceSpec, report: ImportedMeshReport, inputRevision: number) => {
+      const current = projectRef.current;
+      if (current.revision !== inputRevision || surface.kind !== 'mesh' || !surface.mesh)
+        return false;
+      cancel(false);
+      seedMeshReport(surface.mesh, report);
+      commit({
+        ...current,
+        surface,
+        parameters: { ...current.parameters, stripOverrides: undefined },
+        guides: [],
+        graph: null,
+        diagnostics: [],
+        statistics: null,
+      });
+      setSelection(null);
+      setElapsed(null);
+      setView((v) => ({
+        ...v,
+        mode: 'orbit',
+        overlay: 'plain',
+        showSurface: true,
+        wireframe: true,
+        showSeams: true,
+        showGraph: true,
+        showGuides: false,
+        showCoarse: false,
+      }));
+      setStatus(
+        `${surface.mesh.source.name} imported for inspection. Undo restores your previous surface.`
+      );
+      setTab('measures');
+      return true;
+    },
+    [cancel, commit]
+  );
   const loadLearningExample = useCallback(
     (example: LearningExample) => {
       cancel(false);
@@ -702,20 +759,22 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <RangeControl
-              label={project.surface.kind === 'sphere' ? 'Diameter' : 'Side length'}
-              value={Math.round(project.surface.size * 1000)}
-              min={40}
-              max={400}
-              step={5}
-              suffix="mm"
-              onChange={(n) => {
-                cancel(false);
-                commit(geometryChange(projectRef.current, { size: n / 1000 }), 'surface:size');
-                setSelection(null);
-                setElapsed(null);
-              }}
-            />
+            {!imported && (
+              <RangeControl
+                label={project.surface.kind === 'sphere' ? 'Diameter' : 'Side length'}
+                value={Math.round(project.surface.size * 1000)}
+                min={40}
+                max={400}
+                step={5}
+                suffix="mm"
+                onChange={(n) => {
+                  cancel(false);
+                  commit(geometryChange(projectRef.current, { size: n / 1000 }), 'surface:size');
+                  setSelection(null);
+                  setElapsed(null);
+                }}
+              />
+            )}
             {project.surface.kind === 'saddle' && (
               <RangeControl
                 label="Saddle rise"
@@ -731,190 +790,210 @@ export default function App() {
                 }}
               />
             )}
+            <details className="surface-import">
+              <summary>Import OBJ / STL</summary>
+              <ImportControls revision={project.revision} onImported={acceptImportedSurface} />
+            </details>
           </section>
-          <section className="control-section">
-            <h2>
-              <span>02</span> Topology <i />
-            </h2>
-            <label className="select-label">
-              Construction
-              <select
-                aria-label="Construction"
-                value={project.parameters.strategy}
-                onChange={(e) => {
-                  cancel(false);
-                  const current = projectRef.current;
-                  const next =
-                    e.target.value === 'n-sided-patch' && current.surface.kind !== 'plane'
-                      ? geometryChange(current, { kind: 'plane' })
-                      : current;
-                  commit({
-                    ...next,
-                    parameters: {
-                      ...next.parameters,
-                      strategy: e.target.value as PatternParameters['strategy'],
-                      stripOverrides: undefined,
-                    },
-                  });
-                  setSelection(null);
-                  setElapsed(null);
-                }}
-              >
-                <option value="patch-grid">Surface patch network</option>
-                <option value="n-sided-patch">N-sided patch laboratory</option>
-              </select>
-            </label>
-            {!patchMode ? (
-              <>
-                <div className="preset-grid">
-                  {PRESETS.map((p) => (
+          {!imported && (
+            <>
+              <section className="control-section">
+                <h2>
+                  <span>02</span> Topology <i />
+                </h2>
+                <label className="select-label">
+                  Construction
+                  <select
+                    aria-label="Construction"
+                    value={project.parameters.strategy}
+                    onChange={(e) => {
+                      cancel(false);
+                      const current = projectRef.current;
+                      const next =
+                        e.target.value === 'n-sided-patch' && current.surface.kind !== 'plane'
+                          ? geometryChange(current, { kind: 'plane' })
+                          : current;
+                      commit({
+                        ...next,
+                        parameters: {
+                          ...next.parameters,
+                          strategy: e.target.value as PatternParameters['strategy'],
+                          stripOverrides: undefined,
+                        },
+                      });
+                      setSelection(null);
+                      setElapsed(null);
+                    }}
+                  >
+                    <option value="patch-grid">Surface patch network</option>
+                    <option value="n-sided-patch">N-sided patch laboratory</option>
+                  </select>
+                </label>
+                {!patchMode ? (
+                  <>
+                    <div className="preset-grid">
+                      {PRESETS.map((p) => (
+                        <button
+                          key={p.key}
+                          aria-pressed={project.parameters.preset === p.key}
+                          className={project.parameters.preset === p.key ? 'active' : ''}
+                          onClick={() =>
+                            changeParameter({ preset: p.key, stripOverrides: undefined })
+                          }
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                    <RangeControl
+                      label="Target spacing"
+                      value={Number((project.parameters.spacing * 1000).toFixed(1))}
+                      min={3}
+                      max={40}
+                      step={0.5}
+                      suffix="mm"
+                      onChange={(n) =>
+                        changeParameter({ spacing: n / 1000, stripOverrides: undefined })
+                      }
+                    />
+                  </>
+                ) : (
+                  <>
+                    <label className="select-label">
+                      Patch sides
+                      <select
+                        aria-label="Patch sides"
+                        value={project.parameters.patchSides}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          changeParameter({
+                            patchSides: n,
+                            boundaryCounts: Array(n).fill(6),
+                            variant: 0,
+                          });
+                        }}
+                      >
+                        {[3, 4, 5, 6].map((n) => (
+                          <option key={n} value={n}>
+                            {n}-sided patch
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="boundary-counts">
+                      {project.parameters.boundaryCounts.map((count, i) => (
+                        <label key={i}>
+                          Side {i + 1}
+                          <input
+                            aria-label={`Side ${i + 1} subdivisions`}
+                            type="number"
+                            min="1"
+                            max="64"
+                            value={count}
+                            onChange={(e) => {
+                              const counts = [...project.parameters.boundaryCounts];
+                              counts[i] = Math.max(
+                                1,
+                                Math.min(64, Math.round(Number(e.target.value) || 1))
+                              );
+                              changeParameter({ boundaryCounts: counts });
+                            }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="inline-actions">
+                      <button
+                        onClick={() =>
+                          changeParameter({
+                            boundaryCounts: Array(project.parameters.patchSides).fill(6),
+                          })
+                        }
+                      >
+                        Equal counts
+                      </button>
+                      <button
+                        aria-pressed={project.parameters.variant === 1}
+                        onClick={() =>
+                          changeParameter({ variant: project.parameters.variant ? 0 : 1 })
+                        }
+                      >
+                        Variant {project.parameters.variant + 1}
+                      </button>
+                    </div>
+                    <p className="hint">
+                      A bounded template subset. Unsupported subdivision combinations are reported
+                      explicitly.
+                    </p>
+                  </>
+                )}
+                <RangeControl
+                  label="Field orientation"
+                  value={project.parameters.orientation}
+                  min={-90}
+                  max={90}
+                  step={5}
+                  suffix="°"
+                  onChange={(n) => changeParameter({ orientation: n })}
+                />
+                <RangeControl
+                  label="Guide influence"
+                  value={Math.round(project.parameters.guideStrength * 100)}
+                  min={0}
+                  max={100}
+                  suffix="%"
+                  onChange={(n) => changeParameter({ guideStrength: n / 100 })}
+                />
+                <RangeControl
+                  label="Relaxation"
+                  value={Math.round(project.parameters.relaxation * 100)}
+                  min={0}
+                  max={100}
+                  suffix="%"
+                  onChange={(n) => changeParameter({ relaxation: n / 100 })}
+                />
+              </section>
+              <section className="control-section">
+                <h2>
+                  <span>03</span> Pattern <i />
+                </h2>
+                <div className="family-grid">
+                  {FAMILIES.map((f) => (
                     <button
-                      key={p.key}
-                      aria-pressed={project.parameters.preset === p.key}
-                      className={project.parameters.preset === p.key ? 'active' : ''}
-                      onClick={() => changeParameter({ preset: p.key, stripOverrides: undefined })}
+                      key={f.key}
+                      className={`family-card ${project.parameters.family === f.key ? 'active' : ''}`}
+                      aria-pressed={project.parameters.family === f.key}
+                      onClick={() => changeParameter({ family: f.key })}
                     >
-                      {p.name}
+                      <FamilyGlyph family={f.key} />
+                      <span>{f.name}</span>
                     </button>
                   ))}
                 </div>
-                <RangeControl
-                  label="Target spacing"
-                  value={Number((project.parameters.spacing * 1000).toFixed(1))}
-                  min={3}
-                  max={40}
-                  step={0.5}
-                  suffix="mm"
-                  onChange={(n) =>
-                    changeParameter({ spacing: n / 1000, stripOverrides: undefined })
-                  }
-                />
-              </>
-            ) : (
-              <>
-                <label className="select-label">
-                  Patch sides
-                  <select
-                    aria-label="Patch sides"
-                    value={project.parameters.patchSides}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      changeParameter({
-                        patchSides: n,
-                        boundaryCounts: Array(n).fill(6),
-                        variant: 0,
-                      });
-                    }}
-                  >
-                    {[3, 4, 5, 6].map((n) => (
-                      <option key={n} value={n}>
-                        {n}-sided patch
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="boundary-counts">
-                  {project.parameters.boundaryCounts.map((count, i) => (
-                    <label key={i}>
-                      Side {i + 1}
-                      <input
-                        aria-label={`Side ${i + 1} subdivisions`}
-                        type="number"
-                        min="1"
-                        max="64"
-                        value={count}
-                        onChange={(e) => {
-                          const counts = [...project.parameters.boundaryCounts];
-                          counts[i] = Math.max(
-                            1,
-                            Math.min(64, Math.round(Number(e.target.value) || 1))
-                          );
-                          changeParameter({ boundaryCounts: counts });
-                        }}
-                      />
-                    </label>
-                  ))}
-                </div>
-                <div className="inline-actions">
-                  <button
-                    onClick={() =>
-                      changeParameter({
-                        boundaryCounts: Array(project.parameters.patchSides).fill(6),
-                      })
-                    }
-                  >
-                    Equal counts
-                  </button>
-                  <button
-                    aria-pressed={project.parameters.variant === 1}
-                    onClick={() => changeParameter({ variant: project.parameters.variant ? 0 : 1 })}
-                  >
-                    Variant {project.parameters.variant + 1}
-                  </button>
-                </div>
-                <p className="hint">
-                  A bounded template subset. Unsupported subdivision combinations are reported
-                  explicitly.
-                </p>
-              </>
-            )}
-            <RangeControl
-              label="Field orientation"
-              value={project.parameters.orientation}
-              min={-90}
-              max={90}
-              step={5}
-              suffix="°"
-              onChange={(n) => changeParameter({ orientation: n })}
-            />
-            <RangeControl
-              label="Guide influence"
-              value={Math.round(project.parameters.guideStrength * 100)}
-              min={0}
-              max={100}
-              suffix="%"
-              onChange={(n) => changeParameter({ guideStrength: n / 100 })}
-            />
-            <RangeControl
-              label="Relaxation"
-              value={Math.round(project.parameters.relaxation * 100)}
-              min={0}
-              max={100}
-              suffix="%"
-              onChange={(n) => changeParameter({ relaxation: n / 100 })}
-            />
-          </section>
-          <section className="control-section">
-            <h2>
-              <span>03</span> Pattern <i />
-            </h2>
-            <div className="family-grid">
-              {FAMILIES.map((f) => (
-                <button
-                  key={f.key}
-                  className={`family-card ${project.parameters.family === f.key ? 'active' : ''}`}
-                  aria-pressed={project.parameters.family === f.key}
-                  onClick={() => changeParameter({ family: f.key })}
-                >
-                  <FamilyGlyph family={f.key} />
-                  <span>{f.name}</span>
-                </button>
-              ))}
-            </div>
-          </section>
+              </section>
+            </>
+          )}
         </div>
         <div className="generate-area">
-          <button className="generate-button" onClick={generate} disabled={!!busy}>
-            <span>{project.graph ? 'Regenerate network' : 'Generate network'}</span>
+          <button className="generate-button" onClick={generate} disabled={!!busy || imported}>
+            <span>
+              {imported
+                ? 'Inspection only'
+                : project.graph
+                  ? 'Regenerate network'
+                  : 'Generate network'}
+            </span>
             <Icon name="arrow" size={18} />
           </button>
           <div className="generate-caption">
             <span>
-              {stale
-                ? 'Settings changed · regenerate'
-                : busy
-                  ? 'Computation in worker'
-                  : 'Deterministic / local computation'}
+              {imported
+                ? 'Surface mapping required to generate'
+                : stale
+                  ? 'Settings changed · regenerate'
+                  : busy
+                    ? 'Computation in worker'
+                    : 'Deterministic / local computation'}
             </span>
             <kbd>G</kbd>
           </div>
@@ -991,6 +1070,7 @@ export default function App() {
               <button
                 key={mode}
                 aria-label={`${mode[0].toUpperCase() + mode.slice(1)} mode`}
+                disabled={imported && mode === 'draw'}
                 aria-pressed={view.mode === mode}
                 className={view.mode === mode ? 'active' : ''}
                 onClick={() => setView((v) => ({ ...v, mode }))}
@@ -1052,18 +1132,22 @@ export default function App() {
           </Suspense>
           <div className="canvas-heading">
             <span className="eyebrow">
-              {displayParameters.strategy === 'n-sided-patch'
-                ? `${displayParameters.patchSides}-SIDED PATCH`
-                : project.surface.kind.toUpperCase()}{' '}
-              / {activeFamily.name.toUpperCase()}
+              {imported
+                ? 'IMPORTED TRIANGLE MESH'
+                : displayParameters.strategy === 'n-sided-patch'
+                  ? `${displayParameters.patchSides}-SIDED PATCH`
+                  : project.surface.kind.toUpperCase()}{' '}
+              / {imported ? 'INSPECT' : activeFamily.name.toUpperCase()}
             </span>
             <div>
               <span className={`state-indicator ${stale ? 'stale' : ''}`} />
-              {!project.graph
-                ? 'Surface ready'
-                : stale
-                  ? 'Result needs regeneration'
-                  : 'Connected geometric network'}
+              {imported
+                ? 'Imported surface · inspection only'
+                : !project.graph
+                  ? 'Surface ready'
+                  : stale
+                    ? 'Result needs regeneration'
+                    : 'Connected geometric network'}
             </div>
           </div>
           <div className="view-presets" role="group" aria-label="Camera views">
@@ -1076,8 +1160,12 @@ export default function App() {
           <div className="canvas-scale">
             <span>↗ Z UP</span>
             <span>
-              {Math.round(project.surface.size * 1000)} mm{' '}
-              {project.surface.kind === 'sphere' ? 'diameter' : 'extent'}
+              {imported
+                ? (project.surface.size * 1000).toLocaleString('en-US', {
+                    maximumSignificantDigits: 5,
+                  })
+                : Math.round(project.surface.size * 1000)}{' '}
+              mm {project.surface.kind === 'sphere' ? 'diameter' : 'extent'}
             </span>
           </div>
           {view.mode === 'draw' && (
@@ -1087,7 +1175,7 @@ export default function App() {
           )}
           {view.mode === 'select' && (
             <div className="mode-hint">
-              Select a cell or vertex
+              {imported ? 'Select a source triangle' : 'Select a cell or vertex'}
               <span>Connectivity and coordinates appear in the inspector</span>
             </div>
           )}
@@ -1185,36 +1273,77 @@ export default function App() {
 
       <aside className="inspector" aria-label="Network inspector">
         <div className="inspector-top">
-          <span className="eyebrow">NETWORK INSPECTOR</span>
+          <span className="eyebrow">{imported ? 'SURFACE INSPECTOR' : 'NETWORK INSPECTOR'}</span>
           <span
             className={`quality-badge ${errors.length ? 'bad' : warnings.length || stale ? 'warn' : ''}`}
           >
-            {!project.graph
-              ? 'NO RESULT'
-              : stale
-                ? 'STALE'
-                : errors.length
-                  ? `${errors.length} ERRORS`
-                  : warnings.length
-                    ? `${warnings.length} NOTES`
-                    : 'CHECKED'}
+            {imported
+              ? 'IMPORTED'
+              : !project.graph
+                ? 'NO RESULT'
+                : stale
+                  ? 'STALE'
+                  : errors.length
+                    ? `${errors.length} ERRORS`
+                    : warnings.length
+                      ? `${warnings.length} NOTES`
+                      : 'CHECKED'}
           </span>
         </div>
-        <div className="inspector-tabs" role="tablist" aria-label="Inspector sections">
-          {(['measures', 'topology', 'compare', 'methods'] as const).map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
-              className={tab === t ? 'active' : ''}
-            >
-              {t === 'methods' ? 'Learn' : t[0].toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="inspector-content" role="tabpanel" aria-label={tab}>
-          {tab === 'measures' && (
+        {!imported && (
+          <div className="inspector-tabs" role="tablist" aria-label="Inspector sections">
+            {(['measures', 'topology', 'compare', 'methods'] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => setTab(t)}
+                className={tab === t ? 'active' : ''}
+              >
+                {t === 'methods' ? 'Learn' : t[0].toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
+        <div
+          className="inspector-content"
+          role={imported ? undefined : 'tabpanel'}
+          aria-label={imported ? 'Imported surface inspection' : tab}
+        >
+          {imported && (
+            <>
+              <div className="display-toggles">
+                <Check
+                  label="Surface"
+                  value={view.showSurface}
+                  onChange={() => toggle('showSurface')}
+                />
+                <Check
+                  label="Triangle edges"
+                  value={view.wireframe}
+                  onChange={() => toggle('wireframe')}
+                />
+                <Check
+                  label="Boundary edges"
+                  value={view.showSeams}
+                  onChange={() => toggle('showSeams')}
+                />
+              </div>
+              {meshInspection.report ? (
+                <MeshInspector
+                  surface={project.surface}
+                  report={meshInspection.report}
+                  selection={selection}
+                />
+              ) : (
+                <p role="status">{meshInspection.error || 'Analyzing imported surface…'}</p>
+              )}
+              <div className="inline-actions">
+                <button onClick={() => saveProject(project)}>Save imported project JSON</button>
+              </div>
+            </>
+          )}
+          {!imported && tab === 'measures' && (
             <>
               <div className="inspector-title">
                 <span className="eyebrow">{activeFamily.caption}</span>
@@ -1461,7 +1590,7 @@ export default function App() {
               </p>
             </>
           )}
-          {tab === 'topology' && (
+          {!imported && tab === 'topology' && (
             <>
               <div className="inspector-title">
                 <span className="eyebrow">CONNECTIONS / FEATURES</span>
@@ -1581,7 +1710,7 @@ export default function App() {
               </div>
             </>
           )}
-          {tab === 'compare' && (
+          {!imported && tab === 'compare' && (
             <>
               <div className="inspector-title">
                 <span className="eyebrow">CONTROLLED EXPLORATION</span>
@@ -1694,7 +1823,7 @@ export default function App() {
               )}
             </>
           )}
-          {tab === 'methods' && (
+          {!imported && tab === 'methods' && (
             <>
               <LearningPanel
                 parameters={displayParameters}

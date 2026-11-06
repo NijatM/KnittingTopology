@@ -52,3 +52,7 @@ No textile, knit-loop, manufacturing, structural or material validity is implied
 - Hart (n.d.), _Conway Notation for Polyhedra_, https://www.georgehart.com/virtual-polyhedra/conway_notation.html. Dual, ambo, kis and gyro connectivity follow the notation credited to John Conway; surface placement, boundary and crease rules are project adaptations.
 
 The pure citation registry selects sources by their actual role: Oval for the pipeline, Takayama for N-sided mode, and Hart for the four named operators. Graph provenance records those selected references. See [methods and source attribution](../../docs/methods.md) for locators, full bibliography and qualified wording. Citation-only metadata changes do not change the numerical algorithm version.
+
+## Imported support geometry
+
+Imported OBJ/STL triangle meshes use the shared `SurfaceSpec` container with `kind: 'mesh'`, but remain inspection-only. `buildSurfaceMesh` preserves stored vertex/index order for display; analytic evaluation, projection, path/area functions and the pattern generator reject this kind. No atlas, cross-field or retopology is inferred from an arbitrary triangle soup. The pure parser/diagnostics module is `src/import/mesh.ts`; its implementation bounds, indexing choices, measurement definitions and limits are in [the import contract](../../docs/imported-surfaces.md).

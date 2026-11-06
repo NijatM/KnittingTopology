@@ -21,19 +21,31 @@ export const SOFTWARE_CITATION = {
 export function createCitationRecord(project: ProjectState, resultIsStale = false) {
   const graph = project.graph;
   const parameters = graph?.provenance.parameters ?? project.parameters;
-  const ids = relevantReferenceIds(parameters);
+  const imported = project.surface.kind === 'mesh';
+  const ids = imported ? [] : relevantReferenceIds(parameters);
   return {
     format: 'knitting-topology-method-record',
     schemaVersion: '1.0.0',
     recordedAt: new Date().toISOString(),
-    basis: graph ? 'accepted graph' : 'requested inputs; no generated result',
+    basis: imported
+      ? 'imported surface inspection; no generated result'
+      : graph
+        ? 'accepted graph'
+        : 'requested inputs; no generated result',
     resultIsStale,
     software: SOFTWARE_CITATION,
     implementation: {
       algorithm: graph?.provenance.algorithm ?? null,
       algorithmVersion: graph?.provenance.version ?? null,
       inputSignature: graph?.provenance.inputSignature ?? null,
-      surface: project.surface,
+      surface: imported
+        ? {
+            kind: 'mesh',
+            size: project.surface.size,
+            revision: project.surface.revision,
+            source: project.surface.mesh?.source,
+          }
+        : project.surface,
       units: { geometry: 'm', displayedLength: 'mm', orientation: 'degrees' },
       parameters,
       requestedParameters: project.parameters,

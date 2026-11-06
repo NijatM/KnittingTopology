@@ -1,4 +1,4 @@
-import type { PatternFamily, PatternParameters, SurfaceKind } from '../core/types';
+import type { PatternFamily, PatternParameters, AnalyticSurfaceKind } from '../core/types';
 
 export type ReferenceId = 'takayama2014' | 'oval2018' | 'hart';
 export interface ScientificReference {
@@ -36,7 +36,7 @@ export interface SourceUse {
 }
 export interface LearningExample {
   name: string;
-  surface: SurfaceKind;
+  surface: AnalyticSurfaceKind;
   size: number;
   parameters: Partial<PatternParameters>;
   addDirectionGuide?: boolean;

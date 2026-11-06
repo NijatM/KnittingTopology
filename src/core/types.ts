@@ -1,7 +1,49 @@
 /** Scientific state is in meters; renderer/UI classes must not enter this contract. */
 export type Vec3 = [number, number, number];
 export type Vec2 = [number, number];
-export type SurfaceKind = 'plane' | 'cube' | 'sphere' | 'saddle';
+export type AnalyticSurfaceKind = 'plane' | 'cube' | 'sphere' | 'saddle';
+export type SurfaceKind = AnalyticSurfaceKind | 'mesh';
+export type MeshUnit = 'mm' | 'cm' | 'm' | 'in';
+export interface ImportedMeshData {
+  /** Centered positions in meters, with the original offset recorded below. */
+  positions: number[];
+  indices: number[];
+  source: {
+    name: string;
+    format: 'obj' | 'stl-ascii' | 'stl-binary';
+    unit: MeshUnit;
+    scaleToMeters: number;
+    centerMeters: Vec3;
+    indexing: 'obj-indices' | 'stl-exact-weld';
+    notes: string[];
+  };
+}
+export interface ImportedMeshReport {
+  statistics: {
+    vertices: number;
+    usedVertices: number;
+    triangles: number;
+    /** Raw repeated-index faces, retained for inspection but excluded from incidence. */
+    collapsedTriangles: number;
+    incidenceTriangles: number;
+    edges: number;
+    components: number;
+    boundaryEdges: number;
+    nonManifoldEdges: number;
+    nonManifoldVertices: number;
+    inconsistentEdges: number;
+    degenerateTriangles: number;
+    duplicateTriangles: number;
+    isolatedVertices: number;
+    euler: number;
+    areaM2: number;
+    boundsMin: Vec3;
+    boundsMax: Vec3;
+    extent: Vec3;
+    signedVolumeM3: number | null;
+  };
+  diagnostics: Diagnostic[];
+}
 export type TopologyPreset = 'regular' | 'inset' | 'alternating' | 'radial';
 export type PatternFamily = 'quad' | 'dual' | 'ambo' | 'kis' | 'gyro' | 'diagonal';
 export type StrategyKind = 'patch-grid' | 'n-sided-patch';
@@ -12,6 +54,8 @@ export interface SurfaceSpec {
   /** Dimensionless saddle rise; ignored by other surfaces. */
   curvature: number;
   revision: string;
+  /** Present only for imported, inspection-only surfaces. No analytic UV atlas is implied. */
+  mesh?: ImportedMeshData;
 }
 
 export interface SurfaceAttachment {
@@ -113,6 +157,7 @@ export interface Diagnostic {
   value?: number;
   units?: string;
   tolerance?: number;
+  toleranceUnits?: string;
   method: string;
   entityIds?: string[];
 }

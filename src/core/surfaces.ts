@@ -1,8 +1,9 @@
 import type { SurfaceAttachment, SurfaceMesh, SurfaceSpec, Vec3 } from './types';
 import { clamp, dot, finite3, lerp, mul, norm, unit } from './math';
+import { importedMeshSize, validateImportedMesh } from '../import/mesh';
 
 export function validateSurface(s: SurfaceSpec): void {
-  if (!s || !['plane', 'cube', 'sphere', 'saddle'].includes(s.kind))
+  if (!s || !['plane', 'cube', 'sphere', 'saddle', 'mesh'].includes(s.kind))
     throw new Error('Unsupported surface kind.');
   if (!Number.isFinite(s.size) || s.size < 1e-6 || s.size > 1000)
     throw new Error('Surface size must be between 0.000001 and 1000 meters.');
@@ -10,6 +11,20 @@ export function validateSurface(s: SurfaceSpec): void {
     throw new Error('Saddle curvature must be finite and between -2 and 2.');
   if (typeof s.revision !== 'string' || s.revision.length === 0)
     throw new Error('Surface revision is required.');
+  if (s.kind === 'mesh') {
+    const mesh = validateImportedMesh(s.mesh);
+    if (Math.abs(importedMeshSize(mesh) - s.size) > s.size * 1e-10)
+      throw new Error('Imported surface size must match its recorded mesh extent.');
+    if (s.curvature !== 0) throw new Error('Imported surfaces have no analytic curvature setting.');
+  } else if (s.mesh !== undefined) {
+    throw new Error('Analytic surfaces cannot contain imported mesh data.');
+  }
+}
+function requireAnalyticSurface(s: SurfaceSpec): void {
+  if (s.kind === 'mesh')
+    throw new Error(
+      'Imported surfaces support inspection only; a verified surface mapping is required for generation and analytic projection.'
+    );
 }
 /** Right-handed cube atlas, normalized UV [0,1]^2, all six charts outward. */
 export function cubeCoordinates(patch: number, u: number, v: number): Vec3 {
@@ -33,6 +48,7 @@ export function cubeCoordinates(patch: number, u: number, v: number): Vec3 {
   }
 }
 export function evaluateSurface(s: SurfaceSpec, patch: number, u: number, v: number): Vec3 {
+  requireAnalyticSurface(s);
   validateSurface(s);
   if (
     !Number.isInteger(patch) ||
@@ -59,6 +75,7 @@ export function projectToSurface(
   p: Vec3,
   preferredPatch?: number
 ): { position: Vec3; attachment: SurfaceAttachment } {
+  requireAnalyticSurface(s);
   validateSurface(s);
   if (!finite3(p)) throw new Error('Projection requires three finite coordinates.');
   let patch = 0,
@@ -125,6 +142,7 @@ export function projectToSurface(
   };
 }
 export function surfaceNormal(s: SurfaceSpec, p: Vec3, patch?: number): Vec3 {
+  requireAnalyticSurface(s);
   if (s.kind === 'sphere') return unit(p);
   if (s.kind === 'cube')
     return cubeCoordinates(patch ?? projectToSurface(s, p).attachment.patch, 0.5, 0.5);
@@ -134,6 +152,7 @@ export function surfaceNormal(s: SurfaceSpec, p: Vec3, patch?: number): Vec3 {
 }
 /** Analytic membership residual, meters. Cube and sphere use the centered implicit surface. */
 export function surfaceResidual(s: SurfaceSpec, p: Vec3): number {
+  requireAnalyticSurface(s);
   if (s.kind === 'sphere') return Math.abs(norm(p) - s.size / 2);
   if (s.kind === 'cube') return Math.abs(Math.max(...p.map(Math.abs)) - s.size / 2);
   const z = s.kind === 'saddle' ? (s.curvature * (p[0] * p[0] - p[1] * p[1])) / s.size : 0;
@@ -144,6 +163,7 @@ export function surfaceResidual(s: SurfaceSpec, p: Vec3): number {
   );
 }
 export function analyticSurfaceArea(s: SurfaceSpec): number {
+  requireAnalyticSurface(s);
   if (s.kind === 'sphere') return Math.PI * s.size * s.size;
   if (s.kind === 'cube') return 6 * s.size * s.size;
   if (s.kind === 'plane') return s.size * s.size;
@@ -160,6 +180,7 @@ export function analyticSurfaceArea(s: SurfaceSpec): number {
 }
 /** Great-circle length on sphere. Other surfaces use the sampled embedded edge polyline. */
 export function embeddedEdgeLength(s: SurfaceSpec, a: Vec3, b: Vec3, path?: Vec3[]): number {
+  requireAnalyticSurface(s);
   if (s.kind === 'sphere') {
     const pts = path ?? [a, b];
     let length = 0;
@@ -187,6 +208,7 @@ export function embeddedEdgeLength(s: SurfaceSpec, a: Vec3, b: Vec3, path?: Vec3
 }
 /** Projected chord. Cube seam breakpoints are inserted exactly; sphere samples a great circle. */
 export function surfacePath(s: SurfaceSpec, a: Vec3, b: Vec3): Vec3[] {
+  requireAnalyticSurface(s);
   if (s.kind === 'plane') return [a, b];
   if (s.kind === 'cube') {
     const ts = [0, 1];
@@ -209,6 +231,15 @@ export function surfacePath(s: SurfaceSpec, a: Vec3, b: Vec3): Vec3[] {
 }
 export function buildSurfaceMesh(s: SurfaceSpec, resolution = 24): SurfaceMesh {
   validateSurface(s);
+  if (s.kind === 'mesh') {
+    return {
+      positions: s.mesh!.positions,
+      indices: s.mesh!.indices,
+      trianglePatches: new Array(s.mesh!.indices.length / 3).fill(0),
+      // Display buffers only. These zeros are not an imported parameterization.
+      uvs: new Array((s.mesh!.positions.length / 3) * 2).fill(0),
+    };
+  }
   if (!Number.isInteger(resolution) || resolution < 1 || resolution > 256)
     throw new Error('Surface mesh resolution must be an integer from 1 to 256.');
   const out: SurfaceMesh = { positions: [], indices: [], trianglePatches: [], uvs: [] },

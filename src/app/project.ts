@@ -6,7 +6,8 @@ import type {
   Vec3,
   Diagnostic,
 } from '../core/types';
-import { evaluateSurface } from '../core/surfaces';
+import { evaluateSurface, validateSurface } from '../core/surfaces';
+import { validateImportedMesh } from '../import/mesh';
 import { createCitationRecord } from '../adapters/citations';
 import {
   MAX_GRAPH_CELLS,
@@ -44,9 +45,12 @@ export function createProject(): ProjectState {
   };
 }
 export function geometryChange(state: ProjectState, change: Partial<SurfaceSpec>): ProjectState {
+  const surface = { ...state.surface, ...change, revision: `surface-${crypto.randomUUID()}` };
+  if (surface.kind !== 'mesh') delete surface.mesh;
+  else validateSurface(surface);
   return {
     ...state,
-    surface: { ...state.surface, ...change, revision: `surface-${crypto.randomUUID()}` },
+    surface,
     parameters: { ...state.parameters, stripOverrides: undefined },
     guides: [],
     graph: null,
@@ -295,10 +299,16 @@ export function parseProject(contents: string): ProjectState {
   if (state.schemaVersion !== '1.0.0') fail('unsupported project schema version.');
   text(state.name, 'project name', 200);
   const surface = object(state.surface, 'surface');
-  oneOf(surface.kind, 'surface kind', ['plane', 'cube', 'sphere', 'saddle']);
+  oneOf(surface.kind, 'surface kind', ['plane', 'cube', 'sphere', 'saddle', 'mesh']);
   finite(surface.size, 'surface size', 1e-6, 1000);
   finite(surface.curvature, 'surface curvature', -2, 2);
   const revision = text(surface.revision, 'surface revision', 180);
+  if (surface.kind === 'mesh') {
+    surface.mesh = validateImportedMesh(surface.mesh);
+    if (state.graph !== null || !Array.isArray(state.guides) || state.guides.length !== 0)
+      fail('imported surfaces cannot contain generated graphs or analytic guide attachments.');
+  }
+  validateSurface(surface as unknown as SurfaceSpec);
   validateParameters(state.parameters);
   for (const item of array(state.guides, 'guide strokes', 1000)) {
     const guide = object(item, 'guide');
@@ -358,15 +368,19 @@ export type HistoryAction =
   | { type: 'redo' };
 function trimHistory(states: ProjectState[]): ProjectState[] {
   const selected: ProjectState[] = [];
-  const graphs = new Set<PatternGraph>();
+  const resources = new Set<object>();
   let entities = 0;
   for (let i = states.length - 1; i >= 0 && selected.length < 35; i--) {
     const state = states[i]!;
     const graph = state.graph;
-    if (graph && !graphs.has(graph)) {
-      const cost = graph.nodes.length + graph.edges.length + graph.cells.length;
-      if (graphs.size >= 6 || (graphs.size > 0 && entities + cost > 350_000)) break;
-      graphs.add(graph);
+    const mesh = state.surface.kind === 'mesh' ? state.surface.mesh : undefined;
+    const resource = graph ?? mesh;
+    if (resource && !resources.has(resource)) {
+      const cost = graph
+        ? graph.nodes.length + graph.edges.length + graph.cells.length
+        : mesh!.positions.length / 3 + mesh!.indices.length / 3;
+      if (resources.size >= 6 || (resources.size > 0 && entities + cost > 350_000)) break;
+      resources.add(resource);
       entities += cost;
     }
     selected.unshift(state);

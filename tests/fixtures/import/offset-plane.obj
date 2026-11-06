@@ -1,0 +1,6 @@
+# Offset square; dimensions 100 source units. Winding faces -Z.
+v 100 200 300
+v 200 200 300
+v 200 300 300
+v 100 300 300
+f 4 3 2 1

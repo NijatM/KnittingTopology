@@ -52,3 +52,13 @@ The new learning tests execute all 13 examples, verify closed-operator count ide
 - **11/11 browser tests passed against development** in 68.55 seconds and **11/11 against production** in 71.13 seconds, with no page or console errors. The production preview used `/KnittingTopology/`.
 
 The teaching diagrams use bounded outputs of this implementation and are independent of the main viewport. Neither these diagrams nor a citation establishes reproduction of a paper or physical validity. Native-GPU/network probes above are historical baseline checks; this milestone uses isolated software-WebGL Chrome tests.
+
+## Imported surface inspection milestone — 6 November 2026
+
+- **252/252 unit tests passed** in 16.74 seconds: the preceding 168 checks plus 78 mesh-parser/diagnostic cases and six imported-project integration cases. Type checking and the production build passed.
+- Import checks cover known plane/cube/tetrahedron measures, explicit unit scaling, preserved identities and offsets, large-offset centering, concave polygons and invalid boundaries, strict text ambiguity rejection, ASCII/binary STL discrimination, collapsed and collinear triangles, vertex links, orientation, duplicate/isolated/disconnected data, dimensional tolerance units, payload tampering and bounded triangulation work.
+- Initial JavaScript is 377.56 kB (119.07 kB gzip), the lazy viewer 578.57 kB (145.69 kB gzip), the import worker 18.50 kB and the generation worker 60.73 kB. Assets remain below the repository base path.
+
+The browser suite now includes five real import cases and the preceding eleven generation/learning regressions. Import fixtures are synthetic and small; they do not establish interoperability with every exporter or performance for every input at the maximum limits. Imported surfaces have no generation mapping, and source provenance in a saved project is not authenticated. See [the imported surface contract](imported-surfaces.md) for exact semantics and limits. Current browser results below are finalized from executed reports. Historical native-GPU/network probes above have not been rerun for this milestone.
+
+- **16/16 browser tests passed against development** in 90.75 seconds and **16/16 against production** in 83.76 seconds, with no page or console errors. Production used `/KnittingTopology/`. The imported-surface 375px layout and desktop selection screenshots were visually inspected.

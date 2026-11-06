@@ -131,7 +131,7 @@ function pathLength(path: Vec3[]) {
   for (let i = 1; i < path.length; i++) length += v3(path[i]).distanceTo(v3(path[i - 1]));
   return length;
 }
-function surfaceBoundarySegments(mesh: SurfaceMesh) {
+function surfaceBoundarySegments(mesh: SurfaceMesh, deduplicateAtlasBoundaries = true) {
   const counts = new Map<string, { a: number; b: number; count: number }>();
   for (let i = 0; i < mesh.indices.length; i += 3) {
     const triangle = mesh.indices.slice(i, i + 3);
@@ -150,6 +150,10 @@ function surfaceBoundarySegments(mesh: SurfaceMesh) {
     if (edge.count !== 1) continue;
     const a = mesh.positions.slice(edge.a * 3, edge.a * 3 + 3);
     const b = mesh.positions.slice(edge.b * 3, edge.b * 3 + 3);
+    if (!deduplicateAtlasBoundaries) {
+      positions.push(...a, ...b);
+      continue;
+    }
     // Deduplication affects display only: the atlas mesh intentionally duplicates
     // vertices at chart seams. Scientific graph identities remain core-owned.
     const aKey = a.map((value) => value.toPrecision(12)).join(',');
@@ -264,7 +268,9 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const draw = () => renderer.render(scene, camera);
     const fit = () => {
       const size = current.current.surface.size;
-      const radius = size * (current.current.surface.kind === 'cube' ? 0.92 : 0.8);
+      // Imported coordinates are centered; size is their maximum bounding-box
+      // extent. The cube bound also contains an arbitrary imported bounding box.
+      const radius = size * (['cube', 'mesh'].includes(current.current.surface.kind) ? 0.92 : 0.8);
       const distance =
         radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.min(1, camera.aspect);
       const direction = camera.position.clone().sub(controls.target);
@@ -344,18 +350,28 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
         (-(event.clientY - rect.top) / rect.height) * 2 + 1
       );
       raycaster.setFromCamera(pointer, camera);
+      const surface = current.current.surface;
       const hit = raycaster
         .intersectObject(state.surfaceMesh, false)
         .find(
           (intersection) =>
-            !intersection.face || intersection.face.normal.dot(raycaster.ray.direction) < 0
+            surface.kind === 'mesh' ||
+            !intersection.face ||
+            intersection.face.normal.dot(raycaster.ray.direction) < 0
         );
       if (!hit || hit.faceIndex == null || !hit.face) return null;
-      const surface = current.current.surface;
       const patch = state.meshData.trianglePatches[hit.faceIndex];
-      const projected = projectToSurface(surface, tuple(hit.point), patch);
-      // Recover analytic UV via the core projector, retaining the actual display
-      // triangle and barycentrics as picking provenance.
+      const projected: GuideSample =
+        surface.kind === 'mesh'
+          ? {
+              position: tuple(hit.point),
+              // Imported triangles have no analytic chart. These placeholders
+              // never reach guide drawing; face/barycentrics identify the pick.
+              attachment: { surfaceRevision: surface.revision, patch: 0, uv: [0, 0] },
+            }
+          : projectToSurface(surface, tuple(hit.point), patch);
+      // Both analytic and imported picks retain the actual display triangle and
+      // barycentrics. Only analytic picks recover UV through the core projector.
       const attr = state.surfaceMesh.geometry.getAttribute('position');
       const a = new THREE.Vector3().fromBufferAttribute(attr, hit.face.a);
       const b = new THREE.Vector3().fromBufferAttribute(attr, hit.face.b);
@@ -380,7 +396,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       draw();
     };
     const addSample = (event: PointerEvent) => {
-      if (drawingBlocked) return;
+      if (drawingBlocked || current.current.surface.kind === 'mesh') return;
       const sample = pick(event);
       if (!sample) {
         if (stroke.length) drawingBlocked = true;
@@ -441,6 +457,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       draw();
       if (
         current.current.options.mode === 'draw' &&
+        current.current.surface.kind !== 'mesh' &&
         samples.length >= 2 &&
         samples.every(
           (sample) => sample.attachment.surfaceRevision === current.current.surface.revision
@@ -451,6 +468,14 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const select = (event: PointerEvent) => {
       const sample = pick(event),
         graph = current.current.graph;
+      if (current.current.surface.kind === 'mesh') {
+        current.current.onSelect(
+          sample?.attachment.faceId != null
+            ? { kind: 'triangle', id: String(sample.attachment.faceId) }
+            : null
+        );
+        return;
+      }
       if (!sample || !graph) {
         current.current.onSelect(null);
         return;
@@ -489,6 +514,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const down = (event: PointerEvent) => {
       if (event.button !== 0) return;
       if (current.current.options.mode === 'draw') {
+        if (current.current.surface.kind === 'mesh') return;
         if (activePointer !== null) return;
         event.preventDefault();
         activePointer = event.pointerId;
@@ -507,7 +533,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       const sample = pick(event);
       current.current.onHover?.(
         sample
-          ? `Patch ${sample.attachment.patch} · u ${sample.attachment.uv[0].toFixed(3)} · v ${sample.attachment.uv[1].toFixed(3)} · ${sample.position.map((value) => (value * 1000).toFixed(1)).join(', ')} mm`
+          ? `${current.current.surface.kind === 'mesh' ? `Triangle ${sample.attachment.faceId}` : `Patch ${sample.attachment.patch} · u ${sample.attachment.uv[0].toFixed(3)} · v ${sample.attachment.uv[1].toFixed(3)}`} · ${sample.position.map((value) => (value * 1000).toFixed(1)).join(', ')} mm`
           : ''
       );
     };
@@ -596,10 +622,17 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
         })
       );
       wire.name = 'surface-wire';
+      wire.visible = props.options.wireframe;
       state.surfaceGroup.add(wire);
       const seams = new THREE.Group();
       seams.name = 'surface-seams';
-      lineSegments(seams, surfaceBoundarySegments(mesh), '#909090', 0.8);
+      lineSegments(
+        seams,
+        surfaceBoundarySegments(mesh, props.surface.kind !== 'mesh'),
+        '#909090',
+        0.8
+      );
+      seams.visible = props.options.showSeams;
       state.surfaceGroup.add(seams);
       const displayScale = props.surface.kind === 'sphere' ? SPHERE_DISPLAY_SCALE : 1;
       for (const group of [
@@ -634,7 +667,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     state.cellIds = [];
     const graph = props.graph;
     const light = props.options.background === 'light';
-    if (graph) {
+    if (graph && props.surface.kind !== 'mesh') {
       const nodeMap = new Map(graph.nodes.map((node) => [node.id, node.position]));
       const degrees = new Map<string, number>();
       for (const edge of graph.edges) {
@@ -717,7 +750,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const state = runtime.current;
     if (!state || !ready) return;
     clear(state.guideGroup);
-    if (props.options.showGuides) {
+    if (props.options.showGuides && props.surface.kind !== 'mesh') {
       const segments: number[] = [];
       props.guides
         .filter((guide) =>
@@ -745,11 +778,30 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     if (!state || !ready) return;
     clear(state.selectionGroup);
     const { graph, selection, surface } = props;
-    if (graph && selection) {
+    if (surface.kind === 'mesh' && selection?.kind === 'triangle' && state.meshData) {
+      const face = Number(selection.id);
+      const mesh = state.meshData;
+      if (
+        /^\d+$/.test(selection.id) &&
+        Number.isSafeInteger(face) &&
+        face < mesh.indices.length / 3
+      ) {
+        const path: Vec3[] = mesh.indices
+          .slice(face * 3, face * 3 + 3)
+          .map((index) => [
+            mesh.positions[index * 3],
+            mesh.positions[index * 3 + 1],
+            mesh.positions[index * 3 + 2],
+          ]);
+        const segments: number[] = [];
+        appendPath(segments, [...path, path[0]]);
+        lineSegments(state.selectionGroup, segments, '#d09a4e');
+      }
+    } else if (surface.kind !== 'mesh' && graph && selection) {
       if (selection.kind === 'node') {
         const node = graph.nodes.find((candidate) => candidate.id === selection.id);
         if (node) pointsObject(state.selectionGroup, node.position, '#d09a4e', 10);
-      } else {
+      } else if (selection.kind === 'cell') {
         const cell = graph.cells.find((candidate) => candidate.id === selection.id);
         if (cell) {
           const nodes = new Map(graph.nodes.map((node) => [node.id, node.position]));
@@ -773,7 +825,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       state.surfaceMesh.visible = props.options.showSurface;
       // Raycasting remains available even when the render surface is hidden.
       const material = state.surfaceMesh.material as THREE.MeshStandardMaterial;
-      const patches = props.options.overlay === 'patches';
+      const patches = props.surface.kind !== 'mesh' && props.options.overlay === 'patches';
       material.color.set(
         patches ? '#ffffff' : props.options.background === 'light' ? '#c8c8c8' : '#252525'
       );
@@ -786,9 +838,16 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     if (wire) wire.visible = props.options.wireframe;
     const seams = state.surfaceGroup.getObjectByName('surface-seams');
     if (seams) seams.visible = props.options.showSeams;
-    state.controls.enabled = props.options.mode === 'orbit';
+    const meshDraw = props.surface.kind === 'mesh' && props.options.mode === 'draw';
+    state.controls.enabled = props.options.mode === 'orbit' || meshDraw;
+    state.renderer.domElement.setAttribute(
+      'aria-label',
+      props.surface.kind === 'mesh'
+        ? 'Interactive imported mesh. Orbit to rotate, pan and zoom; select mode to inspect triangles.'
+        : 'Interactive surface. Use orbit mode to rotate, pan and zoom; draw mode to draw a surface guide.'
+    );
     state.renderer.domElement.style.cursor =
-      props.options.mode === 'draw'
+      props.options.mode === 'draw' && !meshDraw
         ? 'crosshair'
         : props.options.mode === 'select'
           ? 'pointer'

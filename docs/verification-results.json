@@ -7,33 +7,37 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 168,
+    "passed": 252,
     "core": 104,
     "project_and_persistence": 32,
-    "duration_seconds": 17.27,
-    "learning_and_citations": 32
+    "duration_seconds": 16.74,
+    "learning_and_citations": 32,
+    "import_parsing_and_projects": 84
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 355.97,
-    "lazy_viewer_js_kb": 577.24,
-    "initial_js_gzip_kb": 112.69
+    "initial_js_kb": 377.56,
+    "lazy_viewer_js_kb": 578.57,
+    "initial_js_gzip_kb": 119.07,
+    "lazy_viewer_js_gzip_kb": 145.69,
+    "import_worker_js_kb": 18.5,
+    "generation_worker_js_kb": 60.73
   },
   "development_browser_tests": {
     "command": "npx playwright test",
     "result": "pass",
-    "passed": 11,
+    "passed": 16,
     "page_or_console_errors": 0,
-    "duration_seconds": 68.55
+    "duration_seconds": 90.75
   },
   "production_browser_tests": {
     "command": "KNITTING_BASE_URL=http://127.0.0.1:4173/KnittingTopology/ npx playwright test",
     "result": "pass",
-    "passed": 11,
-    "duration_seconds": 71.13,
+    "passed": 16,
+    "duration_seconds": 83.76,
     "page_or_console_errors": 0
   },
   "mobile": {
@@ -44,7 +48,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Learn and Cite",
+  "milestone": "Imported surface inspection",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -65,5 +69,20 @@
   "formatting": {
     "command": "npm run format:check",
     "result": "pass"
+  },
+  "import_coverage": {
+    "formats": ["bounded polygon OBJ", "strict ASCII STL", "binary STL"],
+    "units": ["mm", "cm", "m", "in"],
+    "centering": "two-pass bounding-box centering with recorded source offset",
+    "source_indexing": "OBJ declared position identity; STL exact-coordinate welding",
+    "inspection_only": true,
+    "global_intersection_test": false,
+    "caps": {
+      "file_bytes": 20971520,
+      "vertices": 200000,
+      "triangles": 200000,
+      "polygon_sides": 256,
+      "polygon_work": 5000000
+    }
   }
 }

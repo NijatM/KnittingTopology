@@ -78,6 +78,10 @@ export function validateGenerationInput(input: GenerationInput) {
   if (!input || !input.parameters || !Array.isArray(input.guides))
     throw new Error('Generation requires a surface, parameters and guide array.');
   validateSurface(input.surface);
+  if (input.surface.kind === 'mesh')
+    throw new Error(
+      'Imported surfaces support inspection only. Pattern generation requires a verified surface mapping.'
+    );
   const p = input.parameters;
   if (
     !['patch-grid', 'n-sided-patch'].includes(p.strategy) ||

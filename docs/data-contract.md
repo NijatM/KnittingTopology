@@ -26,3 +26,11 @@ Schema v1 downloads also include an optional supplementary `methodRecord`: softw
 Browser worker messages carry request ID and input revision. The app checks them against the active request and compares the scientific input signature with the current inputs. The history reducer checks the signature again before accepting a result; renaming a project does not invalidate an otherwise current computation. Old results remain visible during generation on unchanged geometry; stale result status is clearly visible. Failed/cancelled jobs preserve the previous accepted graph.
 
 Scientific claims: topology validity, geometric quality, design intent, and physical validation remain distinct. Target spacing is a request; edge arc lengths and relative RMS error measure achieved geometric spacing. Quad strip consistency may require integer rounding. Record that deviation instead of promising uniformity.
+
+## Imported geometry
+
+`SurfaceSpec.kind = 'mesh'` requires an `ImportedMeshData` payload. Its centered, indexed triangle geometry uses meters; `source` records format, declared units, exact scale, original bounding-box midpoint and indexing policy. `size` is the maximum mesh extent, and `curvature` is zero. Analytic surfaces cannot contain mesh payloads. A geometry change to an analytic kind removes the imported data. Existing analytic schema v1 projects remain readable.
+
+Imported surfaces are inspection-only: generated graphs and analytic guide attachments must be absent. Analytic evaluation/projection/path functions and generation reject this kind explicitly. Display-buffer UV zeros are placeholders and never a scientific parameterization. Triangle picking refers to the original triangulated index order and displays stored vertex coordinates.
+
+`src/import/mesh.ts` contains pure bounded parsing, payload validation and local diagnostics, with no React, DOM or Three.js dependency. Import and saved-mesh analysis run in separate cancellable workers. Import jobs carry job ID and project revision; cancellation, revision changes and superseded results cannot replace the active project. Only locally recomputed reports enter the session cache; serialized diagnostics are not trusted. History accounts for distinct imported geometry as well as generated graphs in its resource budget. See [imported surface contract and limits](imported-surfaces.md).

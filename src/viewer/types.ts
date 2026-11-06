@@ -15,7 +15,7 @@ export interface ViewerOptions {
   background: 'dark' | 'light';
 }
 export interface ViewerSelection {
-  kind: 'node' | 'cell';
+  kind: 'node' | 'cell' | 'triangle';
   id: string;
 }
 export interface ViewerHandle {
