@@ -36,6 +36,7 @@ The browser configuration uses installed Google Chrome on macOS, with isolated c
 6. Capture up to four session variants in **Compare**. Check feature budgets as well as geometry before interpreting differences. Restore or save any captured variant.
 7. Save **project JSON** to retain geometry, guides, graph identities, coarse topology/strips, settings, diagnostics, seed, and provenance. Undo/redo restores project semantics within the session; the undo stack is not exported. Local autosave is best effort; download JSON for a durable record. If a network exceeds local cache quota, the latest inputs are retained for regeneration. Invalid cached records are preserved for recovery.
 8. Open **Learn** to explore 13 topics with actual construction diagrams, assumptions, source relationships and controlled examples. Browsing leaves your project unchanged; loading an example is undoable and requires explicit generation. Copy qualified method descriptions or download BibTeX/CSL references. See [methods and attribution](docs/methods.md).
+9. On the plane, open **04 Knit program** to translate the accepted network into a design-level bitmap in the Knit Grammar convention of Knitting Pixel Art Editor. Size it from a jersey swatch in the measurement table, or type needles × passes. Assign structures to cells (uniform, side count, alternating, coarse cell or per cell), edge lines and node marks. Automatic transfers are added where a needle changes bed. Show the program beside the surface: pointing at a loop marks it in 3D, and selecting a cell, edge or node outlines its loops. The Knit tab lists Knit Grammar's checks and exports the BMP, the Knit Grammar JSON, a report and the measurement table. Lab rules still to confirm are visible settings.
 
 The **N-sided patch laboratory** is a separate plane construction with hard subdivision counts. It contains a verified, intentionally incomplete template set. Useful examples: four sides `[10, 6, 10, 6]`; three, five or six sides with all counts `6`; the triangular-boundary single-quad case `[2,1,1]`. Unsupported combinations report an error and retain the previous accepted graph. See the exact [core method contract](src/core/README.md).
 
@@ -69,6 +70,7 @@ src/workers/    revision-tagged background generation and progress protocol
 src/adapters/   explicit geometry/projection/project exports
 src/learning/   method lessons, construction diagrams and citation registry
 src/import/     bounded mesh parsing, local diagnostics and import interface
+src/knit/       knit program: Knit Grammar keys, structures, checks and files; plane mapping, rasterization, transfers
 tests/         numerical, project and isolated browser verification
 research/      primary-source register and scientific references
 ```

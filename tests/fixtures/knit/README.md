@@ -9,7 +9,7 @@ npx rolldown scripts/knit-grammar-fixtures.ts --file /tmp/knit-grammar-fixtures.
 node /tmp/knit-grammar-fixtures.mjs tests/fixtures/knit
 ```
 
-SHA-256 of the Knit Grammar sources used:
+Source: KnittingPixelArtEditor commit `49b17992de3291963c3eb11c89bf7b322b5cecb4` (2026-11-02), working tree clean. SHA-256 of the Knit Grammar sources used:
 
 | file | sha256 |
 | --- | --- |

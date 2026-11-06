@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import type {
   InteractionMode,
   OverlayMode,
@@ -53,6 +62,12 @@ import { referencesBibtex, relevantReferenceIds } from '../learning/citations';
 import ImportControls from '../import/ImportControls';
 import MeshInspector from '../import/MeshInspector';
 import { seedMeshReport, useMeshReport } from '../import/useMeshReport';
+import KnitControls from './knit/KnitControls';
+import KnitBitmap from './knit/KnitBitmap';
+import KnitPanel from './knit/KnitPanel';
+import { loopSelection, marksOf, selectionLoops } from './knit/provenance';
+import { buildKnitProgram, knitSettingsOf, swatchesOf } from '../knit/program';
+import { knitSupported } from '../knit/mapping';
 
 const SurfaceViewer = lazy(() => import('../viewer/SurfaceViewer'));
 const SURFACES: { key: AnalyticSurfaceKind; name: string; caption: string }[] = [
@@ -304,9 +319,13 @@ export default function App() {
     if (inspectionOnly) setView((v) => (v.mode === 'draw' ? { ...v, mode: 'orbit' } : v));
   }, [inspectionOnly]);
   const [selection, setSelection] = useState<ViewerSelection | null>(null);
-  const [tab, setTab] = useState<'measures' | 'topology' | 'compare' | 'methods' | 'surface'>(
-    'measures'
-  );
+  const [tab, setTab] = useState<
+    'measures' | 'topology' | 'compare' | 'methods' | 'surface' | 'knit'
+  >('measures');
+  const [knitOpen, setKnitOpen] = useState(false);
+  const [knitHover, setKnitHover] = useState<number | null>(null);
+  const [knitMarks, setKnitMarks] = useState<number[] | null>(null);
+  const [split, setSplit] = useState(0.5);
   const [variants, setVariants] = useState<{ id: number; name: string; project: ProjectState }[]>(
     []
   );
@@ -632,6 +651,51 @@ export default function App() {
     selection?.kind === 'cell'
       ? project.graph?.cells.find((c) => c.id === selection.id)
       : undefined;
+  const knitSettings = knitSettingsOf(project);
+  const swatches = swatchesOf(project);
+  const knitBuild = useMemo(
+    () =>
+      buildKnitProgram(
+        {
+          surface: project.surface,
+          graph: project.graph,
+          knit: project.knit,
+          swatches: project.swatches,
+        },
+        stale
+      ),
+    [project.surface, project.graph, project.knit, project.swatches, stale]
+  );
+  const knitProgram = knitBuild.ok ? knitBuild.program : null;
+  const knitHoverSelection =
+    knitProgram && project.graph && knitHover !== null
+      ? loopSelection(knitProgram, project.graph, knitHover)
+      : null;
+  const knitMarker =
+    knitProgram && knitHover !== null
+      ? knitProgram.mapping.toSurface([
+          (knitHover % knitProgram.w) + 0.5,
+          knitProgram.h - Math.floor(knitHover / knitProgram.w) - 0.5,
+        ])
+      : null;
+  const knitMarkCells = useMemo(
+    () =>
+      knitProgram && project.graph
+        ? knitMarks
+          ? marksOf(knitProgram, knitMarks)
+          : selectionLoops(knitProgram, project.graph, selection)
+        : null,
+    [knitProgram, project.graph, knitMarks, selection]
+  );
+  const knitStatus = knitProgram
+    ? `${knitProgram.w} × ${knitProgram.h} · ${knitProgram.findings.length} check findings · ${knitProgram.transfers.length} transfers`
+    : !knitBuild.ok
+      ? knitBuild.reason
+      : '';
+  const changeKnit = (next: import('../core/types').KnitSettings, coalesceKey?: string) => {
+    setKnitMarks(null);
+    commit({ ...projectRef.current, knit: next }, coalesceKey);
+  };
   const displayParameters = project.graph?.provenance.parameters ?? project.parameters;
   const activeFamily = FAMILIES.find((f) => f.key === displayParameters.family)!;
   const graphDiagnosticList = project.diagnostics.filter(
@@ -996,6 +1060,22 @@ export default function App() {
                   ))}
                 </div>
               </section>
+              {knitSupported(project.surface) ? (
+                <KnitControls
+                  settings={knitSettings}
+                  open={knitOpen}
+                  status={knitStatus}
+                  onChange={changeKnit}
+                  onToggleOpen={() => setKnitOpen((v) => !v)}
+                />
+              ) : (
+                <section className="control-section knit-controls">
+                  <h2>
+                    <span>04</span> Knit program <i />
+                  </h2>
+                  <p className="hint">Knit programs are available for the plane in this version.</p>
+                </section>
+              )}
             </>
           )}
         </div>
@@ -1138,121 +1218,176 @@ export default function App() {
             </button>
           </div>
         </div>
-        <div className="canvas-wrap">
-          <Suspense
-            fallback={
-              <div className="viewer-loading" role="status">
-                Preparing surface viewer…
-              </div>
-            }
-          >
-            <SurfaceViewer
-              surface={project.surface}
-              graph={project.graph}
-              guides={project.guides}
-              options={view}
-              selection={selection}
-              onStroke={addStroke}
-              onSelect={setSelection}
-              onHover={setHover}
-              onReady={viewerReady}
-              onError={viewerError}
-            />
-          </Suspense>
-          <div className="canvas-heading">
-            <span className="eyebrow">
-              {imported
-                ? mapped
-                  ? 'SUPPLIED OBJ UV CHART'
-                  : 'IMPORTED TRIANGLE MESH'
-                : displayParameters.strategy === 'n-sided-patch'
-                  ? `${displayParameters.patchSides}-SIDED PATCH`
-                  : project.surface.kind.toUpperCase()}{' '}
-              / {inspectionOnly ? 'INSPECT' : activeFamily.name.toUpperCase()}
-            </span>
-            <div>
-              <span className={`state-indicator ${stale ? 'stale' : ''}`} />
-              {inspectionOnly
-                ? 'Imported surface · inspection only'
-                : !project.graph
-                  ? 'Surface ready'
-                  : stale
-                    ? 'Result needs regeneration'
-                    : 'Connected geometric network'}
-            </div>
-          </div>
-          <div className="view-presets" role="group" aria-label="Camera views">
-            {(['perspective', 'top', 'front', 'right'] as const).map((p) => (
-              <button key={p} title={`${p} view`} onClick={() => viewer.current?.view(p)}>
-                {p === 'perspective' ? '3D' : p}
-              </button>
-            ))}
-          </div>
-          <div className="canvas-scale">
-            <span>↗ Z UP</span>
-            <span>
-              {imported
-                ? (project.surface.size * 1000).toLocaleString('en-US', {
-                    maximumSignificantDigits: 5,
-                  })
-                : Math.round(project.surface.size * 1000)}{' '}
-              mm {project.surface.kind === 'sphere' ? 'diameter' : 'extent'}
-            </span>
-          </div>
-          {view.mode === 'draw' && (
-            <div className="mode-hint">
-              Draw a direction guide on the surface<span>Release to finish · G to regenerate</span>
-            </div>
-          )}
-          {view.mode === 'select' && (
-            <div className="mode-hint">
-              {inspectionOnly ? 'Select a source triangle' : 'Select a cell or vertex'}
-              <span>Connectivity and coordinates appear in the inspector</span>
-            </div>
-          )}
-          {busy && (
-            <div className="progress-panel" role="status">
+        <div
+          className={`stage-split ${knitOpen ? 'split' : ''}`}
+          style={{ '--split': `${split * 100}%` } as React.CSSProperties}
+        >
+          <div className="canvas-wrap">
+            <Suspense
+              fallback={
+                <div className="viewer-loading" role="status">
+                  Preparing surface viewer…
+                </div>
+              }
+            >
+              <SurfaceViewer
+                surface={project.surface}
+                graph={project.graph}
+                guides={project.guides}
+                options={view}
+                selection={knitHoverSelection ?? selection}
+                marker={knitMarker}
+                onStroke={addStroke}
+                onSelect={setSelection}
+                onHover={setHover}
+                onReady={viewerReady}
+                onError={viewerError}
+              />
+            </Suspense>
+            <div className="canvas-heading">
+              <span className="eyebrow">
+                {imported
+                  ? mapped
+                    ? 'SUPPLIED OBJ UV CHART'
+                    : 'IMPORTED TRIANGLE MESH'
+                  : displayParameters.strategy === 'n-sided-patch'
+                    ? `${displayParameters.patchSides}-SIDED PATCH`
+                    : project.surface.kind.toUpperCase()}{' '}
+                / {inspectionOnly ? 'INSPECT' : activeFamily.name.toUpperCase()}
+              </span>
               <div>
-                <span>{busy.stage}</span>
-                <button onClick={() => cancel()} aria-label="Cancel generation">
-                  Cancel <Icon name="close" size={12} />
+                <span className={`state-indicator ${stale ? 'stale' : ''}`} />
+                {inspectionOnly
+                  ? 'Imported surface · inspection only'
+                  : !project.graph
+                    ? 'Surface ready'
+                    : stale
+                      ? 'Result needs regeneration'
+                      : 'Connected geometric network'}
+              </div>
+            </div>
+            <div className="view-presets" role="group" aria-label="Camera views">
+              {(['perspective', 'top', 'front', 'right'] as const).map((p) => (
+                <button key={p} title={`${p} view`} onClick={() => viewer.current?.view(p)}>
+                  {p === 'perspective' ? '3D' : p}
                 </button>
-              </div>
-              <progress value={busy.fraction} max="1" />
-              <small>{Math.round(busy.fraction * 100)}% · previous accepted result retained</small>
+              ))}
             </div>
-          )}
-          {error && (
-            <div className="error-panel" role="alert">
-              <div>
-                <strong>Check your inputs</strong>
-                <button aria-label="Dismiss error" onClick={() => setError(null)}>
-                  <Icon name="close" size={12} />
-                </button>
-              </div>
-              <p>{error}</p>
+            <div className="canvas-scale">
+              <span>↗ Z UP</span>
+              <span>
+                {imported
+                  ? (project.surface.size * 1000).toLocaleString('en-US', {
+                      maximumSignificantDigits: 5,
+                    })
+                  : Math.round(project.surface.size * 1000)}{' '}
+                mm {project.surface.kind === 'sphere' ? 'diameter' : 'extent'}
+              </span>
             </div>
-          )}
-          {cacheNotice && (
-            <div className="storage-notice" role="status">
-              <p>{cacheNotice}</p>
-              <div>
-                {initialRestore.recoveryText && (
-                  <button
-                    onClick={() =>
-                      download(
-                        initialRestore.recoveryText!,
-                        'knitting-topology-recovery.txt',
-                        'text/plain'
-                      )
-                    }
-                  >
-                    Download recovery JSON
+            {view.mode === 'draw' && (
+              <div className="mode-hint">
+                Draw a direction guide on the surface
+                <span>Release to finish · G to regenerate</span>
+              </div>
+            )}
+            {view.mode === 'select' && (
+              <div className="mode-hint">
+                {inspectionOnly ? 'Select a source triangle' : 'Select a cell or vertex'}
+                <span>Connectivity and coordinates appear in the inspector</span>
+              </div>
+            )}
+            {busy && (
+              <div className="progress-panel" role="status">
+                <div>
+                  <span>{busy.stage}</span>
+                  <button onClick={() => cancel()} aria-label="Cancel generation">
+                    Cancel <Icon name="close" size={12} />
                   </button>
-                )}
-                <button onClick={() => setCacheNotice('')}>Dismiss</button>
+                </div>
+                <progress value={busy.fraction} max="1" />
+                <small>
+                  {Math.round(busy.fraction * 100)}% · previous accepted result retained
+                </small>
               </div>
-            </div>
+            )}
+            {error && (
+              <div className="error-panel" role="alert">
+                <div>
+                  <strong>Check your inputs</strong>
+                  <button aria-label="Dismiss error" onClick={() => setError(null)}>
+                    <Icon name="close" size={12} />
+                  </button>
+                </div>
+                <p>{error}</p>
+              </div>
+            )}
+            {cacheNotice && (
+              <div className="storage-notice" role="status">
+                <p>{cacheNotice}</p>
+                <div>
+                  {initialRestore.recoveryText && (
+                    <button
+                      onClick={() =>
+                        download(
+                          initialRestore.recoveryText!,
+                          'knitting-topology-recovery.txt',
+                          'text/plain'
+                        )
+                      }
+                    >
+                      Download recovery JSON
+                    </button>
+                  )}
+                  <button onClick={() => setCacheNotice('')}>Dismiss</button>
+                </div>
+              </div>
+            )}
+          </div>
+          {knitOpen && (
+            <>
+              <div
+                className="split-handle"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize the surface and program views"
+                aria-valuemin={20}
+                aria-valuemax={80}
+                aria-valuenow={Math.round(split * 100)}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowLeft') setSplit((v) => Math.max(0.2, v - 0.05));
+                  if (e.key === 'ArrowRight') setSplit((v) => Math.min(0.8, v + 0.05));
+                }}
+                onPointerDown={(e) => {
+                  const box = e.currentTarget.parentElement!.getBoundingClientRect();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  const move = (ev: PointerEvent) =>
+                    setSplit(Math.min(0.8, Math.max(0.2, (ev.clientX - box.left) / box.width)));
+                  const target = e.currentTarget;
+                  const up = () => {
+                    target.removeEventListener('pointermove', move);
+                    target.removeEventListener('pointerup', up);
+                  };
+                  target.addEventListener('pointermove', move);
+                  target.addEventListener('pointerup', up);
+                }}
+              />
+              <section className="knit-pane" aria-label="Knit program">
+                <KnitBitmap
+                  program={knitProgram}
+                  reason={knitBuild.ok ? '' : knitBuild.reason}
+                  marks={knitMarkCells}
+                  hover={knitHover}
+                  onHover={setKnitHover}
+                  onPick={(i) => {
+                    if (!knitProgram || !project.graph) return;
+                    setKnitMarks(null);
+                    setSelection(loopSelection(knitProgram, project.graph, i));
+                    setTab('knit');
+                  }}
+                />
+              </section>
+            </>
           )}
         </div>
         <div className="canvas-footer">
@@ -1324,8 +1459,8 @@ export default function App() {
         {!inspectionOnly && (
           <div className="inspector-tabs" role="tablist" aria-label="Inspector sections">
             {(mapped
-              ? (['measures', 'topology', 'compare', 'methods', 'surface'] as const)
-              : (['measures', 'topology', 'compare', 'methods'] as const)
+              ? (['measures', 'topology', 'compare', 'methods', 'surface', 'knit'] as const)
+              : (['measures', 'topology', 'compare', 'methods', 'knit'] as const)
             ).map((t) => (
               <button
                 key={t}
@@ -1872,6 +2007,27 @@ export default function App() {
                 </div>
               )}
             </>
+          )}
+          {!inspectionOnly && tab === 'knit' && (
+            <KnitPanel
+              build={knitBuild}
+              settings={knitSettings}
+              swatches={swatches}
+              graph={project.graph}
+              projectName={project.name}
+              surfaceSize={project.surface.size}
+              hover={knitHover}
+              selection={selection}
+              onSettings={changeKnit}
+              onSwatches={(next) => {
+                setKnitMarks(null);
+                commit({ ...projectRef.current, swatches: next });
+              }}
+              onMark={(cells) => {
+                setKnitMarks(cells);
+                if (cells) setKnitOpen(true);
+              }}
+            />
           )}
           {!inspectionOnly && tab === 'methods' && (
             <>

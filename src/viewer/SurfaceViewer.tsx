@@ -920,8 +920,24 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
             appendPath(segments, embeddedPath(surface, [...path, path[0]], 12));
           lineSegments(state.selectionGroup, segments, '#d09a4e');
         }
+      } else if (selection.kind === 'edge') {
+        const edge = graph.edges.find((candidate) => candidate.id === selection.id);
+        const nodes = new Map(graph.nodes.map((node) => [node.id, node.position]));
+        const a = edge && nodes.get(edge.a),
+          b = edge && nodes.get(edge.b);
+        if (edge && a && b) {
+          const segments: number[] = [];
+          appendPath(
+            segments,
+            hasRectangularMapping(surface)
+              ? edgePath(surface, edge, nodes)
+              : embeddedPath(surface, [a, b], 12)
+          );
+          lineSegments(state.selectionGroup, segments, '#d09a4e');
+        }
       }
     }
+    if (props.marker) pointsObject(state.selectionGroup, props.marker, '#f2f2f2', 8);
     // Draw selected entities after the translucent network lines, retaining
     // depth testing against the support geometry and unchanged coordinates.
     state.selectionGroup.traverse((object) => {
@@ -932,7 +948,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       object.renderOrder = 5;
     });
     state.draw();
-  }, [ready, props.graph, props.selection, props.surface]);
+  }, [ready, props.graph, props.selection, props.marker, props.surface]);
 
   useEffect(() => {
     const state = runtime.current;

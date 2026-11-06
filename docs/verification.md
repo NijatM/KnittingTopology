@@ -74,3 +74,27 @@ The browser suite now includes five real import cases and the preceding eleven g
 The current browser suite has 19 cases. Three new cases exercise real mapped generation/drawing/picking, source-triangle attachments, method citations, live barycentric learning without scientific-state edits, cache/file restore, stale results, chartless fallback and 375px layout. The sample OBJ and its declared millimeter units are supplied in `public/examples/`. Source fingerprints now include public assets, example data and the verification script. Numerical inputs remain local to the browser.
 
 This is a floating-point supplied-chart screen, not automatic unwrapping, an exact-predicate bijection certificate or a global 3D or physical certificate. Paths follow the mapped image of straight normalized-UV segments and are not geodesics. Severe folds, fine support path budgets and some planar density/operator combinations can be rejected. Maximum-input performance, native-GPU matrices, physical touch and manual assistive-technology coverage have not been newly established. Initial restoration and render-index preparation still include bounded synchronous work. See [mapped surface semantics](mapped-surfaces.md). Earlier native/network probes remain historical.
+
+## Knit program core and plane UI — 6 November 2026
+
+- **360/360 unit tests passed**: the preceding 319 plus 41 knit program cases. Type checking, formatting and the production build passed.
+- **Fidelity to Knit Grammar.** BMP files and `knit-grammar-pattern` JSON are byte-identical to files written by Knit Grammar's own code (KnittingPixelArtEditor commit `49b17992de32`). Check findings, structure data and structure tiling match it exactly. See `tests/fixtures/knit/README.md`.
+- **Behaviour tests** cover:
+  - automatic transfers: Accordion rows around a rib band, dropped transfers, two-layer structures left alone, unfixable bed changes reported, and an independent waiting-loop count of 0 when transfers are on;
+  - edge lines exactly `width` loops wide;
+  - node and extraordinary-node marks;
+  - provenance from every loop to an existing element;
+  - cell rules, including alternating conflicts exactly when an interior vertex has odd degree;
+  - overrides, sizing from the jersey swatch with its limits, and unsupported inputs;
+  - settings validation, the measurement-table file, project round trips and undo;
+  - the scientific signature, which knit settings leave unchanged.
+- **21/21 browser tests passed against development** (about 2.0 minutes) and **21/21 against production** (about 1.8 minutes), with no page or console errors. Two new cases cover:
+  - the plane workflow: typed size, split view, linked provenance, exports, a jersey measurement sizing the program, undo/redo;
+  - the section being offered only on the plane.
+- **Real Knit Grammar check (one-off, local development servers).** A program exported here (80 × 90, seed node marks) was opened in KnittingPixelArtEditor:
+  - the JSON opened as "80 × 90 · one yarn guide";
+  - the BMP read as the 4.S52 basic key with 7200 exact, 0 snapped and 0 unknown pixels;
+  - there were no page or console errors.
+- Initial JavaScript is 464.86 kB (147.92 kB gzip); the lazy viewer 581.01 kB (146.45 kB gzip); import and generation workers 27.86 kB and 91.54 kB.
+
+The knit program is design-level output for the lab software, which assigns the final operations and makes the machine code. Nothing has been knitted. Gauge comes only from entered swatch measurements, and unmeasured structures are flagged as assumed equal to jersey. The checks are Knit Grammar's warnings and do not certify knittability. The lab rules on first pass direction, transfer timing and yarn guide travel are still to be confirmed. Only network mode on the plane with the one-guide basic key is available. The program is built synchronously in the page, and responsiveness at the 600 × 600 maximum has not been measured.

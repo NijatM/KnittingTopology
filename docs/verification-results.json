@@ -7,48 +7,39 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 319,
+    "passed": 360,
     "core": 104,
     "project_and_persistence": 32,
-    "duration_seconds": 18.34,
     "learning_and_citations": 32,
     "import_parsing_and_projects": 84,
-    "mapping_kernel_generation_and_projects": 67
+    "mapping_kernel_generation_and_projects": 67,
+    "knit_program": 41
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 414.79,
-    "lazy_viewer_js_kb": 580.72,
-    "initial_js_gzip_kb": 130.8,
-    "lazy_viewer_js_gzip_kb": 146.37,
-    "import_worker_js_kb": 27.85,
-    "generation_worker_js_kb": 91.24
+    "initial_js_kb": 464.86,
+    "lazy_viewer_js_kb": 581.01,
+    "initial_js_gzip_kb": 147.92,
+    "lazy_viewer_js_gzip_kb": 146.45,
+    "import_worker_js_kb": 27.86,
+    "generation_worker_js_kb": 91.54
   },
   "development_browser_tests": {
     "command": "KNITTING_BASE_URL=http://127.0.0.1:5174/KnittingTopology/ npx playwright test",
     "result": "pass",
-    "passed": 19,
+    "passed": 21,
     "page_or_console_errors": 0,
-    "duration_seconds": 106.93
+    "duration_minutes_reported": 2.0
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4173/KnittingTopology/ npx playwright test",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4173/KnittingTopology/ npx playwright test (preview bound with --host 127.0.0.1)",
     "result": "pass",
-    "passed": 19,
-    "duration_seconds": 100.63,
+    "passed": 21,
     "page_or_console_errors": 0,
-    "result_file": "tmp/qa/mapping-production-results.json (ignored QA artifact; Playwright does not store the base URL in it)"
-  },
-  "reconfirmation": {
-    "command": "npm run check",
-    "result": "pass",
-    "unit_tests_passed": 319,
-    "unit_duration_seconds": 16.65,
-    "build_sizes_identical": true,
-    "note": "Re-run on the unchanged source before the milestone commit; no source file changed after the production browser run."
+    "duration_minutes_reported": 1.8
   },
   "mobile": {
     "viewport_width": 375,
@@ -58,7 +49,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Supplied rectangular OBJ UV generation",
+  "milestone": "Knit program core and plane UI (M1)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -108,5 +99,25 @@
     "maximum_samples_per_edge": 1024,
     "maximum_samples_final_and_coarse": 2000000,
     "known_fail_closed": "Nested/Ambo strip counts3,1,1,1 fail existing planar orientation checks"
+  },
+  "knit_program": {
+    "knit_grammar_fidelity": {
+      "bmp_byte_identical": true,
+      "json_byte_identical": true,
+      "checks_identical": true,
+      "structures_and_tiling_identical": true,
+      "source": "KnittingPixelArtEditor commit 49b17992de3291963c3eb11c89bf7b322b5cecb4, clean tree",
+      "fixtures": "tests/fixtures/knit"
+    },
+    "real_knit_grammar_open": {
+      "kind": "one-off local check, development servers",
+      "program": "80 x 90 plane, seed node marks",
+      "json": "opened as 80 x 90, one yarn guide",
+      "bmp": "4.S52 basic key: 7200 exact, 0 snapped, 0 unknown",
+      "page_or_console_errors": 0
+    },
+    "available": "network mode, plane, 4.S52 basic key",
+    "physical_validation": false,
+    "lab_rules_confirmed": false
   }
 }

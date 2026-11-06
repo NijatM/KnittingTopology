@@ -1,4 +1,4 @@
-import type { PatternGraph, SurfaceSpec, GuideStroke, GuideSample } from '../core/types';
+import type { PatternGraph, SurfaceSpec, GuideStroke, GuideSample, Vec3 } from '../core/types';
 
 export type InteractionMode = 'orbit' | 'draw' | 'select';
 export type OverlayMode = 'plain' | 'valence' | 'spacing' | 'patches';
@@ -15,7 +15,7 @@ export interface ViewerOptions {
   background: 'dark' | 'light';
 }
 export interface ViewerSelection {
-  kind: 'node' | 'cell' | 'triangle';
+  kind: 'node' | 'cell' | 'edge' | 'triangle';
   id: string;
 }
 export interface ViewerHandle {
@@ -29,6 +29,8 @@ export interface SurfaceViewerProps {
   guides: GuideStroke[];
   options: ViewerOptions;
   selection: ViewerSelection | null;
+  /** A surface point to mark (the knit program loop under the pointer). */
+  marker?: Vec3 | null;
   onStroke: (samples: GuideSample[]) => void;
   onSelect: (selection: ViewerSelection | null) => void;
   onHover?: (text: string) => void;
