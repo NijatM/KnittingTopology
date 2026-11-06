@@ -16,6 +16,7 @@ import type {
   TopologyPreset,
 } from '../core/types';
 import { analyzeGraph } from '../core/diagnostics';
+import { evaluateSurface } from '../core/surfaces';
 import {
   MAX_PROJECT_CHARACTERS,
   MAX_GUIDE_SAMPLES,
@@ -23,6 +24,7 @@ import {
   MAX_UI_GUIDES,
 } from '../core/limits';
 import {
+  createProject,
   geometryChange,
   historyReducer,
   parametersMatchGraph,
@@ -40,6 +42,10 @@ import {
   projectFilename,
   saveProject,
 } from '../adapters/export';
+import LearningPanel from '../learning/LearningPanel';
+import type { LearningExample } from '../learning/types';
+import { createCitationRecord } from '../adapters/citations';
+import { referencesBibtex, relevantReferenceIds } from '../learning/citations';
 
 const SurfaceViewer = lazy(() => import('../viewer/SurfaceViewer'));
 const SURFACES: { key: SurfaceKind; name: string; caption: string }[] = [
@@ -553,7 +559,11 @@ export default function App() {
         throw new Error('Project files must be smaller than 64 MB.');
       const next = parseProject(await file.text());
       if (next.graph) {
-        const checked = analyzeGraph(next.graph, next.surface, next.parameters.spacing);
+        const checked = analyzeGraph(
+          next.graph,
+          next.surface,
+          next.graph.provenance.parameters.spacing
+        );
         if (checked.diagnostics.some((d) => d.severity === 'error'))
           throw new Error('The saved graph failed topology or geometry validation.');
         Object.assign(next, checked);
@@ -598,6 +608,50 @@ export default function App() {
     viewer.current = handle;
   }, []);
   const viewerError = useCallback((message: string) => setError(message), []);
+  const loadLearningExample = useCallback(
+    (example: LearningExample) => {
+      cancel(false);
+      const base = geometryChange(createProject(), { kind: example.surface, size: example.size });
+      const next: ProjectState = {
+        ...base,
+        name: example.name,
+        parameters: { ...base.parameters, ...example.parameters, stripOverrides: undefined },
+      };
+      if (example.addDirectionGuide) {
+        next.guides = [
+          {
+            id: `guide-${crypto.randomUUID()}`,
+            strength: 1,
+            samples: [
+              [-0.7, -0.7 * Math.tan(Math.PI / 6)],
+              [0.7, 0.7 * Math.tan(Math.PI / 6)],
+            ].map(([x, y]) => ({
+              position: evaluateSurface(next.surface, 0, (x! + 1) / 2, (y! + 1) / 2),
+              attachment: {
+                surfaceRevision: next.surface.revision,
+                patch: 0,
+                uv: [(x! + 1) / 2, (y! + 1) / 2],
+              },
+            })),
+          },
+        ];
+      }
+      commit(next);
+      setSelection(null);
+      setElapsed(null);
+      setView((v) => ({
+        ...v,
+        mode: 'orbit',
+        overlay: 'plain',
+        showSurface: true,
+        showGraph: true,
+        showGuides: true,
+        showCoarse: false,
+      }));
+      setStatus(`${example.name} loaded. Generate to run it; Undo restores your previous project.`);
+    },
+    [cancel, commit]
+  );
 
   return (
     <div
@@ -1155,7 +1209,7 @@ export default function App() {
               onClick={() => setTab(t)}
               className={tab === t ? 'active' : ''}
             >
-              {t[0].toUpperCase() + t.slice(1)}
+              {t === 'methods' ? 'Learn' : t[0].toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
@@ -1373,6 +1427,30 @@ export default function App() {
                   }
                 >
                   Diagnostics CSV
+                </button>
+                <button
+                  disabled={!project.graph}
+                  onClick={() =>
+                    download(
+                      referencesBibtex(relevantReferenceIds(displayParameters)),
+                      `${projectFilename(project.name)}-references.bib`,
+                      'text/plain'
+                    )
+                  }
+                >
+                  References BibTeX
+                </button>
+                <button
+                  disabled={!project.graph}
+                  onClick={() =>
+                    download(
+                      JSON.stringify(createCitationRecord(project, stale), null, 2),
+                      `${projectFilename(project.name)}-method.json`,
+                      'application/json'
+                    )
+                  }
+                >
+                  Method record JSON
                 </button>
               </div>
               <p className="hint">
@@ -1618,43 +1696,13 @@ export default function App() {
           )}
           {tab === 'methods' && (
             <>
-              <div className="inspector-title">
-                <span className="eyebrow">METHODS / EVIDENCE</span>
-                <h2>Built to inspect</h2>
-                <p>Separate the design intention from what has actually been checked.</p>
-              </div>
-              <div className="method-boundary">
-                This app generates geometric cell networks. It does not establish knit construction,
-                machine feasibility, or structural capacity.
-              </div>
-              <article className="reference-card">
-                <span>01 / PATCH CONNECTIVITY</span>
-                <h3>Pattern-Based Quadrangulation for N-Sided Patches</h3>
-                <p>Takayama, Panozzo & Sorkine-Hornung · 2014</p>
-                <p>
-                  Independent bounded templates with prescribed boundary subdivisions. The supported
-                  subset is smaller than the paper’s complete 2–6-sided construction.
-                </p>
-                <a
-                  href="https://igl.ethz.ch/projects/patch-quad/pattern-based-quadrangulation.pdf"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Read primary paper ↗
-                </a>
-              </article>
-              <article className="reference-card">
-                <span>02 / TOPOLOGICAL EXPLORATION</span>
-                <h3>Topology Finding of Structural Patterns</h3>
-                <p>Oval et al. · AAG 2018</p>
-                <p>
-                  Coarse connectivity, strip density, pattern mapping, and embedding are distinct
-                  stages. Presets and derived pattern families support controlled exploration.
-                </p>
-                <a href="https://hal.science/hal-01883505" target="_blank" rel="noreferrer">
-                  Read primary paper ↗
-                </a>
-              </article>
+              <LearningPanel
+                parameters={displayParameters}
+                surface={project.surface}
+                stale={stale}
+                hasGraph={!!project.graph}
+                onLoadExample={loadLearningExample}
+              />
               <h3 className="subheading">
                 Current method <i />
               </h3>

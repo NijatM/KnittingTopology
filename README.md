@@ -35,10 +35,11 @@ The browser configuration uses installed Google Chrome on macOS, with isolated c
 5. Inspect nodes/cells, components, seams, valence, spacing, and method provenance. Try **quad, dual, ambo, kis, gyro, and diagonal** graph families.
 6. Capture up to four session variants in **Compare**. Check feature budgets as well as geometry before interpreting differences. Restore or save any captured variant.
 7. Save **project JSON** to retain geometry, guides, graph identities, coarse topology/strips, settings, diagnostics, seed, and provenance. Undo/redo restores project semantics within the session; the undo stack is not exported. Local autosave is best effort; download JSON for a durable record. If a network exceeds local cache quota, the latest inputs are retained for regeneration. Invalid cached records are preserved for recovery.
+8. Open **Learn** to explore 13 topics with actual construction diagrams, assumptions, source relationships and controlled examples. Browsing leaves your project unchanged; loading an example is undoable and requires explicit generation. Copy qualified method descriptions or download BibTeX/CSL references. See [methods and attribution](docs/methods.md).
 
 The **N-sided patch laboratory** is a separate plane construction with hard subdivision counts. It contains a verified, intentionally incomplete template set. Useful examples: four sides `[10, 6, 10, 6]`; three, five or six sides with all counts `6`; the triangular-boundary single-quad case `[2,1,1]`. Unsupported combinations report an error and retain the previous accepted graph. See the exact [core method contract](src/core/README.md).
 
-Exports: meter-coordinate OBJ polygon mesh, XY-projection SVG, viewport PNG, diagnostic CSV, and full project JSON. SVG is a projection, not a surface flattening or fabrication pattern. OBJ faces use straight chords and do not retain every project semantic.
+Exports: meter-coordinate OBJ polygon mesh, XY-projection SVG, viewport PNG, diagnostic CSV, full project JSON, selected method references in BibTeX, and a method record in JSON. Saved projects include a supplementary method record describing the accepted graph separately from pending settings. SVG is a projection, not a surface flattening or fabrication pattern. OBJ faces use straight chords and do not retain every project semantic.
 
 ## Scientific scope
 
@@ -49,7 +50,7 @@ This is a **geometric cell-network explorer**. It does not claim knit-loop topol
 - Closed cubical/spherical atlases, soft guide fitting, feature-preserving cube transformations, and open-boundary operator rules are documented project extensions.
 - Target spacing and guide alignment are measured preferences. Integer rounding, atlas distortion and transformations change achieved edge lengths. Local validity checks do not certify the absence of all global intersections.
 
-[Sources and evidence](research/sources.csv) · [Data contract](docs/data-contract.md) · [Algorithm details](src/core/README.md) · [Verification record](docs/verification.md)
+[Methods and citations](docs/methods.md) · [BibTeX](research/references.bib) · [Sources and evidence](research/sources.csv) · [Data contract](docs/data-contract.md) · [Algorithm details](src/core/README.md) · [Verification record](docs/verification.md)
 
 ## GitHub Pages
 
@@ -65,6 +66,7 @@ src/viewer/     Three.js display, picking, surface-attached drawing, camera cont
 src/app/        React workspace, immutable project history, validated serialization
 src/workers/    revision-tagged background generation and progress protocol
 src/adapters/   explicit geometry/projection/project exports
+src/learning/   method lessons, construction diagrams and citation registry
 tests/         numerical, project and isolated browser verification
 research/      primary-source register and scientific references
 ```

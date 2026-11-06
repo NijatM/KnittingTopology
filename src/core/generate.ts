@@ -22,12 +22,10 @@ import {
   MAX_PATCH_SIDE_COUNT,
 } from './limits';
 import { coarseCellCounts, extractCoarseStrips } from './strips';
+import { formatCitation, relevantReferenceIds } from '../learning/citations';
+import { REFERENCES } from '../learning/references';
 
 export const ALGORITHM_VERSION = '1.0.0';
-const SOURCES = [
-  'Takayama, Panozzo & Sorkine-Hornung (2014), Pattern-Based Quadrangulation for N-Sided Patches, Computer Graphics Forum 33(5), doi:10.1111/cgf.12443.',
-  'Oval et al. (2018), Topology Finding of Structural Patterns, Advances in Architectural Geometry, https://hal.science/hal-01883505.',
-];
 function checkpoint(context: GenerationContext | undefined, fraction: number, stage: string) {
   if (context?.cancelled?.()) {
     const e = new Error('Generation cancelled.');
@@ -174,9 +172,9 @@ export function validateGenerationInput(input: GenerationInput) {
 }
 function provenance(input: GenerationInput): Provenance {
   return {
-    algorithm: 'Independent bounded patch-template quadrangulation and Conway-style graph mapping',
+    algorithm: `${input.parameters.strategy === 'n-sided-patch' ? 'Independent bounded patch-template quadrangulation' : 'Coarse quad-template and strip-subdivision network'}${input.parameters.family === 'quad' ? '' : ` with ${input.parameters.family} graph mapping`}`,
     version: ALGORITHM_VERSION,
-    sources: SOURCES,
+    sources: relevantReferenceIds(input.parameters).map((id) => formatCitation(REFERENCES[id])),
     scope:
       'Implemented subset: triangular single-quad (2,1,1) kernel; opposite-equal rectangular integer grid; 3–6-sided central-fan quads with compatible even side counts; coarse inset/ring/checkerboard templates. Cube/sphere cubical atlases, soft guides and closed-surface graph transformations are engineering extensions; cube dual/ambo are feature-conforming per-chart clipped operators, while sphere operators are global. Not a full reproduction of either paper; no uniform-spacing or mechanical claims.',
     parameters: structuredClone(input.parameters),
@@ -184,6 +182,7 @@ function provenance(input: GenerationInput): Provenance {
     seed: input.parameters.seed,
     notes: [
       'Units: meters; analytic chart UV in [0,1]²; right-handed Z-up.',
+      `Input guides: ${input.guides.length} stroke(s), ${input.guides.reduce((n, g) => n + g.samples.length, 0)} sample(s), ${guideSegments(input).length} nonzero same-chart candidate segment(s). Candidate tangents may still be ignored after tangent-plane projection.`,
       'Density uses explicit opposite-edge coarse strip equivalence classes with rounded mean embedded edge length / requested spacing; target spacing is measured, not guaranteed.',
       'Orientation is a soft background tangent cross-field; nearest guide tangents blend as a sign-invariant 4-RoSy field. Projected edge corrections retain edge length in their target, pin boundaries/creases/seams and backtrack inverted faces. Optional Laplacian relaxation follows.',
       'Seed is recorded for reproducibility; these deterministic templates do not use random perturbations.',

@@ -33,6 +33,17 @@ function saved() {
   return { ...state, ...generatePattern(state) };
 }
 describe('autosave safety', () => {
+  it('restores accepted spacing statistics independently of pending spacing controls', () => {
+    const storage = new MemoryStorage();
+    const state = saved();
+    const expected = state.statistics.spacingRmsRelative;
+    state.parameters = { ...state.parameters, spacing: 0.01 };
+    storage.setItem(STORAGE_KEY, serializeProject(state));
+    const restored = restoreFromStorage(storage).project;
+    expect(restored.parameters.spacing).toBe(0.01);
+    expect(restored.graph?.provenance.parameters.spacing).toBe(0.02);
+    expect(restored.statistics?.spacingRmsRelative).toBeCloseTo(expected, 12);
+  });
   it('preserves corrupt cache as recovery before allowing a fresh autosave', () => {
     const storage = new MemoryStorage();
     storage.setItem(STORAGE_KEY, '{corrupt original');
@@ -72,6 +83,7 @@ describe('autosave safety', () => {
     };
     storage.limit = 3000;
     expect(writeAutosave(storage, current)).toBe('inputs-only');
+    expect(JSON.parse(storage.getItem(STORAGE_KEY)!).methodRecord).toBeUndefined();
     const restored = restoreFromStorage(storage);
     expect(restored.project.name).toBe('Latest inputs');
     expect(restored.project.parameters.spacing).toBe(0.012);

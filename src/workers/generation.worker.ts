@@ -1,5 +1,5 @@
 import { generatePattern } from '../core/generate';
-import { scientificSignature, validateGraphRecord } from '../app/project';
+import { scientificSignature, serializeProject, validateGraphRecord } from '../app/project';
 import { MAX_PROJECT_CHARACTERS } from '../core/limits';
 import type { GenerateRequest, WorkerResponse } from './protocol';
 
@@ -18,13 +18,14 @@ scope.onmessage = ({ data }) => {
     });
     result.graph.provenance.inputSignature = scientificSignature(input);
     validateGraphRecord(result.graph, input.surface.revision);
-    // Reject a result that the supported project reader cannot recover. The reserve
-    // covers wrapper/name/diagnostic metadata without duplicating the graph in RAM.
-    const persistedSize = JSON.stringify({
+    // Measure the actual serialized wrapper, including derived citation metadata.
+    // Reserve space for later project edits before enforcing the reader's budget.
+    const persistedSize = serializeProject({
+      schemaVersion: '1.0.0',
+      name: 'x'.repeat(200),
+      revision: Number.MAX_SAFE_INTEGER,
       ...input,
-      graph: result.graph,
-      diagnostics: result.diagnostics,
-      statistics: result.statistics,
+      ...result,
     }).length;
     if (persistedSize > MAX_PROJECT_CHARACTERS - 4096)
       throw new Error(

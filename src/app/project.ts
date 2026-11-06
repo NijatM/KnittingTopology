@@ -7,6 +7,7 @@ import type {
   Diagnostic,
 } from '../core/types';
 import { evaluateSurface } from '../core/surfaces';
+import { createCitationRecord } from '../adapters/citations';
 import {
   MAX_GRAPH_CELLS,
   MAX_GRAPH_EDGES,
@@ -82,6 +83,7 @@ export function serializeProject(project: ProjectState): string {
     units: 'm',
     savedAt: new Date().toISOString(),
     project,
+    methodRecord: createCitationRecord(project, !!project.graph && !parametersMatchGraph(project)),
   });
 }
 

@@ -45,7 +45,11 @@ export function restoreFromStorage(storage: StorageLike): RestoreResult {
   try {
     const project = parseProject(raw);
     if (project.graph) {
-      const checked = analyzeGraph(project.graph, project.surface, project.parameters.spacing);
+      const checked = analyzeGraph(
+        project.graph,
+        project.surface,
+        project.graph.provenance.parameters.spacing
+      );
       if (checked.diagnostics.some((d) => d.severity === 'error')) {
         const backedUp = preserve();
         return {
@@ -112,6 +116,9 @@ export function writeAutosave(
       const file = JSON.parse(
         serializeProject({ ...project, graph: null, diagnostics: [], statistics: null })
       );
+      // Rebuild citation metadata from the preserved inputs after reload. It is
+      // deliberately omitted from this minimal quota-recovery cache, not exports.
+      delete file.methodRecord;
       file.cacheKind = 'inputs-only';
       storage.setItem(STORAGE_KEY, JSON.stringify(file));
       return 'inputs-only';

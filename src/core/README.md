@@ -49,3 +49,6 @@ No textile, knit-loop, manufacturing, structural or material validity is implied
 
 - Takayama, Panozzo and Sorkine-Hornung (2014), _Pattern-Based Quadrangulation for N-Sided Patches_, Computer Graphics Forum 33(5), DOI: 10.1111/cgf.12443. The complete method's guarantees do not transfer to this subset.
 - Oval et al. (2018), _Topology Finding of Structural Patterns_, Advances in Architectural Geometry, https://hal.science/hal-01883505. The coarse topology → strip density → mapping separation informs this architecture; closed atlases, guides and these presets are project extensions.
+- Hart (n.d.), _Conway Notation for Polyhedra_, https://www.georgehart.com/virtual-polyhedra/conway_notation.html. Dual, ambo, kis and gyro connectivity follow the notation credited to John Conway; surface placement, boundary and crease rules are project adaptations.
+
+The pure citation registry selects sources by their actual role: Oval for the pipeline, Takayama for N-sided mode, and Hart for the four named operators. Graph provenance records those selected references. See [methods and source attribution](../../docs/methods.md) for locators, full bibliography and qualified wording. Citation-only metadata changes do not change the numerical algorithm version.

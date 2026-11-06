@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-06T17:03:22.475Z",
+  "generated_at_utc": "2026-11-06T19:04:37.618Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-06",
@@ -10,46 +10,34 @@
     "unit_tests": {
       "command": "npm test",
       "result": "pass",
-      "passed": 135,
+      "passed": 168,
       "core": 104,
-      "project_and_persistence": 31,
-      "duration_seconds": 16.73
+      "project_and_persistence": 32,
+      "duration_seconds": 17.27,
+      "learning_and_citations": 32
     },
     "production_build": {
       "command": "npm run build",
       "result": "pass",
       "base": "/KnittingTopology/",
       "worker": "separate ES module",
-      "initial_js_kb": 288.33,
-      "lazy_viewer_js_kb": 577.24
+      "initial_js_kb": 355.97,
+      "lazy_viewer_js_kb": 577.24,
+      "initial_js_gzip_kb": 112.69
     },
     "development_browser_tests": {
       "command": "npx playwright test",
       "result": "pass",
-      "passed": 7,
-      "duration_seconds": 56.1,
-      "page_or_console_errors": 0
+      "passed": 11,
+      "page_or_console_errors": 0,
+      "duration_seconds": 68.55
     },
     "production_browser_tests": {
       "command": "KNITTING_BASE_URL=http://127.0.0.1:4173/KnittingTopology/ npx playwright test",
       "result": "pass",
-      "passed": 7,
-      "duration_seconds": 55.5,
+      "passed": 11,
+      "duration_seconds": 71.13,
       "page_or_console_errors": 0
-    },
-    "production_network": {
-      "requests": 17,
-      "worker_js": 3,
-      "font_assets": 4,
-      "scripts": 7,
-      "failed_requests": 0,
-      "external_requests": 0,
-      "subpath_violations": 0
-    },
-    "native_gpu": {
-      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)",
-      "context_lost": false,
-      "errors": 0
     },
     "mobile": {
       "viewport_width": 375,
@@ -58,40 +46,73 @@
       "physical_device": false
     },
     "physical_or_manufacturing_validation": false,
-    "remote_deployment_tested": false
+    "remote_deployment_tested": false,
+    "milestone": "Learn and Cite",
+    "prior_baseline_only": {
+      "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
+      "production_network": {
+        "requests": 17,
+        "worker_js": 3,
+        "font_assets": 4,
+        "scripts": 7,
+        "failed_requests": 0,
+        "external_requests": 0,
+        "subpath_violations": 0
+      },
+      "native_gpu": {
+        "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)",
+        "context_lost": false,
+        "errors": 0
+      }
+    },
+    "formatting": {
+      "command": "npm run format:check",
+      "result": "pass"
+    }
   },
   "source_sha256": {
     "index.html": "aff9f6ac5f5b8f70c3125ee45ffbcfea03fb4658104f47814f385145dd853f6a",
     "package-lock.json": "d0060377ea7d98f073e9085255598f16c4d994af2595e6eb15149b06a18cd357",
     "package.json": "9a798535fd308f84218d02e3bcc7bfcd8068e65bc479a8b630d67a95bc96a880",
     "playwright.config.ts": "371a037b42004cbe6e28d97e8efa0f0ada9cd6e0b46411f7bd87dcc59e6113dc",
+    "src/adapters/citations.ts": "c729718334119f8694b14f0a9c38d25aabc9845c7e9d3fba454c5d10715c6955",
     "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
-    "src/app/App.tsx": "e8e7142c6cc56c82247b5b5b4138b42004f072ea44634fc570e8eaf94e83432e",
-    "src/app/persistence.ts": "d06887d9338e84201da76426721f4678047584cbe8120d0ec870c0dd33ef9b0c",
-    "src/app/project.ts": "5872a8cc958ba591d34e459bca081031118f8e4bf4b2f56f99311ae3a3b76c00",
-    "src/core/README.md": "0da67978af9c3f4a745435c634e275c88ffe46865e45baa15ddfaf85491b9659",
+    "src/app/App.tsx": "c41d7393fc513b7e842cd278faaab71e7af3bdf2d71517db63f5dcdd44df3d64",
+    "src/app/persistence.ts": "df48c53b372e62559df78b7573ba5766815e8f87a6f0d2e2bc4f3214339e75bb",
+    "src/app/project.ts": "45cdcc5d86f96b4b07d3e852ed8840aa8c8222b257c14cf9b4b7bd5f884dc44c",
+    "src/core/README.md": "893a5c0779b34ba03717d6e1df72f749ae0d41f454ddf774f3849cbe52a083b0",
     "src/core/diagnostics.ts": "83d1d66a7558f62982b6a2ef5b2403a8b6a7b162b5c17f855810f111f293ab24",
-    "src/core/generate.ts": "7f5163dbfbef0e61b4ae1ab526291bc729d1fefc68da72f91acf2711d66e71fd",
+    "src/core/generate.ts": "50cb057e5823d15265c3e7edf286b0b69fc75221040a57d9c3c725744f6fcbb5",
     "src/core/limits.ts": "0eb1570cfe84b26b75490ede098fa90018dae7d3a249b15d837c36d895ce685f",
     "src/core/math.ts": "f7a97ae1b32a5369b0e101d0d8deb9dd9bcedcc075a7ae96eba5355164e71d4b",
     "src/core/strips.ts": "cf1e459385a447eb62f21145a3918126551dec28546a3199487d9378b97cdeb5",
     "src/core/surfaces.ts": "2912e4f4fe83f4ebaa7027b4d1ca50f46fd0af3a9d688148a9b0316dc5977de4",
     "src/core/topology.ts": "9c53a8af1562170686bdd5ede6f10352c73f50c47981f2508e0bdb35af3f7af5",
     "src/core/types.ts": "47d376c1b3e7792e5c7f457340c9965793c686287a7c7a86e261db36d3802652",
+    "src/learning/LearningPanel.tsx": "df1b787398aa4b5071c559e14f9553ebe0a43b9053090f9254aa475fcf0f342d",
+    "src/learning/MethodDiagram.tsx": "804db46da9ec66f499aba1e60eea9e025f5a47503620129f04207b3e77ef5250",
+    "src/learning/catalog.ts": "e783e2f889147d4834487a5967aa511a5549eb880da3c3571730ba3baa8b4319",
+    "src/learning/citations.ts": "760c5db744020aeccf0af9f3704ba8a2c992dc712c263d2348a5f72d0464cdaa",
+    "src/learning/learning.css": "413f54a2d5e805808d2391361712dc4ad27d0bf1a0da9eddfaa0d7f3839053d6",
+    "src/learning/references.ts": "ae49fb8d3845e32e4f6e9ac13de04e6a7e8624232808b8277d10732ba953bd7c",
+    "src/learning/types.ts": "d285371b73e71c3072044d92f536dbd55e399f24273649e4a2ebf883442c8f30",
     "src/main.tsx": "2e321c8d93adfc7e6c1616ebd55e6d2f35d7a114d701bb010172aaeb3e2cab19",
     "src/styles.css": "f6a398aec2a02ef453a837b78ed543ed50c27dcd0a6e93e8c9b84cf635e421a0",
     "src/viewer/README.md": "500950e71f102a0cc05c904b92cc9c9425300e70decfba675ef67d8f4808a63f",
     "src/viewer/SurfaceViewer.tsx": "731a19b333263acaff1129345127307193000c29e0d745ecf3fa3743cb1a0fcb",
     "src/viewer/types.ts": "ca11b6a81204c61a3e74fe7b34cdedc58e247c48ebcfe23778120e0332ae87c4",
-    "src/workers/generation.worker.ts": "34a24d024af12a3056d070a91f409d7ee3930d32d8e07e78b35b86e40a79a6b2",
+    "src/workers/generation.worker.ts": "d2035162ae2074450dde9c3fa2f88e67fe65bf5109b7b23a70ab04a8a6e0646a",
     "src/workers/protocol.ts": "ebd32a2d468b89aa61b3850c6a17936d71cda92cd37e6eeb09bcd75e1a1fe2eb",
-    "tests/app/persistence.test.ts": "019d02828e5d55abe2ffc6ae93ba89327fa583ddcf5d8beccc45340afb13f720",
+    "tests/app/persistence.test.ts": "ad84df0f6b6080d9236f0277d2119a93da0ba2e6846b3867545d9abb2e992410",
     "tests/app/project.test.ts": "0509d29376cb7bc8d119bd0c9f4edd9495082830fea72e88144aece9a9c39bb6",
-    "tests/browser/README.md": "7414e38dccd5e0b89293f019a1ad42c3250d9971ae38e637da4e2414bd0b62d3",
+    "tests/browser/README.md": "c637b05c78a93eb4ae56adc87734fd4c4bfabea88b86b00e1761f4baccd2cccd",
     "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
+    "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
     "tests/core/audit.test.ts": "2766318b75fb01907bcd6433bc640a1a9ab06aacb2d2c11b504e3d69ccd1e3fb",
     "tests/core/generation.test.ts": "a6fef7bbdfdb061b08cd42b2067487c06d764040b8f02e389a273d60c072d3c1",
+    "tests/learning/learning.test.ts": "3dd1a145d6fdab41084d0c50e8b122b3149c357f72754452c1b2943d25635c68",
+    "tests/learning/project-citations.test.ts": "729c52ef36db3a6c1a3b907c91590521a5b841264fa1be21a66ac7b104e7bb61",
     "tsconfig.json": "4a4fff72cdc41b0563fabf044679250b8966bf52b7993e5a62924ee189452153",
     "vite.config.ts": "961f88838d87faf68dc5c0f81f4bd2926f9d37480609c941cf10ae7704173953"
   }
