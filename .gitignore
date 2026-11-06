@@ -6,4 +6,21 @@ playwright-report/
 tmp/
 .env*
 *.local
-research/claude-*-audit.json
+
+# Local development instructions, tooling, and records
+/Agents/
+/Agent/
+/agents/
+AGENTS.md
+CLAUDE.md
+.agents/
+.codex/
+.claude/
+/.local/
+/prompts/
+/tasks/
+/project-brief.json
+/scripts/run-claude-review.py
+/docs/development.md
+/research/reviews.md
+/research/claude-*-audit.json

@@ -1,6 +1,9 @@
 {
   "date": "2026-11-06",
-  "typecheck": { "command": "npm run typecheck", "result": "pass" },
+  "typecheck": {
+    "command": "npm run typecheck",
+    "result": "pass"
+  },
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
@@ -51,15 +54,6 @@
     "body_width": 375,
     "physical_device": false
   },
-  "independent_reviews": {
-    "provider": "Anthropic",
-    "reported_model": "claude-opus-5-5",
-    "completed": 4,
-    "tools_enabled": false,
-    "authentication": "Claude Code subscription",
-    "reviews_executed_tests": false
-  },
-  "git_actions_performed": false,
-  "deployed": false,
-  "physical_or_manufacturing_validation": false
+  "physical_or_manufacturing_validation": false,
+  "remote_deployment_tested": false
 }

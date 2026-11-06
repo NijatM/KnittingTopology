@@ -10,17 +10,17 @@ Graph nodes/edges/cells have stable string IDs. Cell node order is oriented; edg
 
 The representation separates base surface, coarse patches/template choice, subdivision density, resulting graph, pattern transformation, and embedding. Keep source cell references in transformed cells. Pattern families are geometric networks, not yarns, loops, machine instructions, or mechanical tensors.
 
-Core public modules (owned by numerical worker):
+Core public modules:
 
 - `surfaces.ts`: `evaluateSurface(surface, patch, u, v): Vec3`, `projectToSurface(surface, position, patch?): { position: Vec3; attachment: SurfaceAttachment }`, `buildSurfaceMesh(surface, resolution?): SurfaceMesh`, plus documented analytic helpers.
-- `generate.ts`: `generatePattern(input: GenerationInput, context?: GenerationContext): GenerationResult`. Preconditions and unsupported cases throw descriptive errors. Report progress; cancellation may throw a named `AbortError`. Root worker wrapper also terminates jobs to ensure cancellation.
+- `generate.ts`: `generatePattern(input: GenerationInput, context?: GenerationContext): GenerationResult`. Preconditions and unsupported cases throw descriptive errors. Progress callbacks report stages; cancellation may throw a named `AbortError`. The browser worker wrapper also terminates jobs to ensure cancellation.
 - `diagnostics.ts`: graph validation/statistics callable independently for loaded or imported graphs.
-- The core worker may add other modules and meaningful tests but does not edit `types.ts` without coordinator agreement.
+- Shared type changes must preserve the versioned serialization contract and its regression checks.
 
-Viewer public component (owned by viewer worker): `src/viewer/SurfaceViewer.tsx` default export. Props are defined in `src/viewer/types.ts`; all shared interface changes need coordinator approval. Controls for rotate/draw/select; surface display, graph, guides, overlays, node/cell selection, camera fit/presets, screenshot. No project history or app controls in the viewer.
+Viewer public component: `src/viewer/SurfaceViewer.tsx` default export. Props are defined in `src/viewer/types.ts`. Responsibilities include rotate/draw/select interactions, surface display, graph, guides, overlays, node/cell selection, camera fit/presets, and screenshot capture. Project history and application controls remain outside the viewer.
 
 Project JSON saves schema version, explicit surface/graph/guide state, parameters, units by schema, seeds, provenance, and numerical diagnostic definitions/results. Restore from validated bounded data; reject nonfinite/unsupported data. UI history snapshots preserve IDs and semantics. Camera/overlays stay outside scientific project state.
 
-Workers carry request ID and input revision. The app accepts a result only if both match the current job/state. Old results remain visible during generation on unchanged geometry; stale result status is clearly visible. Failed/cancelled jobs preserve the previous accepted graph.
+Browser worker messages carry request ID and input revision. The app checks them against the active request and compares the scientific input signature with the current inputs. The history reducer checks the signature again before accepting a result; renaming a project does not invalidate an otherwise current computation. Old results remain visible during generation on unchanged geometry; stale result status is clearly visible. Failed/cancelled jobs preserve the previous accepted graph.
 
 Scientific claims: topology validity, geometric quality, design intent, and physical validation remain distinct. Target spacing is a request; edge arc lengths and relative RMS error measure achieved geometric spacing. Quad strip consistency may require integer rounding. Record that deviation instead of promising uniformity.

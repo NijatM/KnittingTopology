@@ -15,7 +15,7 @@ Core checks are in `tests/core/generation.test.ts`. They include analytic fixtur
 
 Project checks in `tests/app/project.test.ts` cover scientific state and graph/strip round-trip, monotone history revisions, stale-job rejection, geometry attachment invalidation, malformed input rejection, and explicit OBJ/SVG semantics. JSON canonicalizes signed zero; stable graph identities/connectivity and numeric geometry are the relevant preservation contract.
 
-Browser tests use isolated Playwright contexts and installed Chrome. Software WebGL is a reproducible test fallback; it does not establish performance or rendering on every GPU. PNG screenshots are QA artifacts under ignored `tmp/qa/`, not scientific validation. The native Safari accessibility inspection stalled; it was not treated as a successful application test.
+Browser tests use isolated Playwright contexts and installed Chrome. Software WebGL is a reproducible test fallback; it does not establish performance or rendering on every GPU. PNG screenshots are QA artifacts under ignored `tmp/qa/`, not scientific validation. Safari is not included in the completed browser test coverage.
 
 ## Scientific limits
 
@@ -36,10 +36,9 @@ Browser tests use isolated Playwright contexts and installed Chrome. Software We
 - At mobile width 375, document and body width both remained 375. This is resized-browser coverage, not physical touch-device certification.
 - Native WebGL2 used the Apple M2 Pro Metal renderer with no context loss. Software WebGL and native screenshots were visually inspected. Display-only radial bias fixes sphere line visibility without changing picking/export/diagnostic coordinates.
 - Camera top/orbit transforms retained Z-up, unit rotation determinant within 5e-8, finite matrices, and unchanged camera distance in the targeted probe.
-- Four actual Opus 5.5 reviews were completed. Their [findings and dispositions](../research/reviews.md) are separate from executed-test evidence.
 
-The final [machine-readable results](verification-results.json) and [source fingerprint manifest](verification-manifest.json) record the checked snapshot without Git. QA screenshots and browser reports remain under ignored `tmp/qa/production-*` and `tmp/qa/report/`.
+The [machine-readable results](verification-results.json) record the executed baseline checks. The [source fingerprint manifest](verification-manifest.json) identifies the current source snapshot; documentation-only changes do not imply rerunning every historical browser check. QA screenshots and browser reports remain under ignored `tmp/qa/production-*` and `tmp/qa/report/`.
 
 Remaining numerical limitations are documented in `src/core/README.md`: declared incomplete patch-template coverage, chart-local guide fields with globally shared fitting backtracking, possible fail-closed rejection of unsupported/poor embeddings, no complete global intersection certificate, and sampled saddle path lengths. In N-sided mode, hard boundary counts determine density; any spacing deviation is a comparison to the stored reference spacing, not an enforced density target.
 
-No Git operation, remote deployment, material experiment, structural certification, or machine execution was performed.
+The recorded software checks do not establish material behavior, structural capacity, manufacturing feasibility, or correctness of a later remote deployment.

@@ -1694,7 +1694,8 @@ export default function App() {
               </p>
               <p className="hint">
                 Cube/sphere atlases, closed-surface assembly, soft guides, and open-boundary pattern
-                rules are project extensions. Agreement between agents is not physical validation.
+                rules are project extensions. Geometric checks do not establish physical
+                performance.
               </p>
             </>
           )}

@@ -1,6 +1,6 @@
 # Knitting Topology
 
-A static surface pattern and topology laboratory by Nijat Mahamaliyev / Tailored Materiality Research. The workspace follows the dark monochrome visual language of Knitting Pixel Art Editor. Computation runs in the browser; the application requires no AI account, API key, or server.
+A static surface pattern and topology laboratory by Nijat Mahamaliyev / Tailored Materiality Research. The workspace follows the dark monochrome visual language of Knitting Pixel Art Editor. Computation runs locally in the browser without a backend server.
 
 ## Run locally
 
@@ -49,13 +49,13 @@ This is a **geometric cell-network explorer**. It does not claim knit-loop topol
 - Closed cubical/spherical atlases, soft guide fitting, feature-preserving cube transformations, and open-boundary operator rules are documented project extensions.
 - Target spacing and guide alignment are measured preferences. Integer rounding, atlas distortion and transformations change achieved edge lengths. Local validity checks do not certify the absence of all global intersections.
 
-[Sources and evidence](research/sources.csv) · [Data contract](docs/data-contract.md) · [Algorithm details](src/core/README.md) · [Development record](docs/development.md)
+[Sources and evidence](research/sources.csv) · [Data contract](docs/data-contract.md) · [Algorithm details](src/core/README.md) · [Verification record](docs/verification.md)
 
 ## GitHub Pages
 
 The Vite base is **`/KnittingTopology/`**. If the repository name changes, update `base` in `vite.config.ts`. Assets, bundled fonts, and the ES-module worker are served below that path. The application uses no server routes.
 
-A **manual-only** Pages workflow is prepared at `.github/workflows/pages.yml`. After you initialize/push the repository yourself, select **Settings → Pages → GitHub Actions**, then run **Deploy Knitting Topology** from the Actions tab. The workflow has no push trigger. No Git operations or deployment were performed during this build. Configuration follows the [official Vite Pages guidance](https://vite.dev/guide/static-deploy).
+A **manual-only** Pages workflow is prepared at `.github/workflows/pages.yml`. Select **Settings → Pages → GitHub Actions**, then run **Deploy Knitting Topology** from the Actions tab. The workflow has no push trigger. Configuration follows the [official Vite Pages guidance](https://vite.dev/guide/static-deploy).
 
 ## Structure
 
@@ -66,9 +66,7 @@ src/app/        React workspace, immutable project history, validated serializat
 src/workers/    revision-tagged background generation and progress protocol
 src/adapters/   explicit geometry/projection/project exports
 tests/         numerical, project and isolated browser verification
-research/      source register and actual Claude review records
-tasks/         bounded task packets and coordinator queue
-Agents/        original supplied starter, preserved as reference
+research/      primary-source register and scientific references
 ```
 
 Arbitrary surface import, direct graph grammar editing, pseudo-quads/poles, calibrated mechanics, textile semantics, and machine adapters are future work. The contracts preserve a boundary for them without claiming they are implemented.

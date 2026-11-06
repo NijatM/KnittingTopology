@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-06T14:18:47.005Z",
+  "generated_at_utc": "2026-11-06T17:03:22.475Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-06",
@@ -57,17 +57,8 @@
       "body_width": 375,
       "physical_device": false
     },
-    "independent_reviews": {
-      "provider": "Anthropic",
-      "reported_model": "claude-opus-5-5",
-      "completed": 4,
-      "tools_enabled": false,
-      "authentication": "Claude Code subscription",
-      "reviews_executed_tests": false
-    },
-    "git_actions_performed": false,
-    "deployed": false,
-    "physical_or_manufacturing_validation": false
+    "physical_or_manufacturing_validation": false,
+    "remote_deployment_tested": false
   },
   "source_sha256": {
     "index.html": "aff9f6ac5f5b8f70c3125ee45ffbcfea03fb4658104f47814f385145dd853f6a",
@@ -75,7 +66,7 @@
     "package.json": "9a798535fd308f84218d02e3bcc7bfcd8068e65bc479a8b630d67a95bc96a880",
     "playwright.config.ts": "371a037b42004cbe6e28d97e8efa0f0ada9cd6e0b46411f7bd87dcc59e6113dc",
     "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
-    "src/app/App.tsx": "bcbef6a7553c7571f5c35e57c588a16541638e3b9dbc437f8a2e10096200c7ba",
+    "src/app/App.tsx": "e8e7142c6cc56c82247b5b5b4138b42004f072ea44634fc570e8eaf94e83432e",
     "src/app/persistence.ts": "d06887d9338e84201da76426721f4678047584cbe8120d0ec870c0dd33ef9b0c",
     "src/app/project.ts": "5872a8cc958ba591d34e459bca081031118f8e4bf4b2f56f99311ae3a3b76c00",
     "src/core/README.md": "0da67978af9c3f4a745435c634e275c88ffe46865e45baa15ddfaf85491b9659",
@@ -89,7 +80,7 @@
     "src/core/types.ts": "47d376c1b3e7792e5c7f457340c9965793c686287a7c7a86e261db36d3802652",
     "src/main.tsx": "2e321c8d93adfc7e6c1616ebd55e6d2f35d7a114d701bb010172aaeb3e2cab19",
     "src/styles.css": "f6a398aec2a02ef453a837b78ed543ed50c27dcd0a6e93e8c9b84cf635e421a0",
-    "src/viewer/README.md": "234d07c94463021f3b4b91168fbdbed69bc305fd690758e29008f5190eebb8ab",
+    "src/viewer/README.md": "500950e71f102a0cc05c904b92cc9c9425300e70decfba675ef67d8f4808a63f",
     "src/viewer/SurfaceViewer.tsx": "731a19b333263acaff1129345127307193000c29e0d745ecf3fa3743cb1a0fcb",
     "src/viewer/types.ts": "ca11b6a81204c61a3e74fe7b34cdedc58e247c48ebcfe23778120e0332ae87c4",
     "src/workers/generation.worker.ts": "34a24d024af12a3056d070a91f409d7ee3930d32d8e07e78b35b86e40a79a6b2",

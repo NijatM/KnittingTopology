@@ -26,7 +26,7 @@ Graph edge paths and guide/coarse boundaries are densified through the core proj
 - A sphere drag returned 16 samples, all carrying the sphere revision; maximum measured radius error was 1.3877787807814457e-17 m for radius 0.09 m. This is a local analytic picking check, not a spacing/refinement claim.
 - PNG export returned a valid PNG data URL; sphere patch overlay screenshot visually inspected. Temporary harness files and server were removed/stopped afterward.
 
-Full-app browser flows, hardware GPU coverage, mobile touch devices and manual screen-reader testing remain coordinator integration checks. No Claude/provider calls, Git operations or deployment occurred in this implementation task.
+Full-application integration and native-GPU results are recorded in [the verification report](../../docs/verification.md). Physical mobile touch devices and manual screen-reader testing remain outside completed coverage.
 
 ## Native Metal visibility repair
 
