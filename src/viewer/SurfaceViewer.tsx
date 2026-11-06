@@ -604,6 +604,33 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     };
     const down = (event: PointerEvent) => {
       if (event.button !== 0) return;
+      if (current.current.pickStartEdge) {
+        const sample = pick(event);
+        if (sample) {
+          const [u, v] = sample.attachment.uv;
+          const distances = [v, 1 - u, 1 - v, u];
+          const nearest = distances.indexOf(Math.min(...distances));
+          if (distances[nearest]! <= 0.15)
+            current.current.onStartEdge?.((['v0', 'u1', 'v1', 'u0'] as const)[nearest]!);
+        }
+        return;
+      }
+      if (current.current.options.mode === 'select' && current.current.shapeOverlay) {
+        pick(event);
+        let nearest: { index: number; distance: number } | null = null;
+        for (const mark of current.current.shapeOverlay.marks) {
+          const distance = raycaster.ray.distanceToPoint(v3(mark.position));
+          if (
+            distance < current.current.surface.size * 0.025 &&
+            (!nearest || distance < nearest.distance)
+          )
+            nearest = { index: mark.index, distance };
+        }
+        if (nearest) {
+          current.current.onShapePick?.(nearest.index);
+          return;
+        }
+      }
       if (current.current.options.mode === 'draw') {
         if (!supportsGuides(current.current.surface)) return;
         if (activePointer !== null) return;
@@ -937,6 +964,38 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
         }
       }
     }
+    if (props.shapeOverlay) {
+      const segments: number[] = [];
+      for (const course of props.shapeOverlay.courses) appendPath(segments, course);
+      lineSegments(state.selectionGroup, segments, '#c7c7c7');
+      const batches = new Map<string, number[]>();
+      for (const mark of props.shapeOverlay.marks) {
+        const color =
+          mark.role === 'turn' ? '#58a6ff' : mark.role.includes('increase') ? '#61c789' : '#e2bf62';
+        const points = batches.get(color) ?? [];
+        points.push(...mark.position);
+        batches.set(color, points);
+      }
+      for (const [color, points] of batches) pointsObject(state.selectionGroup, points, color, 6);
+    }
+    if (props.startEdge) {
+      const path: Vec3[] = [];
+      for (let i = 0; i <= 64; i++) {
+        const t = i / 64;
+        const uv: Vec2 =
+          props.startEdge === 'v0'
+            ? [t, 0]
+            : props.startEdge === 'v1'
+              ? [t, 1]
+              : props.startEdge === 'u0'
+                ? [0, t]
+                : [1, t];
+        path.push(evaluateSurface(props.surface, 0, ...uv));
+      }
+      const segments: number[] = [];
+      appendPath(segments, path);
+      lineSegments(state.selectionGroup, segments, '#d09a4e');
+    }
     if (props.marker) pointsObject(state.selectionGroup, props.marker, '#f2f2f2', 8);
     // Draw selected entities after the translucent network lines, retaining
     // depth testing against the support geometry and unchanged coordinates.
@@ -948,7 +1007,15 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       object.renderOrder = 5;
     });
     state.draw();
-  }, [ready, props.graph, props.selection, props.marker, props.surface]);
+  }, [
+    ready,
+    props.graph,
+    props.selection,
+    props.marker,
+    props.surface,
+    props.shapeOverlay,
+    props.startEdge,
+  ]);
 
   useEffect(() => {
     const state = runtime.current;

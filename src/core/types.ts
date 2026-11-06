@@ -229,6 +229,10 @@ export type KnitCellRule =
   | { kind: 'alternating'; palette: string[] };
 export interface KnitSettings {
   mode: KnitMode;
+  /** Chart side used for the first course. Missing in older projects means v0. */
+  startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
+  /** Initial action on an opened needle; unconfirmed lab convention, default knit. */
+  newLoop?: 'knit' | 'tuck';
   keyId: string;
   /** From the jersey swatch and the surface size, or typed directly. */
   size: { source: 'gauge' } | { source: 'typed'; needles: number; passes: number };

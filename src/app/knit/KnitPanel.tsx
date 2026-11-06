@@ -11,6 +11,7 @@ import { knitReport } from '../../knit/report';
 import { parseSwatchFile, swatchFileText, validateSwatches } from '../../knit/gauge';
 import { download, projectFilename } from '../../adapters/export';
 import { loopText } from './provenance';
+import { referencesBibtex, referencesCSL } from '../../learning/citations';
 
 interface Props {
   build: KnitBuild;
@@ -231,14 +232,15 @@ export default function KnitPanel(props: Props) {
           </div>
           <p className="hint">
             {program.sizeSource === 'gauge' && program.sizeGauge
-              ? `Size from the jersey measurement: ${mm(program.sizeGauge.stitchWidth)} mm per needle, ${mm(program.sizeGauge.courseHeight)} mm per pass.`
+              ? `Size from ${program.sizeGauge.assumed ? 'assumed = jersey' : `the ${program.sizeGauge.measuredOn} measurement`}: ${mm(program.sizeGauge.stitchWidth)} mm per needle, ${mm(program.sizeGauge.courseHeight)} mm per pass.`
               : 'Size typed; not derived from a measurement.'}{' '}
-            Loops from cells {counts[0]}, edges {counts[1]}, nodes {counts[2]}, extraordinary nodes{' '}
-            {counts[3]}.
+            {program.shape
+              ? `${program.shape.needles.placements.length} surface loops; network assignments are not applied in shape mode.`
+              : `Loops from cells ${counts[0]}, edges ${counts[1]}, nodes ${counts[2]}, extraordinary nodes ${counts[3]}.`}
             {program.staleNetwork && ' The network is stale; regenerate to match the settings.'}
           </p>
           <p className="knit-loop" aria-live="polite">
-            {props.hover !== null && graph
+            {props.hover !== null
               ? loopText(program, graph, props.hover)
               : 'Point at the bitmap to trace a loop to the surface; select a cell, edge or node in 3D to see its loops.'}
           </p>
@@ -282,10 +284,78 @@ export default function KnitPanel(props: Props) {
             </p>
           ))}
 
+          {program.shape && (
+            <section aria-label="Shape report">
+              <h3 className="knit-heading">Shape report</h3>
+              <p className="hint">
+                Courses → loops → needle layout. Course and loop construction adapt{' '}
+                <a href="https://doi.org/10.3929/ethz-b-000408640" target="_blank" rel="noreferrer">
+                  Mariana A. Popescu (2019), KnitCrete, §§5.2 and 6.2
+                </a>
+                . The distance field, alignment and needle operations are project adaptations; this
+                is not an exact reproduction.
+              </p>
+              <p className="hint">
+                {program.shape.geometry.courses.length} courses ·{' '}
+                {program.shape.needles.steps.filter((x) => x.role === 'turn').length} turns ·{' '}
+                {program.shape.needles.steps.filter((x) => x.role.includes('increase')).length}{' '}
+                increases ·{' '}
+                {program.shape.needles.steps.filter((x) => x.role === 'decrease').length} decreases
+                · {program.shape.needles.moves.length} moves ·{' '}
+                {program.shape.needles.unresolved.length} unresolved ·{' '}
+                {program.shape.needles.yarnJumps} yarn jumps.
+              </p>
+              <p className="hint">
+                Not simulated; not verified until knitted. See Report TXT for rounding, method and
+                unresolved steps.
+              </p>
+              <div className="inline-actions">
+                <button
+                  type="button"
+                  onClick={() =>
+                    download(
+                      referencesBibtex(['popescu2019knitcrete']),
+                      'knit-shaping.bib',
+                      'application/x-bibtex'
+                    )
+                  }
+                >
+                  Citation BibTeX
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    download(
+                      JSON.stringify(referencesCSL(['popescu2019knitcrete']), null, 2),
+                      'knit-shaping-citation.json',
+                      'application/json'
+                    )
+                  }
+                >
+                  Citation CSL JSON
+                </button>
+              </div>
+            </section>
+          )}
           <h3 className="knit-heading">Export</h3>
+          {program.exportBlockers.length > 0 && (
+            <div role="status" className="knit-export-blockers">
+              <p>Operation exports blocked:</p>
+              <ul>
+                {program.exportBlockers.slice(0, 200).map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              {program.exportBlockers.length > 200 && (
+                <p>{program.exportBlockers.length - 200} further issues; see the report summary.</p>
+              )}
+              <p>Preview and report remain available.</p>
+            </div>
+          )}
           <div className="export-grid">
             <button
               type="button"
+              disabled={program.exportBlockers.length > 0}
               onClick={() =>
                 download(bmpBytes(program).slice().buffer, `${file}-knit.bmp`, 'image/bmp')
               }
@@ -294,6 +364,7 @@ export default function KnitPanel(props: Props) {
             </button>
             <button
               type="button"
+              disabled={program.exportBlockers.length > 0}
               onClick={() =>
                 download(
                   grammarJson({
@@ -324,7 +395,7 @@ export default function KnitPanel(props: Props) {
         </>
       )}
 
-      {selectedCell && (
+      {selectedCell && s.mode !== 'shape' && (
         <>
           <h3 className="knit-heading">Selected cell {selectedCell.id}</h3>
           <label className="select-label">
@@ -429,6 +500,20 @@ export default function KnitPanel(props: Props) {
       )}
 
       <h3 className="knit-heading">Lab rules · to confirm with the lab</h3>
+      <p className="hint">
+        Turns: no wrap or tuck is added at short-row turns (to confirm with the lab).
+      </p>
+      <label className="select-label">
+        New loop on an opened needle (to confirm)
+        <select
+          aria-label="New loop operation"
+          value={s.newLoop ?? 'knit'}
+          onChange={(e) => set({ newLoop: e.target.value as KnitSettings['newLoop'] })}
+        >
+          <option value="knit">Knit first</option>
+          <option value="tuck">Tuck first</option>
+        </select>
+      </label>
       <label className="select-label">
         First pass
         <select

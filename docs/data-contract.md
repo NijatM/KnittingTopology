@@ -43,6 +43,8 @@ Immutable imported assets can reuse a content fingerprint for UI freshness; muta
 
 ## Knit program
 
+Shape mode supports the plane, saddle and supplied rectangular OBJ charts, with a selectable start edge and user-measured loop dimensions. Course and loop generation is adapted from Popescu (2019), §§5.2 and 6.2; distance-field construction, monotone alignment and needle placement are project adaptations. Short rows, increases and decreases are recorded with surface provenance. Results with unresolved required shaping steps remain inspectable, but BMP and Knit Grammar JSON export is blocked. These geometric predictions are not physical simulations or machine-ready programs.
+
 `ProjectState.knit` (optional) holds the knit settings: mode, key, assignments of network elements to structures, the automatic-transfer switch, check limits and lab-rule switches. `ProjectState.swatches` (optional) is the measurement table. It stores, per structure, stitch width and course height in meters (mm in the UI), with date, gauge, yarn, stitch length and note as entered.
 
 Neither field enters the scientific input signature, so changing them never makes the accepted graph stale. Schema v1 projects without them remain readable, and both fields are validated on load. The program itself is derived from the accepted graph and is not stored. It covers grid cells, provenance and checks.

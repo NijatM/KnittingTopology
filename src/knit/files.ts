@@ -58,6 +58,7 @@ function encodeBmp24(cells: Uint8Array, W: number, H: number, pal: string[]): Ui
 
 /** 24-bit BMP: one pixel per needle and pass, bottom row = pass 1, the key's exact RGB. */
 export function bmpBytes(p: KnitCells, unknown: readonly RGB[] = []): Uint8Array {
+  assertKnitExportable(p);
   const { pal, cells } = palette(p, unknown);
   return encodeBmp24(cells, p.w, p.h, pal);
 }
@@ -77,6 +78,7 @@ export interface GrammarFile extends KnitCells {
 
 /** Knit Grammar project file (format knit-grammar-pattern, version 1), without a design layer. */
 export function grammarJson(p: GrammarFile, unknown: readonly RGB[] = []): string {
+  assertKnitExportable(p);
   return JSON.stringify(
     {
       format: 'knit-grammar-pattern',
@@ -103,4 +105,11 @@ export function grammarJson(p: GrammarFile, unknown: readonly RGB[] = []): strin
     null,
     1
   );
+}
+
+export function assertKnitExportable(p: Pick<KnitCells, 'exportBlockers'>): void {
+  if (p.exportBlockers?.length)
+    throw new Error(
+      `Knit export blocked: ${p.exportBlockers[0]} (${p.exportBlockers.length} unresolved issues).`
+    );
 }

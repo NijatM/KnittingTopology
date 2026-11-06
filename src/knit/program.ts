@@ -1,6 +1,6 @@
 // Knit program from the accepted network: size -> mapping -> structures per loop -> operations -> automatic
 // transfers -> checks. Derived data; nothing here is stored in the project.
-import type { KnitSettings, ProjectState, SwatchEntry } from '../core/types';
+import type { GenerationContext, KnitSettings, ProjectState, SwatchEntry } from '../core/types';
 import { defaultFill, keyById, BASIC, type Key } from './keys';
 import { isTwoLayer, tileOp } from './structures';
 import { knitSupported, planeMapping, programSize, type KnitMapping } from './mapping';
@@ -10,6 +10,8 @@ import { runChecks, type Finding } from './checks';
 import { gaugeOf, type Gauge } from './gauge';
 import { needleOf, passOf } from './grid';
 import { defaultKnitSettings } from './settings';
+import type { ShapeResult } from './shape-types';
+import { buildShapeProgram } from './shape-program';
 
 export interface StructureUse {
   id: string;
@@ -38,6 +40,9 @@ export interface KnitProgram {
   issues: string[];
   /** The network was generated from inputs that differ from the current ones. */
   staleNetwork: boolean;
+  /** Required shaping or operation failures. Reports/preview remain available. */
+  exportBlockers: string[];
+  shape?: ShapeResult;
 }
 
 export type KnitBuild = { ok: true; program: KnitProgram } | { ok: false; reason: string };
@@ -48,14 +53,24 @@ export const swatchesOf = (p: Pick<ProjectState, 'swatches'>): SwatchEntry[] => 
 
 export function buildKnitProgram(
   project: Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>,
-  staleNetwork = false
+  staleNetwork = false,
+  context?: GenerationContext
 ): KnitBuild {
   const settings = knitSettingsOf(project),
     swatches = swatchesOf(project);
   if (!knitSupported(project.surface))
-    return { ok: false, reason: 'Knit programs are available for the plane in this version.' };
+    return {
+      ok: false,
+      reason: 'Knit programs need a plane, saddle or supplied rectangular OBJ chart.',
+    };
+  if (settings.mode === 'shape') return buildShapeProgram(project, settings, swatches, context);
   if (settings.mode !== 'network')
-    return { ok: false, reason: 'Only the network mode is available in this version.' };
+    return { ok: false, reason: 'Combined shape and network mode is planned for a later release.' };
+  if (project.surface.kind !== 'plane')
+    return {
+      ok: false,
+      reason: 'Network mode is available for the plane; use shape mode on this surface.',
+    };
   if (!project.graph) return { ok: false, reason: 'Generate a network first.' };
   const size = programSize(project.surface, settings, swatches);
   if (!size.ok) return { ok: false, reason: size.reason };
@@ -113,6 +128,7 @@ export function buildKnitProgram(
       structures,
       issues,
       staleNetwork,
+      exportBlockers: [],
     },
   };
 }

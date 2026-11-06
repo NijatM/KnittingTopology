@@ -28,18 +28,54 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
     '',
     `${p.w} needles x ${p.h} passes, ${k.mode === 2 ? 'two yarn guides' : 'one yarn guide'}, pass 1 knits ${p.firstDir === 1 ? 'left to right' : 'right to left'}; passes alternate.`,
     'One pixel = one needle in one pass. The bottom row of the BMP is pass 1; needle 1 is the left column.',
-    p.sizeSource === 'gauge' && jersey
-      ? `Size from the jersey measurement (${mm(jersey.stitchWidth)} per needle, ${mm(jersey.courseHeight)} per pass) over the ${mm(surfaceSize)} plane.`
-      : 'Size typed by the user; it is not derived from a measurement.',
+    p.shape && jersey
+      ? `Shape size from ${jersey.assumed ? 'assumed = jersey' : `the ${jersey.measuredOn} measurement`} (${mm(jersey.stitchWidth)} stitch width, ${mm(jersey.courseHeight)} course height). Surface maximum extent/size: ${mm(surfaceSize)}.`
+      : p.sizeSource === 'gauge' && jersey
+        ? `Size from the jersey measurement (${mm(jersey.stitchWidth)} per needle, ${mm(jersey.courseHeight)} per pass) over the ${mm(surfaceSize)} plane.`
+        : 'Size typed by the user; it is not derived from a measurement.',
     `Mapping: ${p.mapping.method}.`,
+    ...(p.shape
+      ? [
+          'Source: Mariana Adriana Popescu (2019), KnitCrete, sections 5.2 and 6.2. https://doi.org/10.3929/ethz-b-000408640',
+          'Course and loop stages adapted from the thesis. Distance source, monotone alignment, needle placement and operation checks are independent project methods; not a full reproduction.',
+          'Symbolic parent-loop checks are not a machine simulation or physical validation.',
+          `Start edge: ${s.startEdge ?? 'v0'}; chart grid: ${p.shape.geometry.resolution} intervals per side.`,
+          `Courses: ${p.shape.geometry.courses.length}; contour rounding max abs: ${mm(Math.max(0, ...p.shape.geometry.contourRounding.map(Math.abs)))}; course rounding max abs: ${mm(Math.max(0, ...p.shape.geometry.courseRounding.map(Math.abs)))}.`,
+          `Maximum alignment offset: ${p.shape.geometry.maxLinkOffset.toFixed(6)} measured course heights. No certified distance-field error bound.`,
+          `Shaping: ${p.shape.needles.steps.filter((x) => x.role === 'turn').length} turn endpoints, ${p.shape.needles.steps.filter((x) => x.role === 'increase').length} interior increases, ${p.shape.needles.steps.filter((x) => x.role === 'edge increase').length} edge increases, ${p.shape.needles.steps.filter((x) => x.role === 'decrease').length} decreases.`,
+          `Required sideways transfers: ${p.shape.needles.moves.length}; unresolved shaping steps: ${p.shape.needles.unresolved.length}; yarn jumps: ${p.shape.needles.yarnJumps}.`,
+          ...p.shape.needles.steps
+            .slice(0, LIST_LIMIT)
+            .map(
+              (x) =>
+                `  pass ${x.pass}, needle ${x.needle + 1}: ${x.role}${x.reason ? ` (${x.reason})` : ''}`
+            ),
+          ...p.shape.needles.moves
+            .slice(0, LIST_LIMIT)
+            .map(
+              (x) =>
+                `  transfer after pass ${x.pass}, needle ${x.needle + 1} -> ${x.to + 1}, for pass ${x.forPass}`
+            ),
+        ]
+      : []),
+    p.exportBlockers.length
+      ? `Operation-file export BLOCKED: ${p.exportBlockers.length} unresolved issues.`
+      : 'No operation-file export blockers detected; this does not certify knittability.',
+    ...p.exportBlockers.slice(0, LIST_LIMIT).map((x) => `  ${x}`),
     ...(p.staleNetwork
       ? ['The network was generated from earlier inputs; regenerate to match the current settings.']
       : []),
     '',
     'Assignment',
-    `  cells: ${s.cells.fill} fill, rule ${ruleText}, ${Object.keys(s.cells.overrides).length} manual overrides`,
-    `  edge lines: ${s.edges.structure ? `${s.edges.structure}, ${s.edges.width} loops wide, boundary ${s.edges.boundary ? 'included' : 'excluded'}` : 'none'}`,
-    `  node marks: ${s.nodes.structure ? `${s.nodes.structure}, ${s.nodes.size} x ${s.nodes.size} loops` : 'none'}; extraordinary nodes: ${s.nodes.extraordinary ?? 'as other nodes'}`,
+    ...(p.shape
+      ? [
+          `  shape fill: ${s.cells.fill}; network cell rules, overrides, edges and node marks are not applied.`,
+        ]
+      : [
+          `  cells: ${s.cells.fill} fill, rule ${ruleText}, ${Object.keys(s.cells.overrides).length} manual overrides`,
+          `  edge lines: ${s.edges.structure ? `${s.edges.structure}, ${s.edges.width} loops wide, boundary ${s.edges.boundary ? 'included' : 'excluded'}` : 'none'}`,
+          `  node marks: ${s.nodes.structure ? `${s.nodes.structure}, ${s.nodes.size} x ${s.nodes.size} loops` : 'none'}; extraordinary nodes: ${s.nodes.extraordinary ?? 'as other nodes'}`,
+        ]),
     '',
     'Structures',
     pad('  id', 14) + pad('loops', 9) + 'gauge',
@@ -79,6 +115,9 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
     `  first pass: ${s.lab.firstPass}`,
     `  transfer timing: ${s.lab.transferTiming}`,
     `  yarn guide travel: ${s.lab.travel}`,
+    ...(p.shape
+      ? [`  new loop: ${s.newLoop ?? 'knit'} first`, '  short-row turns: no wrap or tuck added']
+      : []),
     '',
     `Key: ${k.name}`,
     ...(k.credit ? [k.credit] : []),

@@ -63,10 +63,11 @@ import ImportControls from '../import/ImportControls';
 import MeshInspector from '../import/MeshInspector';
 import { seedMeshReport, useMeshReport } from '../import/useMeshReport';
 import KnitControls from './knit/KnitControls';
+import { useKnitBuild } from './knit/useKnitBuild';
 import KnitBitmap from './knit/KnitBitmap';
 import KnitPanel from './knit/KnitPanel';
-import { loopSelection, marksOf, selectionLoops } from './knit/provenance';
-import { buildKnitProgram, knitSettingsOf, swatchesOf } from '../knit/program';
+import { loopSelection, marksOf, selectionLoops, shapeOverlay } from './knit/provenance';
+import { knitSettingsOf, swatchesOf } from '../knit/program';
 import { knitSupported } from '../knit/mapping';
 
 const SurfaceViewer = lazy(() => import('../viewer/SurfaceViewer'));
@@ -322,6 +323,7 @@ export default function App() {
   const [tab, setTab] = useState<
     'measures' | 'topology' | 'compare' | 'methods' | 'surface' | 'knit'
   >('measures');
+  const [pickingKnitEdge, setPickingKnitEdge] = useState(false);
   const [knitOpen, setKnitOpen] = useState(false);
   const [knitHover, setKnitHover] = useState<number | null>(null);
   const [knitMarks, setKnitMarks] = useState<number[] | null>(null);
@@ -653,37 +655,43 @@ export default function App() {
       : undefined;
   const knitSettings = knitSettingsOf(project);
   const swatches = swatchesOf(project);
-  const knitBuild = useMemo(
-    () =>
-      buildKnitProgram(
-        {
-          surface: project.surface,
-          graph: project.graph,
-          knit: project.knit,
-          swatches: project.swatches,
-        },
-        stale
-      ),
-    [project.surface, project.graph, project.knit, project.swatches, stale]
+  const knitJob = useKnitBuild(
+    {
+      surface: project.surface,
+      graph: project.graph,
+      knit: project.knit,
+      swatches: project.swatches,
+    },
+    stale
   );
+  const knitBuild = knitJob.build;
   const knitProgram = knitBuild.ok ? knitBuild.program : null;
+  const knitShapeOverlay = useMemo(
+    () => (knitOpen && knitProgram ? shapeOverlay(knitProgram) : null),
+    [knitOpen, knitProgram]
+  );
   const knitHoverSelection =
     knitProgram && project.graph && knitHover !== null
       ? loopSelection(knitProgram, project.graph, knitHover)
       : null;
   const knitMarker =
     knitProgram && knitHover !== null
-      ? knitProgram.mapping.toSurface([
-          (knitHover % knitProgram.w) + 0.5,
-          knitProgram.h - Math.floor(knitHover / knitProgram.w) - 0.5,
-        ])
+      ? knitProgram.shape
+        ? (knitProgram.shape.needles.placements[knitProgram.shape.placementAt[knitHover]!]?.loop
+            .position ?? null)
+        : knitProgram.mapping.toSurface([
+            (knitHover % knitProgram.w) + 0.5,
+            knitProgram.h - Math.floor(knitHover / knitProgram.w) - 0.5,
+          ])
       : null;
   const knitMarkCells = useMemo(
     () =>
-      knitProgram && project.graph
+      knitProgram
         ? knitMarks
           ? marksOf(knitProgram, knitMarks)
-          : selectionLoops(knitProgram, project.graph, selection)
+          : project.graph
+            ? selectionLoops(knitProgram, project.graph, selection)
+            : null
         : null,
     [knitProgram, project.graph, knitMarks, selection]
   );
@@ -1062,9 +1070,12 @@ export default function App() {
               </section>
               {knitSupported(project.surface) ? (
                 <KnitControls
+                  pickingEdge={pickingKnitEdge}
+                  onToggleEdgePicking={() => setPickingKnitEdge((v) => !v)}
                   settings={knitSettings}
                   open={knitOpen}
-                  status={knitStatus}
+                  status={`${knitStatus}${knitJob.outdated ? ' · Shape settings pending generation' : ''}`}
+                  shapeJob={knitSettings.mode === 'shape' ? knitJob : undefined}
                   onChange={changeKnit}
                   onToggleOpen={() => setKnitOpen((v) => !v)}
                 />
@@ -1073,7 +1084,10 @@ export default function App() {
                   <h2>
                     <span>04</span> Knit program <i />
                   </h2>
-                  <p className="hint">Knit programs are available for the plane in this version.</p>
+                  <p className="hint">
+                    Knit programs support plane, saddle and mapped rectangular OBJ charts; network
+                    mode remains plane-only.
+                  </p>
                 </section>
               )}
             </>
@@ -1237,6 +1251,24 @@ export default function App() {
                 options={view}
                 selection={knitHoverSelection ?? selection}
                 marker={knitMarker}
+                startEdge={
+                  knitSettings.mode === 'shape' && knitSupported(project.surface)
+                    ? (knitSettings.startEdge ?? 'v0')
+                    : undefined
+                }
+                pickStartEdge={
+                  knitSettings.mode === 'shape' && knitSupported(project.surface) && pickingKnitEdge
+                }
+                onStartEdge={(edge) => {
+                  changeKnit({ ...knitSettings, startEdge: edge });
+                  setPickingKnitEdge(false);
+                }}
+                shapeOverlay={knitShapeOverlay}
+                onShapePick={(index) => {
+                  setKnitHover(index);
+                  setKnitMarks([index]);
+                  setTab('knit');
+                }}
                 onStroke={addStroke}
                 onSelect={setSelection}
                 onHover={setHover}
@@ -1380,7 +1412,13 @@ export default function App() {
                   hover={knitHover}
                   onHover={setKnitHover}
                   onPick={(i) => {
-                    if (!knitProgram || !project.graph) return;
+                    if (!knitProgram) return;
+                    if (knitProgram.shape) {
+                      setKnitMarks([i]);
+                      setTab('knit');
+                      return;
+                    }
+                    if (!project.graph) return;
                     setKnitMarks(null);
                     setSelection(loopSelection(knitProgram, project.graph, i));
                     setTab('knit');

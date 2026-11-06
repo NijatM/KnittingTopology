@@ -4,9 +4,11 @@ import type { ReferenceId, ScientificReference } from './types';
 
 export function formatCitation(ref: ScientificReference): string {
   const authors = ref.authors.map((a) => `${a.family}, ${a.given}`).join('; ');
-  const venue = ref.containerTitle
-    ? ` ${ref.containerTitle}${ref.volume ? ` ${ref.volume}${ref.issue ? `(${ref.issue})` : ''}` : ''}${ref.pages ? `, ${ref.pages}` : ''}.`
-    : '';
+  const venue = ref.school
+    ? ` Doctoral thesis, ${ref.school}${ref.thesisNumber ? `, no. ${ref.thesisNumber}` : ''}.`
+    : ref.containerTitle
+      ? ` ${ref.containerTitle}${ref.volume ? ` ${ref.volume}${ref.issue ? `(${ref.issue})` : ''}` : ''}${ref.pages ? `, ${ref.pages}` : ''}.`
+      : '';
   return `${authors} (${ref.year ?? 'n.d.'}). ${ref.title}.${venue}${ref.doi ? ` https://doi.org/${ref.doi}` : ` ${ref.url}`}`;
 }
 
@@ -18,28 +20,37 @@ const bibEscape = (s: string) =>
 
 export function referenceBibtex(ref: ScientificReference): string {
   const kind =
-    ref.type === 'article-journal'
-      ? 'article'
-      : ref.type === 'paper-conference'
-        ? 'inproceedings'
-        : 'misc';
+    ref.type === 'thesis'
+      ? 'phdthesis'
+      : ref.type === 'chapter'
+        ? 'incollection'
+        : ref.type === 'article-journal'
+          ? 'article'
+          : ref.type === 'paper-conference'
+            ? 'inproceedings'
+            : 'misc';
   const fields: [string, string | undefined][] = [
     ['author', ref.authors.map((a) => `${a.family}, ${a.given}`).join(' and ')],
     ['title', ref.title.replace('N-Sided', '{N}-Sided')],
     ['year', ref.year === undefined ? undefined : String(ref.year)],
-    [ref.type === 'paper-conference' ? 'booktitle' : 'journal', ref.containerTitle],
+    [
+      ref.type === 'paper-conference' || ref.type === 'chapter' ? 'booktitle' : 'journal',
+      ref.containerTitle,
+    ],
     ['volume', ref.volume],
-    ['number', ref.issue],
+    ['number', ref.thesisNumber ?? ref.issue],
     ['pages', ref.pages?.replace(/[–—]/g, '--')],
     ['publisher', ref.publisher],
+    ['school', ref.school],
     ['doi', ref.doi],
     ['url', ref.url],
     ['urldate', ref.accessed],
     [
       'note',
-      ref.type === 'webpage'
-        ? 'Undated web resource; footer copyright 1998 is not a publication date'
-        : undefined,
+      ref.note ??
+        (ref.type === 'webpage'
+          ? 'Undated web resource; footer copyright 1998 is not a publication date'
+          : undefined),
     ],
   ];
   return `@${kind}{${ref.id},\n${fields
@@ -73,12 +84,16 @@ export function referencesCSL(ids: ReferenceId[]): Record<string, unknown>[] {
     ...(r.issue ? { issue: r.issue } : {}),
     ...(r.pages ? { page: r.pages.replace(/[–—]/g, '-') } : {}),
     ...(r.publisher ? { publisher: r.publisher } : {}),
+    ...(r.school ? { publisher: r.school, genre: 'Doctoral thesis' } : {}),
+    ...(r.thesisNumber ? { number: r.thesisNumber } : {}),
     ...(r.doi ? { DOI: r.doi } : {}),
     URL: r.url,
     accessed: { 'date-parts': [r.accessed.split('-').map(Number)] },
-    ...(r.type === 'webpage'
-      ? { note: 'Undated resource; page footer copyright 1998 is not a publication date.' }
-      : {}),
+    ...(r.note
+      ? { note: r.note }
+      : r.type === 'webpage'
+        ? { note: 'Undated resource; page footer copyright 1998 is not a publication date.' }
+        : {}),
   }));
 }
 

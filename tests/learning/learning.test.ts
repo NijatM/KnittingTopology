@@ -224,7 +224,26 @@ describe('method-appropriate references and citation export', () => {
     expect(JSON.parse(JSON.stringify(csl))).toEqual(csl);
   });
   it('the checked-in bibliography matches the same records used for downloads', () => {
-    const ids: ReferenceId[] = ['takayama2014', 'oval2018', 'hart', 'lipman2014'];
+    const ids: ReferenceId[] = [
+      'takayama2014',
+      'oval2018',
+      'hart',
+      'lipman2014',
+      'popescu2019knitcrete',
+      'popescu2018automated',
+    ];
     expect(bibliography.trim()).toBe(referencesBibtex(ids).trim());
+  });
+  it('distinguishes the read thesis from metadata-only related work', () => {
+    const thesis = REFERENCES.popescu2019knitcrete;
+    expect(formatCitation(thesis)).toContain('Doctoral thesis, ETH Zurich');
+    expect(referenceBibtex(thesis)).toContain('@phdthesis{popescu2019knitcrete');
+    expect(referencesCSL([thesis.id])[0]).toMatchObject({
+      type: 'thesis',
+      publisher: 'ETH Zurich',
+      DOI: '10.3929/ethz-b-000408640',
+    });
+    expect(referenceBibtex(REFERENCES.popescu2018automated)).toContain('Full text not read');
+    expect(relevantReferenceIds(DEFAULT_PARAMETERS)).not.toContain(thesis.id);
   });
 });

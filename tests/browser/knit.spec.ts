@@ -116,9 +116,127 @@ test('knit program is offered only where it works', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('button', { name: /^Sphere / }).click();
   await expect(page.locator('.knit-controls')).toContainText(
-    'Knit programs are available for the plane in this version.'
+    'Knit programs support plane, saddle and mapped rectangular OBJ charts; network mode remains plane-only.'
   );
   await expect(page.getByRole('button', { name: 'Show program beside the surface' })).toHaveCount(
     0
   );
+});
+
+test('shape program: saddle measurement, explicit generation, start-edge undo and stale exports', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker;
+    (window as unknown as { shapeWorkerTerminations: number }).shapeWorkerTerminations = 0;
+    window.Worker = class extends NativeWorker {
+      override terminate() {
+        (window as unknown as { shapeWorkerTerminations: number }).shapeWorkerTerminations++;
+        super.terminate();
+      }
+    };
+  });
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await expect(page.getByRole('combobox', { name: 'Program size' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.locator('.knit-shape-job')).toContainText(/measured jersey swatch/i);
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap/ });
+  await expect(bitmap).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Shape report' })).toBeVisible();
+  await page.screenshot({ path: 'tmp/qa/m2-saddle-shape.png', fullPage: true });
+  const citation = new TextDecoder().decode(await downloadOf(page, 'Citation BibTeX'));
+  expect(citation).toContain('@phdthesis{popescu2019knitcrete');
+  expect(citation).toContain('10.3929/ethz-b-000408640');
+  const box = (await bitmap.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await expect(page.locator('.knit-loop')).toContainText(/course|held/);
+  await page.getByRole('combobox', { name: 'Start edge', exact: true }).selectOption('u1');
+  await expect(bitmap).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeDisabled();
+  await expect(page.locator('.knit-export-blockers')).toContainText('Shape preview is stale');
+  await expect(page.getByRole('button', { name: 'Report TXT', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Start edge', exact: true })).toHaveValue('v0');
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Start edge', exact: true })).toHaveValue('u1');
+  await page.getByRole('combobox', { name: 'New loop operation' }).selectOption('tuck');
+  await expect(page.getByRole('combobox', { name: 'New loop operation' })).toHaveValue('tuck');
+  // Cancel a replacement before a result can arrive: the actual numerical worker is terminated,
+  // and the previously accepted preview stays visible and explicitly stale.
+  const oldLabel = await bitmap.getAttribute('aria-label');
+  const terminated = await page.evaluate(
+    () => (window as unknown as { shapeWorkerTerminations: number }).shapeWorkerTerminations
+  );
+  await page.evaluate(async () => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'Generate shape'
+    )!;
+    button.click();
+    await Promise.resolve();
+    [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent === 'Cancel shape generation')!
+      .click();
+  });
+  await expect(
+    page.getByRole('button', { name: 'Cancel shape generation', exact: true })
+  ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { shapeWorkerTerminations: number }).shapeWorkerTerminations
+      )
+    )
+    .toBe(terminated + 1);
+  await expect(bitmap).toHaveAttribute('aria-label', oldLabel!);
+  await expect(page.locator('.knit-export-blockers')).toContainText('Shape preview is stale');
+  // Supersede a running request with a different start edge; the input change terminates it.
+  await page.evaluate(async () => {
+    [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent === 'Generate shape')!
+      .click();
+    await Promise.resolve();
+    const select = document.querySelector<HTMLSelectElement>('select[aria-label="Start edge"]')!;
+    select.value = 'u0';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await expect(page.getByRole('combobox', { name: 'Start edge', exact: true })).toHaveValue('u0');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as unknown as { shapeWorkerTerminations: number }).shapeWorkerTerminations
+      )
+    )
+    .toBe(terminated + 2);
+  await expect(
+    page.getByRole('button', { name: 'Cancel shape generation', exact: true })
+  ).toHaveCount(0);
+  await expect(bitmap).toHaveAttribute('aria-label', oldLabel!);
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+});
+
+test('shape start-edge overlay does not survive into an unmapped inspection surface', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Plane / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Pick start edge on surface', exact: true }).click();
+  await page
+    .getByLabel('Import surface file', { exact: true })
+    .setInputFiles('tests/fixtures/import/offset-plane.obj');
+  await page.locator('.surface-import > summary').click();
+  await page.getByLabel('Source units', { exact: true }).selectOption('mm');
+  await page.getByRole('button', { name: 'Import as mm', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Inspection only', exact: true })).toBeDisabled();
+  await expect(page.locator('[data-testid="surface-viewer"] canvas')).toBeVisible();
+  await expect(page.locator('.error-panel')).toHaveCount(0);
 });

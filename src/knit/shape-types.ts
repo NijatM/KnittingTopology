@@ -1,0 +1,82 @@
+// Design-level shaping contracts. Surface positions and arc lengths are in meters.
+import type { Vec2, Vec3 } from '../core/types';
+
+export type StartEdge = 'v0' | 'u1' | 'v1' | 'u0';
+export interface ShapePoint {
+  /** Original surface-chart coordinates (before the start-edge rotation). */
+  uv: Vec2;
+  position: Vec3;
+  /** Distance from the needle-1 side, in meters. */
+  across: number;
+}
+export interface ShapeLoop extends ShapePoint {
+  id: string;
+}
+export interface ShapeCourse {
+  id: string;
+  /** Course order, zero based; it becomes a carriage pass. */
+  index: number;
+  /** Ordered from needle-1 side towards the opposite side. */
+  points: ShapePoint[];
+  loops: ShapeLoop[];
+  extent: [number, number];
+  leftBoundary: boolean;
+  rightBoundary: boolean;
+  turnStart: boolean;
+  turnEnd: boolean;
+  length: number;
+}
+export interface ShapeGeometry {
+  courses: ShapeCourse[];
+  contours: ShapePoint[][];
+  courseHeight: number;
+  stitchWidth: number;
+  /** Per-contour length minus rounded sample count times the measured course height. */
+  contourRounding: number[];
+  /** Per-course length minus loop count times the measured stitch width. */
+  courseRounding: number[];
+  maxLinkOffset: number;
+  resolution: number;
+  method: string;
+  issues: string[];
+}
+export type ShapeRole = 'loop' | 'turn' | 'increase' | 'decrease' | 'edge increase' | 'transfer';
+export interface ShapePlacement {
+  loop: ShapeLoop;
+  course: number;
+  needle: number;
+  role: ShapeRole;
+  parents: string[];
+}
+export interface ShapeStep {
+  /** One-based pass; needle indices are zero-based. */
+  pass: number;
+  needle: number;
+  role: ShapeRole;
+  reason?: string;
+}
+export interface ShapeMove {
+  /** One-based source and consuming pass; needle indices are zero-based. */
+  pass: number;
+  needle: number;
+  to: number;
+  forPass: number;
+  role: 'increase' | 'decrease';
+}
+export interface ShapeNeedles {
+  w: number;
+  h: number;
+  placements: ShapePlacement[];
+  moves: ShapeMove[];
+  steps: ShapeStep[];
+  unresolved: ShapeStep[];
+  yarnJumps: number;
+}
+export interface ShapeResult {
+  geometry: ShapeGeometry;
+  needles: ShapeNeedles;
+  /** Image-order placement index, -1 for held/outside needles. */
+  placementAt: Int32Array;
+  /** Reasons blocking operation-file export; reports remain available. */
+  blockers: string[];
+}

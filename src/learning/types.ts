@@ -1,9 +1,15 @@
 import type { PatternFamily, PatternParameters, AnalyticSurfaceKind } from '../core/types';
 
-export type ReferenceId = 'takayama2014' | 'oval2018' | 'hart' | 'lipman2014';
+export type ReferenceId =
+  | 'takayama2014'
+  | 'oval2018'
+  | 'hart'
+  | 'lipman2014'
+  | 'popescu2019knitcrete'
+  | 'popescu2018automated';
 export interface ScientificReference {
   id: ReferenceId;
-  type: 'article-journal' | 'paper-conference' | 'webpage';
+  type: 'article-journal' | 'paper-conference' | 'webpage' | 'thesis' | 'chapter';
   title: string;
   authors: { given: string; family: string }[];
   year?: number;
@@ -12,6 +18,9 @@ export interface ScientificReference {
   issue?: string;
   pages?: string;
   publisher?: string;
+  school?: string;
+  thesisNumber?: string;
+  note?: string;
   doi?: string;
   url: string;
   pdfUrl?: string;

@@ -88,6 +88,12 @@ export function validateKnitSettings(value: unknown): KnitSettings {
   if (typeof edges.boundary !== 'boolean') throw new Error('boundary lines must be on or off.');
   return {
     mode: pick(s.mode, 'knit mode', ['network', 'shape', 'both'] as const),
+    ...(s.startEdge === undefined
+      ? {}
+      : { startEdge: pick(s.startEdge, 'start edge', ['v0', 'u1', 'v1', 'u0'] as const) }),
+    ...(s.newLoop === undefined
+      ? {}
+      : { newLoop: pick(s.newLoop, 'new loop action', ['knit', 'tuck'] as const) }),
     keyId,
     size:
       source === 'gauge'

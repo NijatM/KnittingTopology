@@ -2,6 +2,42 @@ import type { ReferenceId, ScientificReference } from './types';
 
 /** Bibliography for the implemented methods, not a claim of full paper reproduction. */
 export const REFERENCES: Record<ReferenceId, ScientificReference> = {
+  popescu2019knitcrete: {
+    id: 'popescu2019knitcrete',
+    type: 'thesis',
+    title: 'KnitCrete: Stay-in-place knitted formworks for complex concrete structures',
+    authors: [{ given: 'Mariana Adriana', family: 'Popescu' }],
+    year: 2019,
+    school: 'ETH Zurich',
+    thesisNumber: '26063',
+    doi: '10.3929/ethz-b-000408640',
+    url: 'https://doi.org/10.3929/ethz-b-000408640',
+    accessed: '2026-11-06',
+    note: 'Implementation evidence: sections 5.2 and 6.2; independent project adaptations are documented separately',
+    verificationNote:
+      'User-supplied thesis title page and sections 5.2 and 6.2 read directly. The distance source, monotone alignment, needle placement and bitmap checks are project adaptations. The thesis pattern diagram is not machine instructions.',
+  },
+  popescu2018automated: {
+    id: 'popescu2018automated',
+    type: 'chapter',
+    title: 'Automated Generation of Knit Patterns for Non-developable Surfaces',
+    authors: [
+      { given: 'Mariana', family: 'Popescu' },
+      { given: 'Matthias', family: 'Rippmann' },
+      { given: 'Tom', family: 'Van Mele' },
+      { given: 'Philippe', family: 'Block' },
+    ],
+    year: 2018,
+    containerTitle: 'Humanizing Digital Reality',
+    pages: '271–284',
+    publisher: 'Springer',
+    doi: '10.1007/978-981-10-6611-5_24',
+    url: 'https://doi.org/10.1007/978-981-10-6611-5_24',
+    accessed: '2026-11-06',
+    note: 'Full text not read; related publication recorded from the thesis and prior metadata research; not direct implementation evidence',
+    verificationNote:
+      'Metadata recorded in prior research and thesis bibliography (online 2017 / volume 2018). Full text not read; no implementation claim is based on it.',
+  },
   lipman2014: {
     id: 'lipman2014',
     type: 'article-journal',

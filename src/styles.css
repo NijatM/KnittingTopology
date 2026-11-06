@@ -1763,3 +1763,22 @@ kbd {
     display: none;
   }
 }
+
+/* Design-level course preview and unresolved operation-file exports. */
+.knit-export-blockers {
+  border: 1px solid #a68a58;
+  padding: 10px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.knit-export-blockers ul {
+  padding-left: 18px;
+}
+.knit-shape-job {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.knit-shape-job p {
+  font-size: 11px;
+}

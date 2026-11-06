@@ -11,6 +11,9 @@ interface Props {
   status: string;
   onChange: (next: KnitSettings, coalesceKey?: string) => void;
   onToggleOpen: () => void;
+  shapeJob?: { progress: string | null; error: string; generate: () => void; cancel: () => void };
+  pickingEdge: boolean;
+  onToggleEdgePicking: () => void;
 }
 
 const RULES: { kind: KnitCellRule['kind']; name: string }[] = [
@@ -91,7 +94,16 @@ function ruleFor(kind: KnitCellRule['kind'], fill: string): KnitCellRule {
   return { kind };
 }
 
-export default function KnitControls({ settings: s, open, status, onChange, onToggleOpen }: Props) {
+export default function KnitControls({
+  settings: s,
+  open,
+  status,
+  onChange,
+  onToggleOpen,
+  pickingEdge,
+  onToggleEdgePicking,
+  shapeJob,
+}: Props) {
   const key = keyById(s.keyId) ?? BASIC;
   const rule = s.cells.rule;
   const set = (change: Partial<KnitSettings>, coalesceKey?: string) =>
@@ -109,7 +121,8 @@ export default function KnitControls({ settings: s, open, status, onChange, onTo
         <span>04</span> Knit program <i />
       </h2>
       <p className="hint">
-        Network mode · {key.name} · one pixel = one needle in one pass, bottom row = pass 1.
+        {s.mode === 'shape' ? 'Shape mode' : 'Network mode'} · {key.name} · one pixel = one needle
+        in one pass, bottom row = pass 1.
       </p>
       <button
         type="button"
@@ -125,10 +138,70 @@ export default function KnitControls({ settings: s, open, status, onChange, onTo
       </p>
 
       <label className="select-label">
+        Mode
+        <select
+          aria-label="Knit mode"
+          value={s.mode}
+          onChange={(e) =>
+            set({
+              mode: e.target.value as KnitSettings['mode'],
+              ...(e.target.value === 'shape' ? { size: { source: 'gauge' } } : {}),
+            })
+          }
+        >
+          <option value="network">Network only</option>
+          <option value="shape">Shape only</option>
+          <option value="both" disabled>
+            Both (planned)
+          </option>
+        </select>
+      </label>
+      {s.mode === 'shape' && (
+        <>
+          <label className="select-label">
+            Start edge (pass 1)
+            <select
+              aria-label="Start edge"
+              value={s.startEdge ?? 'v0'}
+              onChange={(e) => set({ startEdge: e.target.value as KnitSettings['startEdge'] })}
+            >
+              <option value="v0">v = 0 (default)</option>
+              <option value="u1">u = 1</option>
+              <option value="v1">v = 1</option>
+              <option value="u0">u = 0</option>
+            </select>
+          </label>
+          <button type="button" aria-pressed={pickingEdge} onClick={onToggleEdgePicking}>
+            {pickingEdge ? 'Cancel start edge picking' : 'Pick start edge on surface'}
+          </button>
+          <p className="hint">
+            Shape uses measured fill gauge, with jersey fallback. A jersey measurement is required.
+            Click near a chart boundary when picking.
+          </p>
+        </>
+      )}
+      {shapeJob && (
+        <div className="knit-shape-job">
+          <button type="button" disabled={!!shapeJob.progress} onClick={shapeJob.generate}>
+            Generate shape
+          </button>
+          {shapeJob.progress && (
+            <>
+              <p role="status">{shapeJob.progress}</p>
+              <button type="button" onClick={shapeJob.cancel}>
+                Cancel shape generation
+              </button>
+            </>
+          )}
+          {shapeJob.error && <p role="alert">{shapeJob.error}</p>}
+        </div>
+      )}
+      <label className="select-label">
         Size
         <select
           aria-label="Program size"
           value={s.size.source}
+          disabled={s.mode === 'shape'}
           onChange={(e) =>
             set({
               size:
@@ -138,11 +211,15 @@ export default function KnitControls({ settings: s, open, status, onChange, onTo
             })
           }
         >
-          <option value="gauge">From the jersey measurement</option>
+          <option value="gauge">
+            {s.mode === 'shape'
+              ? 'From the fill measurement (jersey fallback)'
+              : 'From the jersey measurement'}
+          </option>
           <option value="typed">Typed needles × passes</option>
         </select>
       </label>
-      {s.size.source === 'typed' && (
+      {s.mode !== 'shape' && s.size.source === 'typed' && (
         <div className="boundary-counts knit-pair">
           <NumberField
             label="Needles"
@@ -170,97 +247,103 @@ export default function KnitControls({ settings: s, open, status, onChange, onTo
         value={s.cells.fill}
         onChange={(id) => set({ cells: { ...s.cells, fill: id ?? 'jersey' } })}
       />
-      <label className="select-label">
-        Cell rule
-        <select
-          aria-label="Cell rule"
-          value={rule.kind}
-          onChange={(e) => setRule(ruleFor(e.target.value as KnitCellRule['kind'], s.cells.fill))}
-        >
-          {RULES.map((r) => (
-            <option key={r.kind} value={r.kind}>
-              {r.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {rule.kind === 'sides' &&
-        SIDE_CLASSES.map((n) => (
-          <StructureSelect
-            key={n}
-            label={`${n}-sided cells`}
-            value={rule.bySides[n] ?? null}
-            none="Cell fill"
-            onChange={(id) => {
-              const bySides = { ...rule.bySides };
-              if (id) bySides[n] = id;
-              else delete bySides[n];
-              setRule({ kind: 'sides', bySides });
-            }}
-          />
-        ))}
-      {(rule.kind === 'alternating' || rule.kind === 'coarse') &&
-        rule.palette.map((id, i) => (
-          <StructureSelect
-            key={i}
-            label={`${rule.kind === 'coarse' ? 'Coarse colour' : 'Alternate'} ${i + 1}`}
-            value={id}
-            onChange={(next) => setPalette(i, next)}
-          />
-        ))}
-      {rule.kind === 'coarse' && (
-        <div className="inline-actions">
-          <button
-            type="button"
-            disabled={rule.palette.length <= 2}
-            onClick={() => setRule({ ...rule, palette: rule.palette.slice(0, -1) })}
-          >
-            − colour
-          </button>
-          <button
-            type="button"
-            disabled={rule.palette.length >= 6}
-            onClick={() => setRule({ ...rule, palette: [...rule.palette, s.cells.fill] })}
-          >
-            + colour
-          </button>
-        </div>
-      )}
+      {s.mode !== 'shape' && (
+        <>
+          <label className="select-label">
+            Cell rule
+            <select
+              aria-label="Cell rule"
+              value={rule.kind}
+              onChange={(e) =>
+                setRule(ruleFor(e.target.value as KnitCellRule['kind'], s.cells.fill))
+              }
+            >
+              {RULES.map((r) => (
+                <option key={r.kind} value={r.kind}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {rule.kind === 'sides' &&
+            SIDE_CLASSES.map((n) => (
+              <StructureSelect
+                key={n}
+                label={`${n}-sided cells`}
+                value={rule.bySides[n] ?? null}
+                none="Cell fill"
+                onChange={(id) => {
+                  const bySides = { ...rule.bySides };
+                  if (id) bySides[n] = id;
+                  else delete bySides[n];
+                  setRule({ kind: 'sides', bySides });
+                }}
+              />
+            ))}
+          {(rule.kind === 'alternating' || rule.kind === 'coarse') &&
+            rule.palette.map((id, i) => (
+              <StructureSelect
+                key={i}
+                label={`${rule.kind === 'coarse' ? 'Coarse colour' : 'Alternate'} ${i + 1}`}
+                value={id}
+                onChange={(next) => setPalette(i, next)}
+              />
+            ))}
+          {rule.kind === 'coarse' && (
+            <div className="inline-actions">
+              <button
+                type="button"
+                disabled={rule.palette.length <= 2}
+                onClick={() => setRule({ ...rule, palette: rule.palette.slice(0, -1) })}
+              >
+                − colour
+              </button>
+              <button
+                type="button"
+                disabled={rule.palette.length >= 6}
+                onClick={() => setRule({ ...rule, palette: [...rule.palette, s.cells.fill] })}
+              >
+                + colour
+              </button>
+            </div>
+          )}
 
-      <StructureSelect
-        label="Edge lines"
-        value={s.edges.structure}
-        none="None"
-        onChange={(structure) => set({ edges: { ...s.edges, structure } })}
-      />
-      <div className="boundary-counts knit-pair">
-        <NumberField
-          label="Line width (loops)"
-          value={s.edges.width}
-          min={1}
-          max={MAX_LINE_LOOPS}
-          onChange={(width) => set({ edges: { ...s.edges, width } }, 'knit-edge-width')}
-        />
-        <NumberField
-          label="Node mark (loops)"
-          value={s.nodes.size}
-          min={1}
-          max={MAX_LINE_LOOPS}
-          onChange={(size) => set({ nodes: { ...s.nodes, size } }, 'knit-node-size')}
-        />
-      </div>
-      <StructureSelect
-        label="Node marks"
-        value={s.nodes.structure}
-        none="None"
-        onChange={(structure) => set({ nodes: { ...s.nodes, structure } })}
-      />
-      <StructureSelect
-        label="Extraordinary nodes"
-        value={s.nodes.extraordinary}
-        none="As other nodes"
-        onChange={(extraordinary) => set({ nodes: { ...s.nodes, extraordinary } })}
-      />
+          <StructureSelect
+            label="Edge lines"
+            value={s.edges.structure}
+            none="None"
+            onChange={(structure) => set({ edges: { ...s.edges, structure } })}
+          />
+          <div className="boundary-counts knit-pair">
+            <NumberField
+              label="Line width (loops)"
+              value={s.edges.width}
+              min={1}
+              max={MAX_LINE_LOOPS}
+              onChange={(width) => set({ edges: { ...s.edges, width } }, 'knit-edge-width')}
+            />
+            <NumberField
+              label="Node mark (loops)"
+              value={s.nodes.size}
+              min={1}
+              max={MAX_LINE_LOOPS}
+              onChange={(size) => set({ nodes: { ...s.nodes, size } }, 'knit-node-size')}
+            />
+          </div>
+          <StructureSelect
+            label="Node marks"
+            value={s.nodes.structure}
+            none="None"
+            onChange={(structure) => set({ nodes: { ...s.nodes, structure } })}
+          />
+          <StructureSelect
+            label="Extraordinary nodes"
+            value={s.nodes.extraordinary}
+            none="As other nodes"
+            onChange={(extraordinary) => set({ nodes: { ...s.nodes, extraordinary } })}
+          />
+        </>
+      )}
       <div className="knit-checks">
         <button
           type="button"

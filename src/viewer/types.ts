@@ -31,6 +31,14 @@ export interface SurfaceViewerProps {
   selection: ViewerSelection | null;
   /** A surface point to mark (the knit program loop under the pointer). */
   marker?: Vec3 | null;
+  shapeOverlay?: {
+    courses: Vec3[][];
+    marks: { position: Vec3; index: number; role: string }[];
+  } | null;
+  startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
+  pickStartEdge?: boolean;
+  onStartEdge?: (edge: 'v0' | 'u1' | 'v1' | 'u0') => void;
+  onShapePick?: (index: number) => void;
   onStroke: (samples: GuideSample[]) => void;
   onSelect: (selection: ViewerSelection | null) => void;
   onHover?: (text: string) => void;

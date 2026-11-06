@@ -3,6 +3,8 @@
 import type { KnitSettings, SurfaceSpec, SwatchEntry, Vec2, Vec3 } from '../core/types';
 import { gaugeOf, GAUGE_REFERENCE, type Gauge } from './gauge';
 import { MAX_SIDE } from './grid';
+import { hasRectangularMapping } from '../import/uv-mapping';
+import type { ShapeResult } from './shape-types';
 
 export interface KnitMapping {
   needles: number;
@@ -14,7 +16,40 @@ export interface KnitMapping {
 }
 
 /** Surfaces with a knit program in this version. */
-export const knitSupported = (surface: SurfaceSpec) => surface.kind === 'plane';
+export const knitSupported = (surface: SurfaceSpec) =>
+  surface.kind === 'plane' || surface.kind === 'saddle' || hasRectangularMapping(surface);
+
+/** Loop centres on shaped programs. Holds have no surface point and return NaN coordinates. */
+export function shapeMapping(shape: ShapeResult): KnitMapping {
+  const { w: needles, h: passes, placements } = shape.needles;
+  return {
+    needles,
+    passes,
+    method: shape.geometry.method,
+    toSurface: ([x, y]) => {
+      const j = Math.floor(x),
+        k = Math.floor(y);
+      if (j < 0 || j >= needles || k < 0 || k >= passes) return [NaN, NaN, NaN];
+      const p = shape.placementAt[(passes - 1 - k) * needles + j]!;
+      return p < 0 ? [NaN, NaN, NaN] : placements[p]!.loop.position;
+    },
+    // Inspection-only nearest loop query. It is not a continuous surface flattening.
+    toGrid: (point) => {
+      let nearest = -1,
+        distance = Infinity;
+      placements.forEach((p, i) => {
+        const q = p.loop.position;
+        const d = (q[0] - point[0]) ** 2 + (q[1] - point[1]) ** 2 + (q[2] - point[2]) ** 2;
+        if (d < distance) {
+          distance = d;
+          nearest = i;
+        }
+      });
+      const p = placements[nearest];
+      return p ? [p.needle + 0.5, p.course + 0.5] : [NaN, NaN];
+    },
+  };
+}
 
 /** Plane: needles along +x, passes along +y; pass 1 starts at the edge y = -size/2. */
 export function planeMapping(surface: SurfaceSpec, needles: number, passes: number): KnitMapping {

@@ -14,6 +14,8 @@ export interface KnitCells {
   /** Op indices into `key.ops`, image order (row 0 = last pass). */
   cells: Uint8Array;
   key: Key;
+  /** Derived shape programs carry mandatory-operation failures to the file writers. */
+  exportBlockers?: readonly string[];
 }
 
 export const imageIndex = (w: number, h: number, j: number, k: number) => (h - 1 - k) * w + j;
