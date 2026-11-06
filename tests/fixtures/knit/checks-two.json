@@ -1,0 +1,174 @@
+{
+ "format": "knit-grammar-pattern",
+ "version": 1,
+ "name": "checks two",
+ "needles": 20,
+ "passes": 20,
+ "firstPass": "left-to-right",
+ "yarnGuides": 2,
+ "key": {
+  "name": "4.S52 two yarn guides",
+  "id": "4s52-two",
+  "mode": 2,
+  "credit": "Colour key from Computational Textiles (MIT 4.S52/6.S895, Spring 2026), Mariana Popescu.",
+  "notes": [
+   "The shade says which bed yarn guide 1 is on; yarn guide 2 works the other bed.",
+   "Brown and gold are provisional until the lab's script confirms them (recovered from a screenshot as #996600 and #CC9900)."
+  ],
+  "ops": [
+   {
+    "id": "fl2",
+    "name": "both float",
+    "colour": "white",
+    "rgb": [
+     255,
+     255,
+     255
+    ],
+    "steps": [
+     {
+      "action": "float",
+      "bed": "front"
+     },
+     {
+      "action": "float",
+      "bed": "front"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "k2f",
+    "name": "YG1 knit front · YG2 knit back",
+    "colour": "dark_blue",
+    "rgb": [
+     0,
+     0,
+     255
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "front"
+     },
+     {
+      "action": "knit",
+      "bed": "back"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "k2b",
+    "name": "YG1 knit back · YG2 knit front",
+    "colour": "light_blue",
+    "rgb": [
+     35,
+     160,
+     240
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "back"
+     },
+     {
+      "action": "knit",
+      "bed": "front"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "t2f",
+    "name": "YG1 tuck front · YG2 tuck back",
+    "colour": "dark_purple",
+    "rgb": [
+     170,
+     80,
+     245
+    ],
+    "steps": [
+     {
+      "action": "tuck",
+      "bed": "front"
+     },
+     {
+      "action": "tuck",
+      "bed": "back"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "t2b",
+    "name": "YG1 tuck back · YG2 tuck front",
+    "colour": "light_purple",
+    "rgb": [
+     210,
+     150,
+     250
+    ],
+    "steps": [
+     {
+      "action": "tuck",
+      "bed": "back"
+     },
+     {
+      "action": "tuck",
+      "bed": "front"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "g2",
+    "name": "YG1 knit front · YG2 float",
+    "colour": "gold",
+    "rgb": [
+     204,
+     153,
+     0
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "front"
+     },
+     {
+      "action": "float",
+      "bed": "front"
+     }
+    ],
+    "move": "none",
+    "provisional": true
+   },
+   {
+    "id": "b2",
+    "name": "YG1 float · YG2 knit back",
+    "colour": "brown",
+    "rgb": [
+     153,
+     102,
+     0
+    ],
+    "steps": [
+     {
+      "action": "float",
+      "bed": "front"
+     },
+     {
+      "action": "knit",
+      "bed": "back"
+     }
+    ],
+    "move": "none",
+    "provisional": true
+   }
+  ]
+ },
+ "unknownColours": [],
+ "note": "",
+ "rowsTopToBottom": "cells are op indices, row 0 = last pass (as in the image)",
+ "cells": "AAQEAAEAAwMBAQAAAAAEAAIAAAIAAQAAAQAAAgMDAQEAAQABAgABAAEAAgABAwAAAQECAAABAAAAAQACAAAABQABAAEBAgAAAAABAQECAAABAgEDAwIDAAMCAgAAAgIAAAQBAwEAAAEFAQIBAgEDAAEAAAEBAAEEAQEAAwEAAAMAAAECAAAEAAEAAgEAAQACAAACAAAAAAEEAAAAAAUCAAMAAAIAAQABAAAAAAEAAQIAAAIEAQEAAgMCAQIBAgEBAQMCAAICBAEBAQIBAAMAAAIBAgEAAQABAgEAAAECAQAAAgEAAAMAAwADAAAEAwAAAAAFAAAEAAABAQABBAIBAQAAAwADAQYFAwEEAgADBQACAAAAAAABBAIBAAEBAgQAAAADAAAAAQAAAQMBAAAABQACAQMAAAAEAgACAQEBAAABAAEAAAIABAICAQABAAIAAwEAAAIDAwAEAwAAAAACAAUCAQEAAgAAAAMBAQAAAwEBBAAFAAABAgQCAAMAAAABAQIAAAQABAMCAAIAAgAAAQ=="
+}

@@ -211,6 +211,54 @@ export interface ProjectState extends GenerationInput {
   statistics: GraphStatistics | null;
   /** Revisions distinguish edits from the graph's generating inputs. */
   revision: number;
+  /** Knit program settings; outside the scientific input signature. */
+  knit?: KnitSettings;
+  /** Swatch measurement table, one entry per structure id. */
+  swatches?: SwatchEntry[];
+}
+
+/** Design-level knit program (Knit Grammar bitmap convention). Structure ids name Knit Grammar structures. */
+export type KnitMode = 'network' | 'shape' | 'both';
+export type KnitCellRule =
+  | { kind: 'uniform' }
+  /** Structure by cell side count ('3', '4', '5', '6+'); missing counts use the fill. */
+  | { kind: 'sides'; bySides: Record<string, string> }
+  /** Coarse topology cells coloured so that neighbours differ, using the palette in order. */
+  | { kind: 'coarse'; palette: string[] }
+  /** Two-colouring of the cell adjacency; odd cycles are reported as conflicts. */
+  | { kind: 'alternating'; palette: string[] };
+export interface KnitSettings {
+  mode: KnitMode;
+  keyId: string;
+  /** From the jersey swatch and the surface size, or typed directly. */
+  size: { source: 'gauge' } | { source: 'typed'; needles: number; passes: number };
+  cells: { fill: string; rule: KnitCellRule; overrides: Record<string, string> };
+  /** Network edges drawn as lines `width` loops wide; null = not drawn. `boundary` also draws edges and node
+   *  marks on the network boundary. */
+  edges: { structure: string | null; width: number; boundary: boolean };
+  /** Node marks `size` loops square; extraordinary nodes may use their own structure. */
+  nodes: { structure: string | null; size: number; extraordinary: string | null };
+  autoTransfers: boolean;
+  limits: { float: number; held: number; tucks: number };
+  /** Pipeline rules still to confirm with the lab (Knit Grammar defaults). */
+  lab: {
+    firstPass: 'left-to-right' | 'right-to-left';
+    transferTiming: 'after-row' | 'per-needle';
+    travel: 'same-stroke' | 'two-strokes';
+  };
+}
+/** One swatch measurement. Lengths in meters (millimeters in the UI); text fields as entered. */
+export interface SwatchEntry {
+  structure: string;
+  /** Needle (wale) spacing. */
+  stitchWidth: number;
+  /** Pass (course) spacing. */
+  courseHeight: number;
+  date?: string;
+  gauge?: string;
+  yarn?: string;
+  stitchLength?: string;
+  note?: string;
 }
 export interface GenerationContext {
   cancelled?: () => boolean;

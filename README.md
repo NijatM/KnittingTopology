@@ -43,12 +43,13 @@ Exports: meter-coordinate OBJ polygon mesh, XY-projection SVG, viewport PNG, dia
 
 ## Scientific scope
 
-This is a **geometric cell-network explorer**. It does not claim knit-loop topology, machine knittability, material calibration, structural capacity, or fabrication validation.
+This is a **geometric cell-network explorer** with a **design-level knit program** export. The topology network is geometric; it is not a stitch graph. The knit program translates it into a Knit Grammar bitmap for the lab's Steiger software, where the final operations and machine code are produced. It does not claim machine-ready files, knittability, achieved shape, material calibration, structural capacity, or fabrication validation.
 
 - **Takayama, Panozzo and Sorkine-Hornung (2014), _Pattern-Based Quadrangulation for N-Sided Patches_:** the implemented bounded templates are independently written and explicitly smaller than the complete paper construction. There is no general 2–6-sided coverage or global minimal-singularity guarantee.
 - **Oval et al. (2018), _Topology Finding of Structural Patterns_:** coarse connectivity, strip density, pattern mapping, and embedding are distinct stages. Current presets are project-authored templates; they do not reproduce the paper's medial-axis initialization, complete A–K grammar, poles, or structural analysis.
 - Closed cubical/spherical atlases, soft guide fitting, feature-preserving cube transformations, and open-boundary operator rules are documented project extensions.
 - Target spacing and guide alignment are measured preferences. Integer rounding, atlas distortion and transformations change achieved edge lengths. Local validity checks do not certify the absence of all global intersections.
+- **Knit program:** one pixel is one needle and one row is one carriage pass (bottom row = pass 1). Each colour is an operation from the 4.S52 class key (Colour key from Computational Textiles (MIT 4.S52/6.S895, Spring 2026), Mariana Popescu). Scale comes from swatch measurements you enter, and unmeasured structures use jersey values, flagged. Shaped output is a geometric prediction from those measurements and is not verified until knitted. Lab rules that are not yet confirmed (first pass direction, transfer timing) are visible settings. Checks are warnings and do not certify knittability.
 
 [Supplied OBJ UV mapping](docs/mapped-surfaces.md) · [Methods and citations](docs/methods.md) · [BibTeX](research/references.bib) · [Sources and evidence](research/sources.csv) · [Data contract](docs/data-contract.md) · [Algorithm details](src/core/README.md) · [Verification record](docs/verification.md)
 
@@ -72,4 +73,4 @@ tests/         numerical, project and isolated browser verification
 research/      primary-source register and scientific references
 ```
 
-Automatic mapping of arbitrary imported surfaces, direct graph grammar editing, pseudo-quads/poles, calibrated mechanics, textile semantics, and machine adapters are future work. The contracts preserve a boundary for them without claiming they are implemented.
+Automatic mapping of arbitrary imported surfaces, direct graph grammar editing, pseudo-quads/poles, calibrated mechanics, yarn-level simulation, and machine code generation are future work. The contracts preserve a boundary for them without claiming they are implemented.

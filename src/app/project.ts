@@ -10,6 +10,8 @@ import { evaluateSurface, validateSurface } from '../core/surfaces';
 import { mappedAttachmentMatches } from '../core/diagnostics';
 import { validateImportedMesh } from '../import/mesh';
 import { createCitationRecord } from '../adapters/citations';
+import { validateKnitSettings } from '../knit/settings';
+import { validateSwatches } from '../knit/gauge';
 import {
   MAX_GRAPH_CELLS,
   MAX_GRAPH_EDGES,
@@ -384,6 +386,13 @@ export function parseProject(contents: string): ProjectState {
   if (state.graph !== null) validateGraphRecord(state.graph, revision);
   finite(state.revision, 'project revision', 0, Number.MAX_SAFE_INTEGER);
   if (!Number.isInteger(state.revision)) fail('project revision must be an integer.');
+  let knit: ProjectState['knit'], swatches: ProjectState['swatches'];
+  try {
+    if (state.knit !== undefined) knit = validateKnitSettings(state.knit);
+    if (state.swatches !== undefined) swatches = validateSwatches(state.swatches);
+  } catch (error) {
+    fail(`knit program: ${(error as Error).message}`);
+  }
   // Derived diagnostics/statistics from disk are not trusted; the caller recomputes them.
   const project: ProjectState = {
     schemaVersion: '1.0.0',
@@ -395,6 +404,8 @@ export function parseProject(contents: string): ProjectState {
     revision: state.revision as number,
     diagnostics: [],
     statistics: null,
+    ...(knit ? { knit } : {}),
+    ...(swatches ? { swatches } : {}),
   };
   // A project may preserve requested settings that the selected generator cannot
   // satisfy yet (e.g. odd boundary counts). Generation checks those preconditions;

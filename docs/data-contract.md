@@ -40,3 +40,20 @@ Imported surfaces without a selected valid mapping are inspection-only: generate
 Topology, fitting and graph transformations are computed on a unit chart plane before node-wise embedding. Physical strip counts use mapped coarse-edge lengths; normalized-UV guide/relaxation diagnostics are separate from physical path spacing. Canonical stored edge paths include source-triangle crossings and are checked on restore, bounded to 1024 points per edge and two million total. Nondegenerate cell UV orientation/Jacobians and rectangle boundary coverage supplement the existing local and combinatorial checks. No global 3D intersection or exact-predicate bijection certificate is claimed. See [mapped surface semantics](mapped-surfaces.md).
 
 Immutable imported assets can reuse a content fingerprint for UI freshness; mutable callers and structured worker clones compute the same fingerprint convention without assuming a cached unchanged payload. These fingerprints remain noncryptographic UI guards. History budgets include both source meshes and resulting graphs. Chart validation and interactive import/generation use workers; bounded JSON parsing and initial restoration still perform synchronous checks, and rendering builds a cached numerical index for the active immutable support. Maximum-input responsiveness is not certified.
+
+## Knit program
+
+`ProjectState.knit` (optional) holds the knit settings: mode, key, assignments of network elements to structures, the automatic-transfer switch, check limits and lab-rule switches. `ProjectState.swatches` (optional) is the measurement table. It stores, per structure, stitch width and course height in meters (mm in the UI), with date, gauge, yarn, stitch length and note as entered.
+
+Neither field enters the scientific input signature, so changing them never makes the accepted graph stale. Schema v1 projects without them remain readable, and both fields are validated on load. The program itself is derived from the accepted graph and is not stored. It covers grid cells, provenance and checks.
+
+Grid: needle j runs left to right, and pass 1 is the bottom row. Every program cell records its source (graph cell, edge, node, automatic transfer or background), so provenance works in both directions.
+
+`src/knit/` is pure and depends only on core types. Files:
+
+- a 24-bit BMP with exact key RGB, rows bottom-up, byte-identical to Knit Grammar's writer;
+- `knit-grammar-pattern` JSON v1 with Knit Grammar's field set, at most 600 × 600;
+- a measurement-table JSON with declared units;
+- a text report.
+
+Round trips are tested against fixtures written by Knit Grammar's own code.

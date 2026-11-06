@@ -1,0 +1,214 @@
+{
+ "format": "knit-grammar-pattern",
+ "version": 1,
+ "name": "fixture basic",
+ "needles": 7,
+ "passes": 5,
+ "firstPass": "left-to-right",
+ "yarnGuides": 1,
+ "key": {
+  "name": "4.S52 basic key",
+  "id": "4s52-basic",
+  "mode": 1,
+  "credit": "Colour key from Computational Textiles (MIT 4.S52/6.S895, Spring 2026), Mariana Popescu.",
+  "notes": [
+   "Dark = front bed, light = back bed, white = float.",
+   "light_green is read as knit back + transfer left: the source lists it as front, which would repeat dark_green and break the light = back rule."
+  ],
+  "ops": [
+   {
+    "id": "fl",
+    "name": "float",
+    "colour": "white",
+    "rgb": [
+     255,
+     255,
+     255
+    ],
+    "steps": [
+     {
+      "action": "float",
+      "bed": "front"
+     }
+    ],
+    "move": "none",
+    "note": "back or front"
+   },
+   {
+    "id": "kf",
+    "name": "knit front",
+    "colour": "dark_blue",
+    "rgb": [
+     0,
+     0,
+     255
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "front"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "kb",
+    "name": "knit back",
+    "colour": "light_blue",
+    "rgb": [
+     35,
+     160,
+     240
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "back"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "tf",
+    "name": "tuck front",
+    "colour": "dark_purple",
+    "rgb": [
+     170,
+     80,
+     245
+    ],
+    "steps": [
+     {
+      "action": "tuck",
+      "bed": "front"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "tb",
+    "name": "tuck back",
+    "colour": "light_purple",
+    "rgb": [
+     210,
+     150,
+     250
+    ],
+    "steps": [
+     {
+      "action": "tuck",
+      "bed": "back"
+     }
+    ],
+    "move": "none"
+   },
+   {
+    "id": "kfxb",
+    "name": "knit front, transfer to back",
+    "colour": "dark_yellow",
+    "rgb": [
+     250,
+     200,
+     0
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "front"
+     }
+    ],
+    "move": "across"
+   },
+   {
+    "id": "kbxf",
+    "name": "knit back, transfer to front",
+    "colour": "light_yellow",
+    "rgb": [
+     250,
+     225,
+     125
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "back"
+     }
+    ],
+    "move": "across"
+   },
+   {
+    "id": "kfxr",
+    "name": "knit front, transfer right",
+    "colour": "dark_orange",
+    "rgb": [
+     245,
+     115,
+     5
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "front"
+     }
+    ],
+    "move": "right"
+   },
+   {
+    "id": "kfxl",
+    "name": "knit front, transfer left",
+    "colour": "dark_green",
+    "rgb": [
+     0,
+     115,
+     45
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "front"
+     }
+    ],
+    "move": "left"
+   },
+   {
+    "id": "kbxr",
+    "name": "knit back, transfer right",
+    "colour": "light_orange",
+    "rgb": [
+     250,
+     180,
+     115
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "back"
+     }
+    ],
+    "move": "right"
+   },
+   {
+    "id": "kbxl",
+    "name": "knit back, transfer left",
+    "colour": "light_green",
+    "rgb": [
+     115,
+     230,
+     130
+    ],
+    "steps": [
+     {
+      "action": "knit",
+      "bed": "back"
+     }
+    ],
+    "move": "left",
+    "note": "source says front; read as back"
+   }
+  ]
+ },
+ "unknownColours": [],
+ "note": "all eleven operations",
+ "rowsTopToBottom": "cells are op indices, row 0 = last pass (as in the image)",
+ "cells": "AAECAwQFBgMEBQYHCAkGBwgJCgABCQoAAQIDBAECAwQFBgc="
+}

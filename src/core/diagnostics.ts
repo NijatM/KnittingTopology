@@ -617,6 +617,60 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
   }
   return d;
 }
+/** Nodes counted as extraordinary in the statistics: interior degree != 4; on the boundary, degree + 1 != 4,
+ *  or degree + 2 != 4 at a boundary corner. */
+export function extraordinaryNodeIds(graph: PatternGraph, surface: SurfaceSpec): Set<string> {
+  const nodes = new Map(graph.nodes.map((n) => [n.id, n])),
+    adj = new Map(graph.nodes.map((n) => [n.id, [] as string[]])),
+    boundary = new Set<string>();
+  for (const e of graph.edges) {
+    if (!nodes.has(e.a) || !nodes.has(e.b)) continue;
+    adj.get(e.a)!.push(e.b);
+    adj.get(e.b)!.push(e.a);
+    if (e.cells.length === 1) {
+      boundary.add(e.a);
+      boundary.add(e.b);
+    }
+  }
+  const boundaryNeighbors = new Map(graph.nodes.map((n) => [n.id, [] as string[]]));
+  for (const e of graph.edges)
+    if (e.cells.length === 1) {
+      boundaryNeighbors.get(e.a)?.push(e.b);
+      boundaryNeighbors.get(e.b)?.push(e.a);
+    }
+  return new Set(
+    graph.nodes
+      .filter((n) => {
+        let degree = adj.get(n.id)!.length;
+        if (boundary.has(n.id)) {
+          const neighbors = boundaryNeighbors.get(n.id)!;
+          const normalizedBoundaryDirection = (id: string): Vec3 => {
+            const other = nodes.get(id)!;
+            return surface.kind === 'plane' ||
+              surface.kind === 'saddle' ||
+              hasRectangularMapping(surface)
+              ? [
+                  other.attachment.uv[0] - n.attachment.uv[0],
+                  other.attachment.uv[1] - n.attachment.uv[1],
+                  0,
+                ]
+              : (sub(other.position, n.position).map((x) => x / surface.size) as Vec3);
+          };
+          const corner =
+            neighbors.length === 2 &&
+            norm(
+              cross(
+                normalizedBoundaryDirection(neighbors[0]!),
+                normalizedBoundaryDirection(neighbors[1]!)
+              )
+            ) > 1e-10;
+          degree += corner ? 2 : 1;
+        }
+        return degree !== 4;
+      })
+      .map((n) => n.id)
+  );
+}
 export function computeStatistics(
   graph: PatternGraph,
   surface: SurfaceSpec,
@@ -654,40 +708,7 @@ export function computeStatistics(
     }
   const total = lengths.reduce((a, b) => a + b, 0),
     count = lengths.length;
-  const boundaryNeighbors = new Map(graph.nodes.map((n) => [n.id, [] as string[]]));
-  for (const e of graph.edges)
-    if (e.cells.length === 1) {
-      boundaryNeighbors.get(e.a)?.push(e.b);
-      boundaryNeighbors.get(e.b)?.push(e.a);
-    }
-  const extraordinary = graph.nodes.filter((n) => {
-    let degree = adj.get(n.id)!.length;
-    if (boundary.has(n.id)) {
-      const neighbors = boundaryNeighbors.get(n.id)!;
-      const normalizedBoundaryDirection = (id: string): Vec3 => {
-        const other = nodes.get(id)!;
-        return surface.kind === 'plane' ||
-          surface.kind === 'saddle' ||
-          hasRectangularMapping(surface)
-          ? [
-              other.attachment.uv[0] - n.attachment.uv[0],
-              other.attachment.uv[1] - n.attachment.uv[1],
-              0,
-            ]
-          : (sub(other.position, n.position).map((x) => x / surface.size) as Vec3);
-      };
-      const corner =
-        neighbors.length === 2 &&
-        norm(
-          cross(
-            normalizedBoundaryDirection(neighbors[0]!),
-            normalizedBoundaryDirection(neighbors[1]!)
-          )
-        ) > 1e-10;
-      degree += corner ? 2 : 1;
-    }
-    return degree !== 4;
-  }).length;
+  const extraordinary = extraordinaryNodeIds(graph, surface).size;
   return {
     vertices: graph.nodes.length,
     edges: graph.edges.length,
