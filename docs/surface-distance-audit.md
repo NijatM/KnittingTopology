@@ -1,6 +1,6 @@
 # Surface-distance and one-guide audit
 
-7 November 2026. This correction replaces the fixed radius-two distance stencil on open curved charts. It does **not** complete the course-layout correction or establish a physically accurate knitted shape. Closed-surface cube/sphere construction is unchanged.
+7 November 2026. The initial checkpoint `9d52214` replaced the fixed radius-two distance stencil on open curved charts and identified a course-layout failure. The course-end correction below addresses that tested failure. Neither checkpoint establishes a physically accurate knitted shape. Closed-surface cube/sphere construction is unchanged.
 
 ## Numerical method
 
@@ -36,15 +36,15 @@ All analytic fixture dimensions here are **test values, not measured gauges**. E
 
 A separate feasible curved path on the 180 mm, curvature-0.45 saddle has integrated length 150.878279 mm. The old stencil reported 151.250000 mm at its endpoint; the triangle field at resolution 128 gives 150.861467 mm. This removes that particular directional-bias counterexample. The path is an upper comparator, not an exact shortest path or material trajectory. These figures do not certify a general surface-distance error bound.
 
-## Supplied strong saddle
+## Supplied strong saddle at the distance checkpoint
 
 The supplied saved project has a 180 mm saddle, curvature 1.5, start edge `v1`, and a jersey entry of 5 mm by 5 mm. Its measurement provenance is unknown; these entered values were preserved. The saved geometric network is current. Two-guide structures use the existing flagged jersey fallback.
 
-With the revised field, the original combined two-guide settings produce 50 needles × 48 passes and 2,224 active loops. There are 427 blocking messages: 39 placement positions, 187 unsupported two-layer shaping transfers and 201 symbolic parent mismatches. Counts overlap failure causes; they are not independent defects. One-guide uniform jersey produces the same reference layout and retains 44 messages: 39 placement positions and 5 parent mismatches. Both BMP and Knit Grammar writers reject these programs; the project and report remain saveable.
+At checkpoint `9d52214`, before the course-end correction, the original combined two-guide settings produced 50 needles × 48 passes and 2,224 active loops. There are 427 blocking messages: 39 placement positions, 187 unsupported two-layer shaping transfers and 201 symbolic parent mismatches. Counts overlap failure causes; they are not independent defects. One-guide uniform jersey produces the same reference layout and retains 44 messages: 39 placement positions and 5 parent mismatches. Both BMP and Knit Grammar writers reject these programs; the project and report remain saveable.
 
 The first unresolved one-guide pass requests 39 children from 35 contiguous live parents. Its left endpoint is on the piece boundary and its right endpoint is a turn, with no available boundary-start block. Under the current pass grammar the necessary capacity bound is `n + 2 + leftBoundary + rightBoundary`, or 38 here. Each endpoint may add one unparented child beside its host; only a piece-boundary parent may move one needle outward. This bound concerns the current graph and local operation grammar, not all possible schedules for the surface. The preview fallback remains explicitly unresolved.
 
-## Course construction remains open
+## Course refinement before endpoint anchoring
 
 An in-memory resolution probe of the same strong saddle and one-guide settings gives:
 
@@ -57,4 +57,25 @@ An in-memory resolution probe of the same strong saddle and one-guide settings g
 
 The default was **not** changed to the coarser grid that happens to pass. A converging distance field does not imply a stable discrete course graph. Resampling phases, monotone connection choices and rounding still need an independent course-construction audit. Passing symbolic checks at one resolution does not verify physical shape, and this experiment is not a resolution-selection algorithm.
 
-The next corrective stage must stabilize or replace course construction and establish a supported placement schedule, or produce separately validated patches with explicit joining requirements. Two-guide shaping remains deferred pending a supported operation alphabet. No measurement, lab operation, yarn mechanics or simulation was invented to bypass the current failure.
+This comparison motivated the course-end correction below. It remains a record of the preceding algorithm, not the corrected result. Two-guide shaping stays deferred pending a supported operation alphabet.
+
+## Course-end correction
+
+Directly inspecting the first few courses showed that a 2:1 or 1:2 block could connect an end sample to an interior neighbour solely because its angle cost was lower. This split the boundary-adjacent first course at different columns as contour lengths changed under refinement. Popescu’s thesis §6.2.2 (printed p. 101) connects the contour end vertices before its interior connection search. The project now preserves first-to-first and last-to-last sample links within end triangles when neither contour is trimmed and both have at least two samples. Interior triangles and trimmed-end gaps retain the declared project rules. This is endpoint anchoring within the project DP, not a reproduction of the thesis’s complete greedy algorithm.
+
+A second conservative-search failure appeared when rejoining held loops on the last pass at grid resolution 64. The best retained plans moved adjacent loops from different source passes and were rejected, although the active count was unchanged and leaving every loop on its existing needle was legal. The planner now retains that explicit no-move candidate after the cost-minimizing candidates fail. It consumes each selected parent once, leaves held loops outside the span untouched, and still passes through the symbolic operation validator. A larger matching cost remains possible; this is not a geometric-spacing certificate.
+
+The corrected one-guide reference case gives:
+
+| Grid resolution         | Needles × passes | Unresolved placements | Symbolic parent mismatches | Required moves |
+| ----------------------- | ---------------- | --------------------- | -------------------------- | -------------- |
+| 32                      | 50 × 49          | 0                     | 0                          | 163            |
+| 64                      | 49 × 48          | 0                     | 0                          | 133            |
+| 128 (unchanged default) | 50 × 48          | 0                     | 0                          | 176            |
+| 256                     | 49 × 48          | 0                     | 0                          | 143            |
+
+The first and last courses each have 47 loops at all four resolutions, matching the ceiling of the analytic saddle boundary-arc length divided by the fixture stitch width. Interior short rows remain. The current default has 2,225 active loops; both operation writers accept the one-guide uniform-jersey result. The original combined two-guide case still has 360 blocking messages: 176 unsupported shaping transfers and 184 symbolic parent mismatches. No class operations, measured entries, export gates or application resolution defaults changed.
+
+The numerical geometry API now accepts an explicit bounded comparison resolution so the 32/64/128/256 end-course and placement checks execute directly in unit tests. It is not a project setting or an interface control. Integration tests replay actual one-guide operations and detect removal of a required transfer. Browser verification checks every downloaded BMP pixel against the Knit Grammar key and confirms that switching to the unsupported two-guide case blocks both operation exports.
+
+Counts and the distribution of interior courses still vary across grids; these comparisons do not prove convergence of a unique discrete course graph. The 600 × 600 cap, unsupported contour/trim combinations, conservative transfer scheduling, sampled metric errors, lack of a fabric/material simulation and need for measured calibration remain. Mild saddles can still quantize to no shaping. Nothing here establishes lab importer compatibility, knittability or achieved physical shape.

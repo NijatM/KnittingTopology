@@ -238,21 +238,25 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
       return { blocks, cost: costs[size - 1], moves, placements };
     };
     let chosen: Plan | undefined;
+    const identityPlan = (): Plan => ({
+      blocks: [],
+      cost: parents.reduce(
+        (sum, p, i) => sum + ((p.loop.across - c.loops[i].across) / geometry.stitchWidth) ** 2,
+        0
+      ),
+      moves: [],
+      placements: c.loops.map((loop, i) => ({
+        loop,
+        course: c.index,
+        needle: parents[i].needle,
+        role: 'loop',
+        parents: [parents[i].loop.id],
+      })),
+    });
     // Exact identity is a global optimum: geometric cost zero and no moves.
     // Do not use a tolerance here; nearby coordinates still require alignment.
     if (contiguous && n === m && parents.every((p, i) => p.loop.across === c.loops[i].across)) {
-      chosen = {
-        blocks: [],
-        cost: 0,
-        moves: [],
-        placements: c.loops.map((loop, i) => ({
-          loop,
-          course: c.index,
-          needle: parents[i].needle,
-          role: 'loop',
-          parents: [parents[i].loop.id],
-        })),
-      };
+      chosen = identityPlan();
     }
     if (!chosen && !capacityFailure && contiguous && (n || c.index === 0))
       for (let offset = -2; offset <= 2; offset++) {
@@ -265,6 +269,11 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
         )
           chosen = p;
       }
+    // The minimum geometric-cost DP plan can fail the subsequent transfer-age
+    // checks even though keeping contiguous parents on their needles is legal.
+    // Retain this explicit no-move candidate when the active count is unchanged.
+    // Every selected parent is consumed once; held parents outside the span are untouched.
+    if (!chosen && contiguous && n === m) chosen = identityPlan();
     if (!chosen) {
       chosen = align(base, false);
       if (!chosen) {

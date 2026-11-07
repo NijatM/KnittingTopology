@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-07T22:56:31.487Z",
+  "generated_at_utc": "2026-11-07T23:21:33.273Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-07",
@@ -10,44 +10,51 @@
     "unit_tests": {
       "command": "npm test",
       "result": "pass",
-      "passed": 537,
+      "passed": 546,
       "core": 106,
       "project_and_persistence": 32,
       "learning_and_citations": 33,
       "import_parsing_and_projects": 84,
       "mapping_kernel_generation_and_projects": 67,
-      "knit_program": 215,
-      "duration_seconds": 24.5
+      "knit_program": 224,
+      "duration_seconds": 19.04
     },
     "production_build": {
       "command": "npm run build",
       "result": "pass",
       "base": "/KnittingTopology/",
       "worker": "separate ES module",
-      "initial_js_kb": 601.16,
+      "initial_js_kb": 601.56,
       "lazy_viewer_js_kb": 583.4,
-      "initial_js_gzip_kb": 192.7,
+      "initial_js_gzip_kb": 192.85,
       "lazy_viewer_js_gzip_kb": 147.35,
       "import_worker_js_kb": 27.85,
       "generation_worker_js_kb": 96.99,
-      "knit_worker_js_kb": 104.6,
+      "knit_worker_js_kb": 105,
       "cut_worker_js_kb": 28.28
     },
     "development_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/triangle-distance-development",
-      "result": "pass",
-      "passed": 38,
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/course-anchors-development",
+      "result": "37 passed; one interrupted by a source-comment HMR reload, then passed on focused rerun",
+      "passed_in_main_run": 37,
+      "failed_in_main_run": 1,
+      "duration_minutes_reported": 4.3,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 4.6,
-      "source_scope": "Current runtime including the distance correction, analytic plane path, capacity diagnostic and two-source citation downloads. Final skew-grid unit extension is test-only."
+      "followup": {
+        "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'supported N-sided patches and pattern transformations' --output=tmp/qa/course-anchors-development-followup",
+        "passed": 1,
+        "duration_seconds_reported": 19.1,
+        "result": "pass"
+      },
+      "source_scope": "Runtime unchanged. Editing one comment in shape-geometry.ts triggered a logged Vite page reload during the N-sided workspace test. Source frozen and the affected case rerun; no test assertions or numerical behavior changed."
     },
     "production_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/triangle-distance-production",
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/course-anchors-production",
       "result": "pass",
       "passed": 38,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 4.1,
-      "source_scope": "Current runtime with distance correction, analytic plane field, capacity diagnostic, citations and all integration cases. No runtime changes after this run."
+      "duration_minutes_reported": 4.2,
+      "source_scope": "Final built runtime; source frozen throughout production verification."
     },
     "mobile": {
       "viewport_width": 375,
@@ -57,7 +64,7 @@
     },
     "physical_or_manufacturing_validation": false,
     "remote_deployment_tested": false,
-    "milestone": "Open-chart triangle-distance correction; course construction remains open",
+    "milestone": "Endpoint-anchored courses and unchanged-needle candidate",
     "prior_baseline_only": {
       "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
       "production_network": {
@@ -844,7 +851,281 @@
         "No physical simulation, material model, importer or knitting validation"
       ],
       "public_record": "docs/surface-distance-audit.md",
-      "remote_deployment_tested": false
+      "remote_deployment_tested": false,
+      "checkpoint": "Historical distance correction 9d52214; see course_end_correction for the follow-up."
+    },
+    "prior_distance_correction_browser_verification": {
+      "checkpoint": "9d52214",
+      "development": {
+        "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/triangle-distance-development",
+        "result": "pass",
+        "passed": 38,
+        "page_or_console_errors": 0,
+        "duration_minutes_reported": 4.6,
+        "source_scope": "Current runtime including the distance correction, analytic plane path, capacity diagnostic and two-source citation downloads. Final skew-grid unit extension is test-only."
+      },
+      "production": {
+        "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/triangle-distance-production",
+        "result": "pass",
+        "passed": 38,
+        "page_or_console_errors": 0,
+        "duration_minutes_reported": 4.1,
+        "source_scope": "Current runtime with distance correction, analytic plane field, capacity diagnostic, citations and all integration cases. No runtime changes after this run."
+      }
+    },
+    "course_end_correction": {
+      "status": "Local numerical and integration verification complete: 546 unit tests; all development browser cases verified across main run and focused retest; production 38/38. Symbolic validity is not physical-shape validation.",
+      "source": "Popescu (2019), thesis section 6.2.2, printed p. 101, read directly: contour end vertices connected before interior search. Project adaptation pins end samples within monotone block matching on untrimmed pairs.",
+      "algorithm": "Project triangle-distance and endpoint-anchored monotone alignment v3; explicit unchanged-needle candidate after cost-minimizing candidates fail transfer checks.",
+      "no_change": [
+        "application grid default 128",
+        "measurements",
+        "operation alphabet and class colours",
+        "export gates",
+        "closed cube and sphere algorithms",
+        "project schema"
+      ],
+      "tests": [
+        "four direct geometry/placement resolutions: 32, 64, 128, 256",
+        "four invalid comparison resolution guards",
+        "complete first/last courses against analytic boundary arc count",
+        "held-loop parent identities conserved by no-move fallback",
+        "actual one-guide operation replay and detection of one removed required transfer",
+        "browser one-guide strong saddle BMP/JSON every-pixel comparison plus unsupported two-guide export gating"
+      ],
+      "numerical_comparison_api": "buildShapeGeometry sixth argument optionally sets a bounded comparison grid, 2 to 256. Not a saved or UI setting; application defaults unchanged.",
+      "refinement": [
+        {
+          "n": 32,
+          "w": 50,
+          "h": 49,
+          "maxLinkOffset": 1.0727083857639488,
+          "firstLoops": [47, 36, 40, 47, 38, 47],
+          "blockers": 0,
+          "turnEndpoints": 7,
+          "moves": 163
+        },
+        {
+          "n": 64,
+          "w": 49,
+          "h": 48,
+          "maxLinkOffset": 1.381661431283943,
+          "firstLoops": [47, 39, 47, 47, 48, 48],
+          "blockers": 0,
+          "turnEndpoints": 6,
+          "moves": 133
+        },
+        {
+          "n": 128,
+          "w": 50,
+          "h": 48,
+          "maxLinkOffset": 0.9380316233709305,
+          "firstLoops": [47, 33, 36, 39, 42, 47],
+          "blockers": 0,
+          "turnEndpoints": 6,
+          "moves": 176
+        },
+        {
+          "n": 256,
+          "w": 49,
+          "h": 48,
+          "maxLinkOffset": 1.1400551237879524,
+          "firstLoops": [47, 32, 42, 45, 47, 47],
+          "blockers": 0,
+          "turnEndpoints": 6,
+          "moves": 143
+        }
+      ],
+      "reproductions": [
+        {
+          "label": "supplied two-guide combined",
+          "w": 50,
+          "h": 48,
+          "active": 2225,
+          "moves": 176,
+          "turnEndpoints": 6,
+          "blockerCount": 360,
+          "blockers": {
+            "Required shaping transfer conflicts with a two-layer structure.": 176,
+            "Bitmap loop parents differ from the declared shaping graph.": 184
+          },
+          "writers": {
+            "BMP": "blocked",
+            "Knit Grammar JSON": "blocked"
+          },
+          "histogram": {
+            "fl2": 175,
+            "k2b": 1510,
+            "k2f": 715
+          },
+          "initialCourses": [
+            {
+              "loops": 47,
+              "left": true,
+              "right": true,
+              "length": 0.23445857645511442
+            },
+            {
+              "loops": 33,
+              "left": true,
+              "right": false,
+              "length": 0.16248089399151766
+            },
+            {
+              "loops": 36,
+              "left": true,
+              "right": false,
+              "length": 0.17508127615498767
+            },
+            {
+              "loops": 39,
+              "left": true,
+              "right": false,
+              "length": 0.19399705538456824
+            },
+            {
+              "loops": 42,
+              "left": true,
+              "right": false,
+              "length": 0.20573143908548916
+            },
+            {
+              "loops": 47,
+              "left": true,
+              "right": true,
+              "length": 0.23013049381816614
+            }
+          ],
+          "method": "Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and endpoint-anchored monotone alignment v3"
+        },
+        {
+          "label": "one-guide shape",
+          "w": 50,
+          "h": 48,
+          "active": 2225,
+          "moves": 176,
+          "turnEndpoints": 6,
+          "blockerCount": 0,
+          "blockers": {},
+          "writers": {
+            "BMP": "allowed",
+            "Knit Grammar JSON": "allowed"
+          },
+          "histogram": {
+            "fl": 175,
+            "kf": 2049,
+            "kfxl": 67,
+            "kfxr": 109
+          },
+          "initialCourses": [
+            {
+              "loops": 47,
+              "left": true,
+              "right": true,
+              "length": 0.23445857645511442
+            },
+            {
+              "loops": 33,
+              "left": true,
+              "right": false,
+              "length": 0.16248089399151766
+            },
+            {
+              "loops": 36,
+              "left": true,
+              "right": false,
+              "length": 0.17508127615498767
+            },
+            {
+              "loops": 39,
+              "left": true,
+              "right": false,
+              "length": 0.19399705538456824
+            },
+            {
+              "loops": 42,
+              "left": true,
+              "right": false,
+              "length": 0.20573143908548916
+            },
+            {
+              "loops": 47,
+              "left": true,
+              "right": true,
+              "length": 0.23013049381816614
+            }
+          ],
+          "method": "Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and endpoint-anchored monotone alignment v3"
+        },
+        {
+          "label": "mild saddle test values, not measured gauges",
+          "w": 38,
+          "h": 46,
+          "active": 1748,
+          "moves": 0,
+          "turnEndpoints": 0,
+          "blockerCount": 0,
+          "blockers": {},
+          "writers": {
+            "BMP": "allowed",
+            "Knit Grammar JSON": "allowed"
+          },
+          "histogram": {
+            "kf": 1748
+          },
+          "initialCourses": [
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589910715782787
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589902049163648
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589939338325395
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589986859373653
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18590027056227748
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18590057399407547
+            }
+          ],
+          "method": "Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and endpoint-anchored monotone alignment v3"
+        }
+      ],
+      "exact_supplied_input_sha256": "6fdec8ff73e85f29647d00963cfc4581cfe63a7aa76a2d5aafee6e50f748fa9b",
+      "geometry_limits": [
+        "Interior short-row distribution and bitmap counts still change with refinement",
+        "No general discrete-course convergence or surface-distance error bound",
+        "A no-move candidate can have greater geometric matching cost; costs are not spacing certificates",
+        "Mild saddle still has no discrete shaping",
+        "Two-guide required transfers remain unsupported",
+        "No fabric simulation, machine/importer validation or achieved-shape claim"
+      ],
+      "physical_shape_validated": false,
+      "remote_deployment_tested": false,
+      "boundary_course_loops": 47
     }
   },
   "source_sha256": {
@@ -913,8 +1194,8 @@
     "src/knit/report.ts": "924c5d74e4b4fb7b4046af7183fe353ad76cd19ceadef531bdcb497ee5e233f0",
     "src/knit/requirements.ts": "aa8f6bc1ab4f6a95bde2f942f2543e473b76aca960f2e467a6c8374d926a93d5",
     "src/knit/settings.ts": "bb0151c606da93b5f62fdd57de769631dd9ffd5eb5ac822b9af790556d378e72",
-    "src/knit/shape-geometry.ts": "84b072892a911bd12ec12ac3e4b560bf956f11f35cb3423ce6457569f41cae8f",
-    "src/knit/shape-needles.ts": "f8d22c35b66e330010ea61afa21e70443a5f869a31f50677ae5c0c77fd965156",
+    "src/knit/shape-geometry.ts": "2f5cb802efd6b6047bbb2190cc988020f2a3578db4e33ce45f1267489343dcdd",
+    "src/knit/shape-needles.ts": "9f6789dd7c9ebdb97c34ad76d802af4e888ae6447a77627d4546b85e9aa5bb21",
     "src/knit/shape-program.ts": "998aeb24e4e484a1c67cd5d7a1da67208629a5d9bc61b047f4a642d3e13dbeef",
     "src/knit/shape-types.ts": "f6dea2606f78087f17a6589342ddf52ccb3d1021d2cc1e49a3296427c5a3140e",
     "src/knit/shape-validate.ts": "eb1e9ed2b0b54132b86cd5f549e485fbc87c144f1833b942b1b1c5c44f4f32e3",
@@ -949,7 +1230,7 @@
     "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
     "tests/browser/cuts.spec.ts": "42beb15ff4544122f02a3c19c4c215726e6268d2e3f7dc5ce86308744e808fee",
     "tests/browser/import.spec.ts": "e4bf91ed8f0fc8fe47e5a15e3aca78fa9860daaeaed3b801267f2efb17d424bd",
-    "tests/browser/knit.spec.ts": "169d98708db6225e4168d6314df34c104b12c84aee4b5208e1c33546d5fc473a",
+    "tests/browser/knit.spec.ts": "b1601f531e70afd570fb381c698da8e4c6938dbd71bb07fca1e731e706960a3e",
     "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/mapping.spec.ts": "1230fb5074444fad69cb40aa83361e8f5c8cce49d5e49dda23a15cf7e02eea84",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
@@ -987,9 +1268,9 @@
     "tests/knit/requirements.test.ts": "73a607c421e4cc45789c29af3cb734293379f0fab3f1dc7a70a5880c5bed095f",
     "tests/knit/settings.test.ts": "6659a352ab974e6be73ea3f50858922859ee1f16454077cab4ee16d66fc1ce77",
     "tests/knit/shape-fixtures.ts": "f58f6b6df6aa10c39d92fd869b73d7ba230c2931fb2fb3b3d1752f20d6aac2dc",
-    "tests/knit/shape-geometry.test.ts": "a8219310ae040a1081af090f25d529fecfab67daa78153ef4d418b281f5e7cd1",
-    "tests/knit/shape-needles.test.ts": "c3d1be64d66f574c4d3972f0211f5feb36cf176821acb20b5f94fbb5f3806d07",
-    "tests/knit/shape-program.test.ts": "ba98032aa727e89d403f92d480ca2711650eacc790f05b37e477e97d3bdb8309",
+    "tests/knit/shape-geometry.test.ts": "0052400af3d30f038c8aa602297afc815db8a04d4402e9e9fbce0c35747fca36",
+    "tests/knit/shape-needles.test.ts": "7c0646b8428e9d7b66752722f0ccef7ae1f657c2976462cf48bdd30a8b7a25ef",
+    "tests/knit/shape-program.test.ts": "2d6ca8f146a42a52a1249207bf24fc2b270ab1a1172e7e5508d6511a1b4a8f22",
     "tests/knit/sphere-knit.test.ts": "a3d55f6f37ef4398af6b35971aad28e1d44e70e5083991231dfabb614fa7a0f2",
     "tests/knit/surface-distance.test.ts": "025d8ce14c89e1f8736a15a0cfbcf9649f26e7a715f49b42780c2327471e572a",
     "tests/knit/surface-network.test.ts": "6b441efe3a477d294c9ee778976c96dfd8f1bc1e79ff54d7775df38b5204bb76",

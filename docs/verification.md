@@ -250,14 +250,26 @@ The final log audit exposed ResizeObserver delivery warnings during mobile trans
 
 The final interpretation check also separates freshness from shaping failure: a stale export gate does not make the underlying shaping graph unresolved, and the heading explicitly labels a previous program needing regeneration. That classification-only adjustment was covered by the final 527/527 unit/typecheck/build run after the browser matrix. Final bundles are 598.07 kB/191.50 kB gzip initially and 583.40 kB/147.36 kB gzip for the viewer.
 
-## Open-chart distance correction and unresolved course layout
+## Distance correction checkpoint 9d52214 and course-layout finding
 
 The open-chart distance kernel now uses continuous interpolation across sampled triangle edges with iterative four-direction relaxation. Plane distances are analytic. This replaces a fixed angular stencil; it does not establish exact geodesics or complete the shaping pipeline. Numerical source roles, comparison definitions, refinement results and the remaining failure are in the [surface-distance audit](surface-distance-audit.md).
 
 Final unit verification: **537/537 across 27 files**, 24.50 seconds, including 215 knit cases. Type checking, production build and formatting passed. The final unit run extends skew-grid refinement through 128 intervals; runtime source is unchanged from the build and browser matrix. Development browser checks passed **38/38 in 4.6 minutes**, including the strong-saddle worker failure, persistent capacity explanation, blocked operation exports and two-source citation download. Production browser checks passed **38/38 in 4.1 minutes** on the final build. Both browser runs reported zero page/console errors. Both owned preview servers were stopped.
 
-The exact supplied geometry and settings were reproduced locally with the revised field. One-guide uniform jersey remains blocked: pass 3 requests 39 loops from 35 live parents, exceeding the current grammar’s necessary limit of 38 for that boundary/turn configuration. The original two-guide key also lacks the required shaping operations. No project measurements or operation definitions were altered to bypass these restrictions.
+At that distance-correction checkpoint, the exact supplied geometry and settings were reproduced locally with the revised field. One-guide uniform jersey remained blocked: pass 3 requests 39 loops from 35 live parents, exceeding the current grammar’s necessary limit of 38 for that boundary/turn configuration. The original two-guide key also lacks the required shaping operations. No project measurements or operation definitions were altered to bypass these restrictions.
 
 Strong-saddle discrete courses change under grid refinement even as the distance method improves. A coarser grid that happens to pass symbolic checks was not selected as a workaround. Course construction, patching or an alternative supported schedule remains open. A mild saddle can still produce no discrete shaping. No physical knit, lab importer, achieved shape or remote deployment validation is claimed for this source.
 
 Final build assets: 601.16 kB initial JavaScript (192.70 kB gzip), 583.40 kB lazy viewer (147.35 kB gzip), 96.99 kB generation worker and 104.60 kB knit worker. These checks retain the 375px layout, existing cube/sphere workflows, worker cancellation, project persistence and input immutability coverage.
+
+## Course-end correction
+
+The follow-up preserves the first and last contour-sample connection when matching untrimmed contour pairs. It also retains a legal unchanged-needle candidate when cost-minimizing plans fail transfer-age checks during held-loop rejoining. Operation meanings, measured values and export gates are unchanged. See the [method and remaining limits](surface-distance-audit.md#course-end-correction).
+
+All **546/546 unit tests across 27 files** passed in 19.04 seconds, including 224 knit cases; type checking and the production build passed. Direct tests cover the strong saddle at resolutions 32, 64, 128 and 256 and invalid comparison grids. Every first/last course has the analytic 47-loop boundary count, interior short rows remain and placement is resolved in these four fixtures. Integration replay accepts the actual one-guide bitmap and detects removal of a required transfer. Existing impossible-growth and unsupported-operation writer gates remain tested. Development browser verification completed with 37/38 in the main run (4.3 minutes) and the interrupted case passing its focused rerun (1/1, 19.1 seconds). A source-comment edit triggered a logged Vite page reload during that case; its expected N-sided state was reset. No numerical behavior or test assertion changed. Source was then frozen. The final production browser run passed **38/38 in 4.2 minutes**, with zero page/console errors. Both owned servers were stopped.
+
+The exact saved project in uniform one-guide Shape mode now gives 50 needles × 48 passes, 2,225 active loops, 176 required sideways moves and no export blockers. Both operation writers succeed. The original combined two-guide case remains blocked: 176 unsupported shaping transfers and 184 parent mismatches. These are repeated messages across related causes, not 360 independent defects. The user’s input file and entered measurements are unchanged.
+
+Counts and interior course distributions still vary under refinement. A passing symbolic graph is not a geometric-spacing, knittability or physical-shape certificate. No new machine operations, calibration defaults, simulation or remote deployment checks were introduced.
+
+Build assets: 601.56 kB initial JavaScript (192.85 kB gzip), 583.40 kB lazy viewer (147.35 kB gzip), 96.99 kB generation worker and 105.00 kB knit worker.

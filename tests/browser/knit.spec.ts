@@ -281,7 +281,9 @@ test('shape program: saddle measurement, explicit generation, start-edge undo an
   await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
 });
 
-test('strong saddle explains its pass capacity and blocks operation exports', async ({ page }) => {
+test('strong saddle exports one-guide shaping and blocks unsupported two-guide shaping', async ({
+  page,
+}) => {
   await page.goto('./');
   await page.getByRole('button', { name: /^Saddle / }).click();
   const side = page.getByRole('slider', { name: 'Side length', exact: true });
@@ -304,19 +306,41 @@ test('strong saddle explains its pass capacity and blocks operation exports', as
   await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
   await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Knit interpretation' })).toContainText(
+    'Shaping operations encoded'
+  );
+  await expect(page.getByRole('region', { name: 'Knit interpretation' })).toContainText(
+    'Physical shape unverified'
+  );
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeEnabled();
+  const bmp = await downloadOf(page, 'Bitmap BMP'),
+    grammar = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Knit Grammar JSON'))),
+    cells = Uint8Array.from(atob(grammar.cells), (c) => c.charCodeAt(0)),
+    header = new DataView(bmp.buffer, bmp.byteOffset, bmp.byteLength),
+    offset = header.getUint32(10, true),
+    stride = Math.ceil((grammar.needles * 3) / 4) * 4;
+  expect([grammar.needles, grammar.passes]).toEqual([50, 48]);
+  for (let y = 0; y < grammar.passes; y++)
+    for (let x = 0; x < grammar.needles; x++) {
+      const pixel = offset + (grammar.passes - 1 - y) * stride + x * 3;
+      expect([bmp[pixel + 2], bmp[pixel + 1], bmp[pixel]]).toEqual(
+        grammar.key.ops[cells[y * grammar.needles + x]].rgb
+      );
+    }
+  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(report).toContain('No operation-file export blockers detected');
+  expect(report).toContain('iterative triangle-edge');
+  await page.screenshot({ path: 'tmp/qa/strong-saddle-one-guide.png', fullPage: true });
+  await page.getByRole('combobox', { name: 'Knit key' }).selectOption('4s52-two');
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Knit interpretation' })).toContainText(
     'unresolved'
   );
   await expect(page.locator('.knit-export-blockers')).toContainText(
-    '39 loops from 35 live parents'
+    /two-layer structure|key has no/
   );
-  await expect(page.locator('.knit-export-blockers')).toContainText('at most 38');
   await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeDisabled();
-  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
-  expect(report).toContain('Operation-file export BLOCKED');
-  expect(report).toContain('39 loops from 35 live parents');
-  expect(report).toContain('iterative triangle-edge');
-  await page.screenshot({ path: 'tmp/qa/strong-saddle-capacity.png', fullPage: true });
 });
 
 test('shape start-edge overlay does not survive into an unmapped inspection surface', async ({

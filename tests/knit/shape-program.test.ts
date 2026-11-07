@@ -7,6 +7,7 @@ import { knitReport } from '../../src/knit/report';
 import { createProject, parseProject, serializeProject } from '../../src/app/project';
 import type { KnitSettings, SurfaceSpec } from '../../src/core/types';
 import { mappedChart } from './shape-fixtures';
+import { imageIndex } from '../../src/knit/grid';
 
 const plane: SurfaceSpec = { kind: 'plane', size: 0.1, curvature: 0, revision: 'shape-program' };
 const swatches = [{ structure: 'jersey', stitchWidth: 0.006, courseHeight: 0.004 }];
@@ -118,7 +119,7 @@ describe('surface to shape bitmap integration', () => {
     expect(p.shape!.needles.moves.every((x) => Math.abs(x.to - x.needle) === 1)).toBe(true);
     expect(knitReport(p, 'saddle', 0.1)).toContain('Not machine-ready');
   });
-  it('keeps the strong-saddle placement failure explicit and both operation writers blocked', () => {
+  it('realizes the strong saddle in one-guide jersey with verified parent arrivals', () => {
     // Reduced analytic reproduction of the supplied example; test values, not measured gauges.
     const r = buildKnitProgram({
       ...input({ startEdge: 'v1' }, { ...plane, kind: 'saddle', size: 0.18, curvature: 1.5 }),
@@ -127,16 +128,24 @@ describe('surface to shape bitmap integration', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const p = r.program;
-    expect(p.exportBlockers.some((s) => s.includes('39 loops from 35 live parents'))).toBe(true);
+    expect(p.exportBlockers).toEqual([]);
     expect(p.shape!.geometry.method).toContain('triangle-distance');
     expect(p.shape!.needles.placements.every((s) => s.loop.position.every(Number.isFinite))).toBe(
       true
     );
-    expect(() => bmpBytes(p)).toThrow(/export blocked/);
-    expect(() => grammarJson({ ...p, name: 'saddle regression', note: '' })).toThrow(
-      /export blocked/
+    expect(validateShapeOperations(p.shape!, p.cells, p.key)).toEqual([]);
+    expect(p.shape!.needles.moves.length).toBeGreaterThan(0);
+    const move = p.shape!.needles.moves[0],
+      corrupted = p.cells.slice();
+    corrupted[imageIndex(p.w, p.h, move.needle, move.pass - 1)] = p.key.ops.findIndex(
+      (o) => o.id === 'kf'
     );
-    expect(knitReport(p, 'saddle regression', 0.18)).toContain('at most 38');
+    expect(validateShapeOperations(p.shape!, corrupted, p.key).length).toBeGreaterThan(0);
+    expect(bmpBytes(p).slice(0, 2)).toEqual(new Uint8Array([66, 77]));
+    expect(JSON.parse(grammarJson({ ...p, name: 'saddle regression', note: '' })).needles).toBe(
+      p.w
+    );
+    expect(knitReport(p, 'saddle regression', 0.18)).toContain('Not machine-ready');
   });
   it.each([false, true])(
     'realizes widening/narrowing trapezoid loop graphs (reverse=%s)',

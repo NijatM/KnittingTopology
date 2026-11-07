@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { SurfaceSpec } from '../../src/core/types';
 import { evaluateSurface } from '../../src/core/surfaces';
 import { buildShapeGeometry, originalShapeUV } from '../../src/knit/shape-geometry';
+import { placeShapeNeedles } from '../../src/knit/shape-needles';
 const plane: SurfaceSpec = { kind: 'plane', size: 0.1, curvature: 0, revision: 'shape-test' };
 describe('shaping geometry', () => {
   it('aligns a larger analytic plane without introducing turns or offsets', () => {
@@ -61,6 +62,27 @@ describe('shaping geometry', () => {
       }
     }
     expect(r.issues.join(' ')).toContain('not bounded');
+  });
+  it.each([32, 64, 128, 256])(
+    'retains complete strong-saddle end courses at resolution %s',
+    (n) => {
+      // Analytic fixture dimensions are test values, not measured gauges.
+      const surface = { ...plane, kind: 'saddle' as const, size: 0.18, curvature: 1.5 },
+        g = buildShapeGeometry(surface, 0.005, 0.005, 'v1', undefined, n),
+        boundaryArc = 0.09 * (Math.sqrt(1 + 1.5 ** 2) + Math.asinh(1.5) / 1.5);
+      for (const c of [g.courses[0], g.courses.at(-1)!]) {
+        expect(c.leftBoundary && c.rightBoundary).toBe(true);
+        expect(c.turnStart || c.turnEnd).toBe(false);
+        expect(c.loops.length).toBe(Math.ceil(boundaryArc / 0.005));
+      }
+      const needles = placeShapeNeedles(g);
+      expect(needles.unresolved).toEqual([]);
+      expect(needles.moves.every((m) => Math.abs(m.to - m.needle) === 1)).toBe(true);
+      expect(needles.steps.some((s) => s.role === 'turn')).toBe(true);
+    }
+  );
+  it.each([0, 257, NaN, 3.5])('rejects invalid numerical comparison grid %s', (n) => {
+    expect(() => buildShapeGeometry(plane, 0.005, 0.005, 'v0', undefined, n)).toThrow(/resolution/);
   });
   it.each([0, -1, NaN, Infinity])('rejects invalid measurement %s', (x) =>
     expect(() => buildShapeGeometry(plane, x, 0.005)).toThrow(/finite and positive/)

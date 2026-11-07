@@ -78,6 +78,24 @@ describe('needle placement', () => {
     expect(r.placements.at(-4)?.parents).toEqual(['l0-0']);
     expect(r.placements.at(-1)?.parents).toEqual(['l0-3']);
   });
+  it('retains an unchanged-needle candidate when cheaper shifts conflict across held-loop ages', () => {
+    // Abstract alignment values, not measured gauges or a physical-shape fixture.
+    const g = geometry([
+      [0, 1, 2, 3, 4],
+      [0, 1, 2, 3],
+      [0.4, 3.431433133020796, 3.8822022531844964, 4.176350045179608, 4.4],
+    ]);
+    g.courses[1].leftBoundary = false;
+    g.courses[1].rightBoundary = false;
+    g.courses[1].turnStart = true;
+    g.courses[1].turnEnd = true;
+    const r = placeShapeNeedles(g),
+      last = r.placements.filter((p) => p.course === 2);
+    expect(r.unresolved).toEqual([]);
+    expect(r.moves).toEqual([]);
+    expect(last.map((p) => p.needle)).toEqual([0, 1, 2, 3, 4]);
+    expect(last.map((p) => p.parents)).toEqual([['l1-0'], ['l1-1'], ['l1-2'], ['l1-3'], ['l0-4']]);
+  });
   it('reports unplaceable interior growth instead of silently accepting it', () => {
     const r = placeShapeNeedles(
       geometry(

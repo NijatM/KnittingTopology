@@ -30,7 +30,9 @@ export function buildShapeGeometry(
   stitchWidth: number,
   courseHeight: number,
   startEdge: StartEdge = 'v0',
-  context?: GenerationContext
+  context?: GenerationContext,
+  /** Numerical comparisons only; not a saved/UI setting. */
+  resolution = surface.kind === 'plane' ? 16 : 128
 ): ShapeGeometry {
   validateSurface(surface);
   if (
@@ -41,6 +43,8 @@ export function buildShapeGeometry(
   if (!['v0', 'u1', 'v1', 'u0'].includes(startEdge)) throw new Error('Invalid shaping start edge.');
   if (![stitchWidth, courseHeight].every((x) => Number.isFinite(x) && x > 0))
     throw new Error('Measured stitch width and course height must be finite and positive.');
+  if (!Number.isInteger(resolution) || resolution < 2 || resolution > 256)
+    throw new Error('Shaping grid resolution must be an integer from 2 to 256.');
   const check = () => {
     if (context?.cancelled?.()) {
       const e = new Error('Shaping cancelled.');
@@ -49,7 +53,7 @@ export function buildShapeGeometry(
     }
   };
   check();
-  const n = surface.kind === 'plane' ? 16 : 128,
+  const n = resolution,
     side = n + 1;
   const at = (u: number, v: number, across: number): ShapePoint => {
     const uv = originalShapeUV(u, v, startEdge),
@@ -194,6 +198,18 @@ export function buildShapeGeometry(
       const dot = b[j].position.reduce((s, x, k) => s + (x - a[i].position[k]) * v[k], 0);
       return (norm ? dot / norm / courseHeight : 0) ** 2;
     };
+    // Preserve the first/last course between contours with matching untrimmed ends.
+    // Otherwise a slightly closer interior sample can terminate a boundary-adjacent
+    // course when a rounded sample count changes. Trimmed ends keep terminal gaps.
+    const triangleLink = (i: number, j: number, di: number, dj: number): [number, number] => {
+      const endI = i + di - 1,
+        endJ = j + dj - 1;
+      if (!boundaryTrimmed && a.length > 1 && b.length > 1) {
+        if (i === 0 && j === 0) return [i, j];
+        if (endI === a.length - 1 && endJ === b.length - 1) return [endI, endJ];
+      }
+      return cost(i, j) < cost(endI, endJ) ? [i, j] : [endI, endJ];
+    };
     for (let i = 0; i <= a.length; i++)
       for (let j = 0; j <= b.length; j++) {
         const k = i * h + j,
@@ -209,10 +225,14 @@ export function buildShapeGeometry(
         };
         if (i < a.length && j < b.length) {
           set(1, 1, cost(i, j), 1);
-          if (!boundaryTrimmed && a.length > b.length && i + 1 < a.length)
-            set(2, 1, Math.min(cost(i, j), cost(i + 1, j)) + 0.25, 2);
-          if (!boundaryTrimmed && b.length > a.length && j + 1 < b.length)
-            set(1, 2, Math.min(cost(i, j), cost(i, j + 1)) + 0.25, 3);
+          if (!boundaryTrimmed && a.length > b.length && i + 1 < a.length) {
+            const [ai, bj] = triangleLink(i, j, 2, 1);
+            set(2, 1, cost(ai, bj) + 0.25, 2);
+          }
+          if (!boundaryTrimmed && b.length > a.length && j + 1 < b.length) {
+            const [ai, bj] = triangleLink(i, j, 1, 2);
+            set(1, 2, cost(ai, bj) + 0.25, 3);
+          }
         }
         // Boundary-trimmed terminal intervals may straddle the adjacent contour endpoint.
         // The one-course chart tolerance below is a project discretization choice.
@@ -252,11 +272,11 @@ export function buildShapeGeometry(
       let ai = i - 1,
         bj = j - 1;
       if (s === 2) {
-        if (cost(i - 2, bj) < cost(ai, bj)) ai = i - 2;
+        [ai, bj] = triangleLink(i - 2, j - 1, 2, 1);
         i -= 2;
         j--;
       } else if (s === 3) {
-        if (cost(ai, j - 2) < cost(ai, bj)) bj = j - 2;
+        [ai, bj] = triangleLink(i - 1, j - 2, 1, 2);
         i--;
         j -= 2;
       } else if (s === 1) {
@@ -409,7 +429,7 @@ export function buildShapeGeometry(
     maxLinkOffset,
     resolution: n,
     method:
-      'Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and monotone-alignment adaptation v2',
+      'Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and endpoint-anchored monotone alignment v3',
     issues: [
       'Sampled triangle-distance and chart interpolation errors are not bounded on curved surfaces.',
       'Single monotone contour per level is supported; complex charts require patching.',
