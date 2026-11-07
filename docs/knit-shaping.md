@@ -44,3 +44,5 @@ Shape generation runs in a disposable worker. Cancel terminates it; changed inpu
 - Yarn jumps and Knit Grammar findings are warnings; the parent-loop agreement check is an export gate. Passing checks does not establish knittability or achieved shape.
 
 Analytic tests cover plane dimensions and rotations, widening/narrowing trapezoids and an annular sector's excess outer courses. Further tests check held-parent conservation, unit moves, explicit unresolved placement, invalid inputs, project round trips and operation-file rejection. See [executed verification](verification.md) for actual run results. Physical knitting and the lab's BMP-to-Steiger importer remain unverified.
+
+A diagnostic 180 mm saddle (curvature 0.45, start edge `v0`) produced constant loop counts per course and no discrete shaping at four synthetic loop sizes. This is an open numerical/modelling question, not a validated shape or an established algorithm defect. See the [recorded probe](verification.md#open-saddle-diagnostic), whose dimensions are test values, not measured gauges. A curved target display alone does not establish encoded three-dimensional shaping.

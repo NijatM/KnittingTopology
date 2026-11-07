@@ -13,3 +13,17 @@ After prerequisites are complete, the controls show Ready to generate. Generatio
 The interaction follows the linked-summary and inline-error approach described by the [GOV.UK error summary guidance](https://design-system.service.gov.uk/components/error-summary/) and [W3C error-identification guidance](https://www.w3.org/WAI/WCAG22/Understanding/error-identification). Automated keyboard-focus and field-association checks do not establish manual screen-reader coverage.
 
 No project schema, measurement semantics or shaping algorithm changes are introduced by this interaction. Uncalibrated shaping remains separate future work.
+
+## Course-first inspection
+
+When a program is displayed, the target-surface inspection bar controls courses, topology and surface mesh independently. Computed courses are cyan; topology is dimmed when a course layout is available. Surface mesh starts hidden. Amber identifies the pointed course, selected geometry or start edge, and white identifies the pointed loop. The legend names each layer. Shaping marks initially show only selected or pointed operations; all marks or no marks can be selected explicitly. Turns are blue, increases/new edge loops green, and decreases gold. Hiding marks removes them from shape-marker picking as well as rendering. Layer choices are session display state and do not alter the project or downloaded operation colours.
+
+Measured Network mode can contain a reference course layout even though it does not apply shaping. Its layer control and legend say **Reference courses**, and unapplied shaping markers are not drawn. A typed network bitmap has no computed courses. The base view is the input surface with assigned loop positions, not a simulation of the fabric's relaxed shape.
+
+The **Knit interpretation** panel distinguishes pattern-only output, unresolved shaping, encoded shaping operations, and layouts with no shaping changes. It reports passes containing short-row turns, interior increases, new edge loops, decreases and required sideways moves separately from automatic bed-change transfers. Zero bed transfers does not imply that short rows are absent. Operation warning counts, method notes/limits and export blockers are separate; none certifies physical shape. The detailed method notes remain expandable below the summary.
+
+Entered fill measurements, typed sizes and jersey fallback are labelled separately. An unmeasured structure using jersey dimensions is identified by name. Edge coverage reports the fraction of assigned positions coming from edge markings, excluding background and, for shaping output, held/outside positions. The majority-edge notice is an informational display cue at greater than 50%, not a geometric error bound or a fabrication criterion. Changing yarn-facing structures does not itself establish a target three-dimensional shape.
+
+The inspection layer and interpretation panel introduce no numerical, operation-encoding, measurement or project-schema changes. Verifying that layer switches preserve BMP bytes establishes display independence, not physical accuracy. An exact project audit still requires the saved input project; physical validation requires the user's measured material and knit tests.
+
+Canvas resize observers coalesce redraws into the next animation frame and cancel queued work on unmount. A direct window-error check covers repeated desktop/mobile transitions; ordinary console/page-error listeners alone did not expose the resize-observer delivery warning in development.

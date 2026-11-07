@@ -1,5 +1,5 @@
 // Inspector "Knit" tab: program summary, provenance, checks, exports, measurement table and lab rules.
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { KnitSettings, PatternGraph, SwatchEntry } from '../../core/types';
 import type { ViewerSelection } from '../../viewer/types';
 import type { KnitBuild } from '../../knit/program';
@@ -14,9 +14,11 @@ import { loopText } from './provenance';
 import { referencesBibtex, referencesCSL } from '../../learning/citations';
 import KeyEditor from './KeyEditor';
 import TileEditor from './TileEditor';
+import KnitAssessment from './KnitAssessment';
 
 interface Props {
   build: KnitBuild;
+  previewOutdated: boolean;
   needsMeasurement: boolean;
   measurementRequest: number;
   onMeasurementSaved: () => void;
@@ -278,11 +280,15 @@ export default function KnitPanel(props: Props) {
       ? graph.cells.find((c) => c.id === props.selection!.id)
       : undefined;
   const cellIndex = selectedCell && graph ? graph.cells.indexOf(selectedCell) : -1;
-  const counts = program
-    ? [SOURCE.cell, SOURCE.edge, SOURCE.node, SOURCE.extraordinary].map(
-        (k) => program.raster.kind.filter((x) => x === k).length
-      )
-    : [];
+  const counts = useMemo(
+    () =>
+      program
+        ? [SOURCE.cell, SOURCE.edge, SOURCE.node, SOURCE.extraordinary].map(
+            (k) => program.raster.kind.filter((x) => x === k).length
+          )
+        : [],
+    [program?.raster]
+  );
   const taken = new Set(swatches.map((x) => x.structure));
 
   return (
@@ -304,6 +310,7 @@ export default function KnitPanel(props: Props) {
         </p>
       ) : (
         <>
+          <KnitAssessment program={program} outdated={props.previewOutdated} />
           <div className="knit-metrics">
             <div className="metric">
               <span>Needles</span>
@@ -314,12 +321,12 @@ export default function KnitPanel(props: Props) {
               <strong>{program.h}</strong>
             </div>
             <div className="metric">
-              <span>Transfers</span>
+              <span>Bed transfers</span>
               <strong>{program.transfers.length}</strong>
             </div>
             <div className="metric">
-              <span>Checks</span>
-              <strong>{program.findings.length}</strong>
+              <span>Courses</span>
+              <strong>{program.shape?.geometry.courses.length ?? '—'}</strong>
             </div>
           </div>
           <p className="hint">
@@ -352,7 +359,7 @@ export default function KnitPanel(props: Props) {
             </tbody>
           </table>
 
-          <h3 className="knit-heading">Checks (warnings)</h3>
+          <h3 className="knit-heading">Operation warnings</h3>
           {program.findings.length === 0 && <p className="hint">No findings at these limits.</p>}
           {program.findings.map((f) => (
             <details className="diagnostic warning" key={f.id}>
@@ -370,11 +377,14 @@ export default function KnitPanel(props: Props) {
               {program.skippedTransfers.length} bed changes were left as they are (see the report).
             </p>
           )}
-          {program.issues.map((t) => (
-            <p className="hint warn" key={t}>
-              {t}
-            </p>
-          ))}
+          <details className="knit-model-notes">
+            <summary>Method notes and limits ({program.issues.length})</summary>
+            {program.issues.map((t) => (
+              <p className="hint warn" key={t}>
+                {t}
+              </p>
+            ))}
+          </details>
 
           {program.shape && (
             <section aria-label="Shape report">

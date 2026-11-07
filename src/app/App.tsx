@@ -68,7 +68,14 @@ import { useKnitBuild } from './knit/useKnitBuild';
 import type { KnitRequirementId } from '../knit/requirements';
 import KnitBitmap from './knit/KnitBitmap';
 import KnitPanel from './knit/KnitPanel';
-import { loopSelection, marksOf, selectionLoops, shapeOverlay } from './knit/provenance';
+import KnitInspection, { DEFAULT_KNIT_LAYERS } from './knit/KnitInspection';
+import {
+  loopSelection,
+  marksOf,
+  selectionLoops,
+  shapeOverlay,
+  inspectShapeOverlay,
+} from './knit/provenance';
 import { knitSettingsOf, swatchesOf } from '../knit/program';
 import { knitAvailable, knitSupported } from '../knit/mapping';
 import { useCutPlan } from './knit/useCutPlan';
@@ -334,6 +341,7 @@ export default function App() {
   const [pickingCutEdge, setPickingCutEdge] = useState(false);
   useEffect(() => setPickingCutEdge(false), [project.graph, project.surface.revision]);
   const [knitOpen, setKnitOpen] = useState(false);
+  const [knitLayers, setKnitLayers] = useState(DEFAULT_KNIT_LAYERS);
   const [measurementRequest, setMeasurementRequest] = useState(0);
   const [knitHover, setKnitHover] = useState<number | null>(null);
   const [knitMarks, setKnitMarks] = useState<number[] | null>(null);
@@ -712,7 +720,7 @@ export default function App() {
   const knitProgram = knitBuild.ok ? knitBuild.program : null;
   // A program that matches the current settings and network, so a capture can keep it.
   const knitCurrent = !!knitProgram && !knitJob.outdated && !knitProgram.staleNetwork;
-  const knitShapeOverlay = useMemo(
+  const baseKnitOverlay = useMemo(
     () => (knitOpen && knitProgram ? shapeOverlay(knitProgram) : null),
     [knitOpen, knitProgram]
   );
@@ -741,8 +749,28 @@ export default function App() {
         : null,
     [knitProgram, project.graph, knitMarks, selection]
   );
+  const inspectingKnit = showProgram && !!knitProgram;
+  const knitShapeOverlay = useMemo(() => {
+    const index = knitHover !== null ? knitProgram?.shape?.placementAt[knitHover] : undefined;
+    const placement =
+      index !== undefined && index >= 0 ? knitProgram?.shape?.needles.placements[index] : undefined;
+    const course = placement
+      ? knitProgram?.shape?.geometry.courses.findIndex((c) => c.index === placement.course)
+      : undefined;
+    return inspectShapeOverlay(
+      baseKnitOverlay,
+      knitLayers,
+      knitProgram?.settings.mode !== 'network',
+      knitMarkCells,
+      knitHover,
+      course
+    );
+  }, [baseKnitOverlay, knitLayers, knitProgram, knitMarkCells, knitHover]);
+  const inspectionView = inspectingKnit
+    ? { ...view, showGraph: knitLayers.topology, wireframe: knitLayers.mesh, showCoarse: false }
+    : view;
   const knitStatus = knitProgram
-    ? `${knitProgram.w} × ${knitProgram.h} · ${knitProgram.findings.length} check findings · ${knitProgram.transfers.length} transfers`
+    ? `${knitProgram.w} × ${knitProgram.h} · ${knitProgram.findings.length} operation warnings · ${knitProgram.transfers.length} transfers`
     : !knitBuild.ok
       ? knitBuild.reason
       : '';
@@ -1204,7 +1232,10 @@ export default function App() {
         </footer>
       </aside>
 
-      <main className="stage" aria-label="Surface workspace">
+      <main
+        className={`stage ${inspectingKnit ? 'inspection-active' : ''}`}
+        aria-label="Surface workspace"
+      >
         <header className="stage-header">
           <div className="project-name">
             <span className="prompt-mark">~/</span>
@@ -1304,6 +1335,14 @@ export default function App() {
             </button>
           </div>
         </div>
+        {inspectingKnit && (
+          <KnitInspection
+            layers={knitLayers}
+            hasCourses={!!knitProgram.shape}
+            shapingApplied={knitProgram.settings.mode !== 'network'}
+            onChange={setKnitLayers}
+          />
+        )}
         <div
           className={`stage-split ${showProgram ? 'split' : ''}`}
           style={{ '--split': `${split * 100}%` } as React.CSSProperties}
@@ -1320,7 +1359,8 @@ export default function App() {
                 surface={project.surface}
                 graph={project.graph}
                 guides={project.guides}
-                options={view}
+                options={inspectionView}
+                knitInspection={inspectingKnit && !!knitProgram?.shape}
                 selection={knitHoverSelection ?? selection}
                 marker={knitMarker}
                 cutEdgeIds={cutEdgeIds}
@@ -1624,8 +1664,12 @@ export default function App() {
                 />
                 <Check
                   label="Triangle edges"
-                  value={view.wireframe}
-                  onChange={() => toggle('wireframe')}
+                  value={inspectionView.wireframe}
+                  onChange={() =>
+                    inspectingKnit
+                      ? setKnitLayers((v) => ({ ...v, mesh: !v.mesh }))
+                      : toggle('wireframe')
+                  }
                 />
                 <Check
                   label="Boundary edges"
@@ -1749,8 +1793,12 @@ export default function App() {
                 />
                 <Check
                   label="Network"
-                  value={view.showGraph}
-                  onChange={() => toggle('showGraph')}
+                  value={inspectionView.showGraph}
+                  onChange={() =>
+                    inspectingKnit
+                      ? setKnitLayers((v) => ({ ...v, topology: !v.topology }))
+                      : toggle('showGraph')
+                  }
                 />
                 <Check
                   label="Guides"
@@ -1774,8 +1822,12 @@ export default function App() {
                 />
                 <Check
                   label="Surface mesh"
-                  value={view.wireframe}
-                  onChange={() => toggle('wireframe')}
+                  value={inspectionView.wireframe}
+                  onChange={() =>
+                    inspectingKnit
+                      ? setKnitLayers((v) => ({ ...v, mesh: !v.mesh }))
+                      : toggle('wireframe')
+                  }
                 />
               </div>
               <h3 className="subheading">
@@ -2182,6 +2234,7 @@ export default function App() {
                 )}
                 <KnitPanel
                   build={knitBuild}
+                  previewOutdated={knitJob.outdated}
                   needsMeasurement={needsKnitMeasurement}
                   measurementRequest={measurementRequest}
                   onMeasurementSaved={() =>

@@ -82,6 +82,7 @@ function lineSegments(
   const lines = new THREE.LineSegments(geo, material);
   lines.renderOrder = 2;
   group.add(lines);
+  return lines;
 }
 function pointsObject(
   group: THREE.Group,
@@ -366,7 +367,11 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     };
     runtime.current = state;
     controls.addEventListener('change', draw);
-    const observer = new ResizeObserver(resize);
+    let resizeFrame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(resize);
+    });
     observer.observe(container);
     camera.position.set(1.4, -1.8, 1.4);
     resize();
@@ -721,6 +726,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     setReady(true);
     return () => {
       observer.disconnect();
+      cancelAnimationFrame(resizeFrame);
       controls.dispose();
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
@@ -837,7 +843,9 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       for (const edge of graph.edges) {
         const path = edgePath(props.surface, edge, nodeMap);
         state.edgePickPaths.push({ id: edge.id, path });
-        let color = new THREE.Color(light ? '#303030' : '#e1e1e1');
+        let color = new THREE.Color(
+          props.knitInspection ? (light ? '#747d82' : '#858d93') : light ? '#303030' : '#e1e1e1'
+        );
         if (props.options.overlay === 'spacing') {
           const measured = edge.path?.length ? pathLength(edge.path) : pathLength(path);
           color = scalarColor(target > 0 ? (Math.abs(measured - target) / target) * 2 : 0, light);
@@ -853,7 +861,13 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
         if (edge.feature && props.options.showSeams) appendPath(features, path);
       }
       if (props.options.showGraph)
-        lineSegments(state.graphGroup, segments, '#ffffff', 0.96, colors);
+        lineSegments(
+          state.graphGroup,
+          segments,
+          '#ffffff',
+          props.knitInspection ? 0.38 : 0.96,
+          colors
+        );
       if (props.options.showSeams) lineSegments(state.graphGroup, features, '#d09a4e', 0.95);
       if (props.options.showNodes) {
         const positions: number[] = [],
@@ -912,6 +926,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     props.graph,
     props.surface,
     props.options.showGraph,
+    props.knitInspection,
     props.options.showSeams,
     props.options.showNodes,
     props.options.showCoarse,
@@ -1014,16 +1029,33 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     if (props.shapeOverlay) {
       const segments: number[] = [];
       for (const course of props.shapeOverlay.courses) appendPath(segments, course);
-      lineSegments(state.selectionGroup, segments, '#c7c7c7');
+      const courses = lineSegments(
+        state.selectionGroup,
+        segments,
+        props.options.background === 'light' ? '#21677c' : '#79bbcf',
+        0.88
+      );
+      if (courses) {
+        courses.userData.courseLayer = true;
+        courses.renderOrder = 3;
+      }
+      const highlighted: number[] = [];
+      for (const course of props.shapeOverlay.highlightedCourses ?? [])
+        appendPath(highlighted, course);
+      lineSegments(state.selectionGroup, highlighted, '#d09a4e');
       const batches = new Map<string, number[]>();
       for (const mark of props.shapeOverlay.marks) {
         const color =
           mark.role === 'turn' ? '#58a6ff' : mark.role.includes('increase') ? '#61c789' : '#e2bf62';
-        const points = batches.get(color) ?? [];
+        const key = `${color}:${mark.selected ? 9 : 6}`;
+        const points = batches.get(key) ?? [];
         points.push(...mark.position);
-        batches.set(color, points);
+        batches.set(key, points);
       }
-      for (const [color, points] of batches) pointsObject(state.selectionGroup, points, color, 6);
+      for (const [key, points] of batches) {
+        const [color, size] = key.split(':');
+        pointsObject(state.selectionGroup, points, color, Number(size));
+      }
     }
     if (props.startEdge) {
       const path: Vec3[] = [];
@@ -1049,6 +1081,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     state.selectionGroup.traverse((object) => {
       const drawable = object as THREE.Mesh;
       if (!drawable.material) return;
+      if (drawable.userData.courseLayer) return;
       const materials = Array.isArray(drawable.material) ? drawable.material : [drawable.material];
       for (const material of materials) material.transparent = true;
       object.renderOrder = 5;
@@ -1061,6 +1094,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     props.marker,
     props.surface,
     props.shapeOverlay,
+    props.options.background,
     props.startEdge,
     props.cutEdgeIds,
   ]);

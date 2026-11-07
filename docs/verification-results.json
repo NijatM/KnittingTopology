@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-06",
+  "date": "2026-11-07",
   "typecheck": {
     "command": "npm run typecheck",
     "result": "pass"
@@ -7,54 +7,51 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 520,
+    "passed": 527,
     "core": 106,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 198,
-    "duration_seconds": 18.56
+    "knit_program": 205,
+    "duration_seconds": 18.43
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 591.47,
-    "lazy_viewer_js_kb": 582.93,
-    "initial_js_gzip_kb": 189.35,
-    "lazy_viewer_js_gzip_kb": 147.17,
+    "initial_js_kb": 598.07,
+    "lazy_viewer_js_kb": 583.4,
+    "initial_js_gzip_kb": 191.5,
+    "lazy_viewer_js_gzip_kb": 147.36,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 96.03,
     "knit_worker_js_kb": 103.05,
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-feedback-development",
-    "result": "pass after targeted retest",
-    "passed": 35,
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-inspection-development",
+    "result": "pass with focused final resize follow-up",
+    "passed": 37,
     "page_or_console_errors": 0,
-    "initial_run": {
-      "passed": 34,
-      "failed": 1,
-      "duration_minutes_reported": 3.6,
-      "failure": "An existing test expected the replaced No jersey measurement sentence; updated to check the repair action instead."
-    },
-    "targeted_retest": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'knit program: size, split view' --output=tmp/qa/knit-feedback-development-retest",
+    "duration_minutes_reported": 3.6,
+    "source_scope": "Full 37-case run predates the canvas scheduling correction. The affected inspection/resize cases were rerun afterwards.",
+    "resize_followup": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'knit inspection layers|measured network inspection' --output=tmp/qa/knit-inspection-resize-development",
+      "passed": 2,
       "result": "pass",
-      "passed": 1,
-      "duration_seconds_reported": 12.5
-    },
-    "note": "No runtime changes after the full development run; only the obsolete assertion was updated."
+      "duration_seconds_reported": 18.2,
+      "captured_resize_observer_warnings": 0
+    }
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-feedback-production",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-inspection-production-final",
     "result": "pass",
-    "passed": 35,
+    "passed": 37,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.1
+    "duration_minutes_reported": 3.5,
+    "source_scope": "Full final run includes canvas scheduling and direct resize-error checks. A subsequent classification-only distinction between stale previews and actual unresolved shaping was covered by the final unit/typecheck/build run."
   },
   "mobile": {
     "viewport_width": 375,
@@ -64,7 +61,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Persistent knit generation requirements and repair links",
+  "milestone": "Course-first knit inspection and qualified interpretation",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -388,5 +385,109 @@
     "manual_screen_reader_testing": false,
     "uncalibrated_shaping_added": false,
     "schema_or_numerical_algorithm_changes": false
+  },
+  "knit_inspection": {
+    "scope": "Session display and derived interpretation only; no geometry, operation, measurement or schema change.",
+    "default": "Cyan courses, dimmed topology, hidden surface mesh, selected shaping marks only; independent switches and a labelled legend.",
+    "reference_only": "Measured Network mode labels reference courses and hides unapplied shaping markers; a typed bitmap has no computed courses.",
+    "interpretation": [
+      "applied vs reference shaping",
+      "short-row passes, interior increases, new edge loops, decreases and required sideways moves",
+      "bed-transfer counts separate from shaping",
+      "operation warnings separate from method notes and export blockers",
+      "entered vs assumed jersey dimensions",
+      "edge coverage excluding background and held/outside shaping positions"
+    ],
+    "checks": [
+      "seven pure interpretation/filtering cases",
+      "measured network with reference courses remains labelled pattern only",
+      "two-guide short-row shaping with zero bed transfers",
+      "unresolved two-guide shaping remains a preview",
+      "assumed double-knit structures identified",
+      "held/background coverage exclusion",
+      "independent display filters suppress unapplied marks",
+      "browser canvas image changes for independent layer controls",
+      "BMP bytes unchanged and no additional knit worker after layer changes",
+      "explicit reference-course and calibration labels",
+      "375px inspection layout without horizontal overflow",
+      "stale-export gates do not masquerade as unresolved shaping; stale previews have an explicit Previous program heading"
+    ],
+    "focused_browser": "2 passed in17.6s before full matrix",
+    "physical_shape_validated": false,
+    "exact_external_project_audit_completed": false,
+    "remote_workflow_verified_for_this_source": false,
+    "resize_scheduling": "Both canvas observers coalesce size writes into the next animation frame and cancel queued callbacks on unmount; repeated desktop/mobile transitions have a direct window ResizeObserver-error assertion."
+  },
+  "saddle_diagnostic_probe": {
+    "note": "Diagnostic probe only: test values, not measured gauges. Not the user project, not physical validation, and not a spatial-stencil convergence study.",
+    "surface": {
+      "kind": "saddle",
+      "size_m": 0.18,
+      "curvature": 0.45
+    },
+    "rows": [
+      {
+        "width_m": 0.01,
+        "height_m": 0.008,
+        "needles": 19,
+        "passes": 23,
+        "turn_passes": 0,
+        "interior_increases": 0,
+        "edge_starts": 0,
+        "decreases": 0,
+        "required_moves": 0,
+        "blockers": 0,
+        "course_loops_min": 19,
+        "course_loops_max": 19,
+        "max_abs_course_rounding_m": 0.004113217021973675
+      },
+      {
+        "width_m": 0.005,
+        "height_m": 0.004,
+        "needles": 38,
+        "passes": 46,
+        "turn_passes": 0,
+        "interior_increases": 0,
+        "edge_starts": 0,
+        "decreases": 0,
+        "required_moves": 0,
+        "blockers": 0,
+        "course_loops_min": 38,
+        "course_loops_max": 38,
+        "max_abs_course_rounding_m": 0.004101339824105793
+      },
+      {
+        "width_m": 0.0025,
+        "height_m": 0.002,
+        "needles": 75,
+        "passes": 93,
+        "turn_passes": 0,
+        "interior_increases": 0,
+        "edge_starts": 0,
+        "decreases": 0,
+        "required_moves": 0,
+        "blockers": 0,
+        "course_loops_min": 75,
+        "course_loops_max": 75,
+        "max_abs_course_rounding_m": 0.0015983643698525007
+      },
+      {
+        "width_m": 0.00125,
+        "height_m": 0.001,
+        "needles": 149,
+        "passes": 186,
+        "turn_passes": 0,
+        "interior_increases": 0,
+        "edge_starts": 0,
+        "decreases": 0,
+        "required_moves": 0,
+        "blockers": 0,
+        "course_loops_min": 149,
+        "course_loops_max": 149,
+        "max_abs_course_rounding_m": 0.00034761281489686935
+      }
+    ],
+    "interpretation": "All four test cases returned constant loop count per course and no discrete shaping. Open numerical/modelling question; this neither establishes a specific algorithm defect nor validates a saddle-shaped fabric.",
+    "rounding_note": "Course-length rounding residuals are not bounds on surface-distance or physical-shape error."
   }
 }

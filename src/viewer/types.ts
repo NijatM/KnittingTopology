@@ -31,9 +31,12 @@ export interface SurfaceViewerProps {
   selection: ViewerSelection | null;
   /** A surface point to mark (the knit program loop under the pointer). */
   marker?: Vec3 | null;
+  /** Display hierarchy only; never changes scientific geometry. */
+  knitInspection?: boolean;
   shapeOverlay?: {
     courses: Vec3[][];
-    marks: { position: Vec3; index: number; role: string }[];
+    highlightedCourses?: Vec3[][];
+    marks: { position: Vec3; index: number; role: string; selected?: boolean }[];
   } | null;
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   pickStartEdge?: boolean;

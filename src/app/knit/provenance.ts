@@ -4,6 +4,7 @@ import type { ViewerSelection } from '../../viewer/types';
 import type { KnitProgram } from '../../knit/program';
 import { SOURCE, SOURCE_NAMES } from '../../knit/rasterize';
 import { imageIndex, needleOf, passOf } from '../../knit/grid';
+import type { KnitLayers } from './KnitInspection';
 
 /** The network element a loop comes from, as a viewer selection. */
 export function loopSelection(
@@ -108,5 +109,31 @@ export function shapeOverlay(p: KnitProgram) {
       if (i < 0) return [];
       return [{ position: shape.needles.placements[i]!.loop.position, index, role: step.role }];
     }),
+  };
+}
+
+/** Filter display layers without rebuilding or editing the computed geometry. */
+export function inspectShapeOverlay(
+  overlay: ReturnType<typeof shapeOverlay>,
+  layers: KnitLayers,
+  shaping: boolean,
+  marked: Uint8Array | null,
+  hover: number | null,
+  course: number | undefined
+) {
+  if (!overlay) return null;
+  const selected = (index: number) => index === hover || !!marked?.[index];
+  return {
+    courses: layers.courses ? overlay.courses : [],
+    highlightedCourses:
+      layers.courses && course !== undefined && overlay.courses[course]
+        ? [overlay.courses[course]!]
+        : [],
+    marks:
+      !shaping || layers.shaping === 'off'
+        ? []
+        : overlay.marks
+            .filter((mark) => layers.shaping === 'all' || selected(mark.index))
+            .map((mark) => ({ ...mark, selected: selected(mark.index) })),
   };
 }

@@ -642,9 +642,21 @@ test('supplied OBJ topology exports every bitmap pixel faithfully and regenerate
 
 async function countKnitWorkers(page: Page) {
   await page.addInitScript(() => {
-    const state = window as unknown as { knitWorkerStarts: number; failKnit: boolean };
+    const state = window as unknown as {
+      knitWorkerStarts: number;
+      failKnit: boolean;
+      layoutErrors: string[];
+    };
     state.knitWorkerStarts = 0;
     state.failKnit = false;
+    state.layoutErrors = [];
+    window.addEventListener(
+      'error',
+      (event) => {
+        if (event.message.includes('ResizeObserver')) state.layoutErrors.push(event.message);
+      },
+      true
+    );
     const NativeWorker = window.Worker;
     window.Worker = class extends NativeWorker {
       constructor(url: string | URL, options?: WorkerOptions) {
@@ -780,4 +792,108 @@ test('knit repair links reach cuts and measurements at 375px without page overfl
   await expect(page.getByRole('tab', { name: 'Knit', exact: true })).toHaveClass('active');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   await page.screenshot({ path: 'tmp/qa/knit-repair-mobile.png', fullPage: true });
+});
+
+test('knit inspection layers change rendering independently without changing the bitmap', async ({
+  page,
+}) => {
+  await countKnitWorkers(page);
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('both');
+  await page.getByRole('combobox', { name: 'Edge lines', exact: true }).selectOption('');
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not measured gauges.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap/ });
+  await expect(bitmap).toBeVisible();
+  const assessment = page.getByRole('region', { name: 'Knit interpretation' });
+  await expect(assessment).toContainText('Physical shape unverified');
+  const controls = page.getByRole('region', { name: 'Knit inspection layers' });
+  const courses = controls.getByRole('button', { name: 'Show knitting courses', exact: true });
+  const topology = controls.getByRole('button', { name: 'Show topology layer', exact: true });
+  const mesh = controls.getByRole('button', { name: 'Show surface mesh layer', exact: true });
+  await expect(courses).toHaveAttribute('aria-pressed', 'true');
+  await expect(topology).toHaveAttribute('aria-pressed', 'true');
+  await expect(mesh).toHaveAttribute('aria-pressed', 'false');
+  await expect(controls.getByRole('combobox', { name: 'Shaping marks' })).toHaveValue('selected');
+  const bmp = await downloadOf(page, 'Bitmap BMP');
+  const workers = await page.evaluate(
+    () => (window as unknown as { knitWorkerStarts: number }).knitWorkerStarts
+  );
+  const canvas = page.locator('[data-testid="surface-viewer"] canvas');
+  const rendered = () => canvas.evaluate((c: HTMLCanvasElement) => c.toDataURL());
+  const initial = await rendered();
+  await courses.click();
+  await expect.poll(rendered).not.toBe(initial);
+  await expect(topology).toHaveAttribute('aria-pressed', 'true');
+  const withoutCourses = await rendered();
+  await topology.click();
+  await expect.poll(rendered).not.toBe(withoutCourses);
+  await expect(courses).toHaveAttribute('aria-pressed', 'false');
+  const withoutLines = await rendered();
+  await mesh.click();
+  await expect.poll(rendered).not.toBe(withoutLines);
+  await courses.click();
+  await topology.click();
+  await mesh.click();
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(bmp);
+  expect(
+    await page.evaluate(() => (window as unknown as { knitWorkerStarts: number }).knitWorkerStarts)
+  ).toBe(workers);
+  await page.screenshot({ path: 'tmp/qa/knit-inspection-courses.png', fullPage: true });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await controls.scrollIntoViewIfNeeded();
+  await expect(controls).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
+  await page.screenshot({ path: 'tmp/qa/knit-inspection-mobile.png', fullPage: true });
+  for (const width of [1440, 375, 1440]) {
+    await page.setViewportSize({ width, height: 812 });
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        )
+    );
+  }
+  expect(
+    await page.evaluate(() => (window as unknown as { layoutErrors: string[] }).layoutErrors)
+  ).toEqual([]);
+});
+
+test('measured network inspection labels reference courses and jersey assumptions explicitly', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await page.getByRole('combobox', { name: 'Knit key' }).selectOption('4s52-two');
+  await page.getByRole('combobox', { name: 'Edge lines', exact: true }).selectOption('dk-b');
+  await page.getByRole('spinbutton', { name: 'Line width (loops)', exact: true }).fill('1');
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not measured gauges.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('5');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('5');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
+  const assessment = page.getByRole('region', { name: 'Knit interpretation' });
+  await expect(assessment).toContainText('Pattern only — shaping not applied');
+  await expect(assessment).toContainText('Physical shape unverified');
+  await expect(assessment).toContainText('assumed jersey dimensions');
+  await expect(assessment).toContainText('double knit, YG1 face, double knit, YG2 face');
+  await expect(assessment).toContainText(/Edge markings: \d+ of \d+ assigned loops/);
+  await expect(assessment).toContainText('method notes / limits');
+  const controls = page.getByRole('region', { name: 'Knit inspection layers' });
+  await expect(controls).toContainText('reference courses; shaping not applied');
+  await expect(controls.getByRole('combobox', { name: 'Shaping marks' })).toBeDisabled();
+  await page.screenshot({ path: 'tmp/qa/knit-inspection-reference.png', fullPage: true });
 });

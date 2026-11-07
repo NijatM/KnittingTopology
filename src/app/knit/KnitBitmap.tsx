@@ -147,10 +147,17 @@ export default function KnitBitmap({ program, reason, marks, hover, onHover, onP
       cv.style.height = `${r.height}px`;
       redraw.current();
     };
-    const observer = new ResizeObserver(resize);
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(resize);
+    });
     observer.observe(el);
     resize();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => redraw.current(), [hover, program]);
