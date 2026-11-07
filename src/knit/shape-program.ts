@@ -1,7 +1,16 @@
 // Integration of surface geometry, a design-level needle layout and Knit Grammar operations.
 import type { GenerationContext, KnitSettings, ProjectState, SwatchEntry } from '../core/types';
 import type { KnitBuild } from './program';
-import type { ShapeStep, ShapeResult } from './shape-types';
+import type { ShapeGeometry, ShapeNeedles, ShapeStep, ShapeResult } from './shape-types';
+import { buildCutDisk } from './cuts';
+import {
+  cubeNetChart,
+  cubeNetFromCut,
+  cubeNetSeams,
+  layoutCubeNet,
+  type CubeNetLayout,
+} from './cube-net';
+import type { NetworkChart } from './rasterize-surface';
 import { buildShapeGeometry } from './shape-geometry';
 import { placeShapeNeedles } from './shape-needles';
 import { BASIC, floatIndex, keyById } from './keys';
@@ -45,17 +54,54 @@ export function buildShapeProgram(
   if (!structure)
     return { ok: false, reason: 'The shape fill structure is not available with this key.' };
   try {
-    const geometry = buildShapeGeometry(
-      project.surface,
-      gauge.stitchWidth,
-      gauge.courseHeight,
-      settings.startEdge ?? 'v0',
-      context
-    );
-    context?.progress?.(0.6, 'Placing shaping loops on needles');
     const firstDir = settings.lab.firstPass === 'left-to-right' ? 1 : -1;
-    const needles = placeShapeNeedles(geometry, firstDir),
-      { w, h } = needles;
+    let geometry: ShapeGeometry,
+      needles: ShapeNeedles,
+      closed: CubeNetLayout | undefined,
+      chart: NetworkChart | undefined;
+    if (project.surface.kind === 'cube') {
+      // Closed cube: rebuild and recheck the saved cut, then unfold it; never trust a stored plan.
+      if (!project.graph || !settings.cut)
+        return {
+          ok: false,
+          reason: 'A cube needs a network and a validated cut first. Use 04 Cuts and seams.',
+        };
+      const disk = buildCutDisk(project.surface, project.graph, settings.cut, context);
+      if (!disk.ok) return { ok: false, reason: `Cut: ${disk.reason}` };
+      const net = cubeNetFromCut(
+        project.surface,
+        project.graph,
+        settings.cut.edgeIds,
+        settings.startEdge ?? 'v0'
+      );
+      context?.progress?.(0.4, 'Laying out the flat cube net');
+      const built = layoutCubeNet(
+        project.surface,
+        net,
+        gauge.stitchWidth,
+        gauge.courseHeight,
+        firstDir
+      );
+      geometry = built.geometry;
+      needles = built.needles;
+      closed = {
+        ...built.layout,
+        seams: cubeNetSeams(project.surface, project.graph, disk.plan, built.layout, needles),
+      };
+      if (settings.mode !== 'shape')
+        chart = cubeNetChart(project.surface, project.graph, built.layout);
+    } else {
+      geometry = buildShapeGeometry(
+        project.surface,
+        gauge.stitchWidth,
+        gauge.courseHeight,
+        settings.startEdge ?? 'v0',
+        context
+      );
+      context?.progress?.(0.6, 'Placing shaping loops on needles');
+      needles = placeShapeNeedles(geometry, firstDir);
+    }
+    const { w, h } = needles;
     const shaping = settings.mode !== 'network';
     if (settings.mode !== 'shape' && !project.graph)
       return { ok: false, reason: 'Generate a network first.' };
@@ -78,7 +124,8 @@ export function buildShapeProgram(
             settings,
             key,
             gauge,
-            context
+            context,
+            chart
           );
     const placementAt = new Int32Array(w * h).fill(-1);
     let cells: Uint8Array = new Uint8Array(w * h).fill(floatIndex(key));
@@ -137,6 +184,7 @@ export function buildShapeProgram(
       needles: { ...needles, unresolved: shaping ? unresolved : needles.unresolved },
       placementAt,
       blockers: [],
+      ...(closed ? { closed } : {}),
     };
     const violations = shaping ? validateShapeOperations(shape, cells, key) : [];
     const blockers = [
@@ -167,9 +215,13 @@ export function buildShapeProgram(
     const issues = [
       ...geometry.issues,
       ...raster.issues,
-      'Structure tiles stay anchored to needle and pass indices across shaping transfers.',
-      'Short-row turns add no wrap or tuck; confirm this convention with the lab.',
-      'Transfer scheduling uses operations after the pass; lab timing and travel settings are recorded, not machine instructions.',
+      ...(closed
+        ? []
+        : [
+            'Structure tiles stay anchored to needle and pass indices across shaping transfers.',
+            'Short-row turns add no wrap or tuck; confirm this convention with the lab.',
+            'Transfer scheduling uses operations after the pass; lab timing and travel settings are recorded, not machine instructions.',
+          ]),
       ...(gauge.assumed
         ? ['Shape dimensions for the fill are assumed = jersey (not measured for this structure).']
         : []),

@@ -19,6 +19,18 @@ import type { KnitMapping } from './mapping';
 import { hasRectangularMapping } from '../import/uv-mapping';
 
 type Metric = [number, number, number, number];
+/** Explicit chart for a cut closed surface: one polygon per source cell, and one or more
+ * copies per source edge and node (cut copies lie on both sides of a seam). */
+export interface NetworkChart {
+  method: string;
+  cells: Vec2[][];
+  edges: Vec2[][][];
+  nodes: Vec2[][];
+  /** Loop position in the [0,1]^2 chart and its chart-to-loop linear map. */
+  loop(p: ShapePlacement): { uv: Vec2; metric: Metric };
+  toSurface(uv: Vec2): Vec3;
+  toGrid(p: Vec3): Vec2;
+}
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const unit = (a: Vec3): Vec3 => {
@@ -59,7 +71,8 @@ export function rasterizeSurfaceNetwork(
   settings: KnitSettings,
   key: Key,
   gauge: Gauge | null,
-  context?: GenerationContext
+  context?: GenerationContext,
+  chart?: NetworkChart
 ): Raster {
   const { w, h, placements } = layout,
     issues: string[] = [];
@@ -91,41 +104,54 @@ export function rasterizeSurfaceNetwork(
   const uvOf = (p: Vec3) => chartPoints.get(p) ?? projectToSurface(surface, p, 0).attachment.uv;
   const nodes = new Map(graph.nodes.map((n) => [n.id, n.attachment.uv]));
   // Supplied-chart edges are canonically UV-straight; their 3D crossing samples can be ambiguous in 3D.
-  const edgeLines = graph.edges.map((e) =>
-    !hasRectangularMapping(surface) && e.path && e.path.length >= 2
-      ? e.path.map(uvOf)
-      : [nodes.get(e.a)!, nodes.get(e.b)!]
-  );
+  const edgeLines: Vec2[][][] =
+    chart?.edges ??
+    graph.edges.map((e) => [
+      !hasRectangularMapping(surface) && e.path && e.path.length >= 2
+        ? e.path.map(uvOf)
+        : [nodes.get(e.a)!, nodes.get(e.b)!],
+    ]);
+  const nodeCopies: Vec2[][] = chart?.nodes ?? graph.nodes.map((n) => [nodes.get(n.id)!]);
   const edgeIndex = new Map(
     graph.edges.map((e, i) => [e.a < e.b ? `${e.a}|${e.b}` : `${e.b}|${e.a}`, i])
   );
-  const polys = graph.cells.map((c) =>
-    c.nodes.flatMap((a, i) => {
-      const b = c.nodes[(i + 1) % c.nodes.length]!,
-        ei = edgeIndex.get(a < b ? `${a}|${b}` : `${b}|${a}`);
-      if (ei === undefined) return [nodes.get(a)!];
-      const line = edgeLines[ei]!;
-      return (graph.edges[ei]!.a === a ? line : [...line].reverse()).slice(0, -1);
-    })
-  );
+  const polys =
+    chart?.cells ??
+    graph.cells.map((c) =>
+      c.nodes.flatMap((a, i) => {
+        const b = c.nodes[(i + 1) % c.nodes.length]!,
+          ei = edgeIndex.get(a < b ? `${a}|${b}` : `${b}|${a}`);
+        if (ei === undefined) return [nodes.get(a)!];
+        const line = edgeLines[ei]![0]!;
+        return (graph.edges[ei]!.a === a ? line : [...line].reverse()).slice(0, -1);
+      })
+    );
   const uvMapping: KnitMapping = {
     needles: w,
     passes: h,
-    method: 'original chart UV',
-    toGrid: uvOf,
-    toSurface: ([u, v]) => evaluateSurface(surface, 0, u, v),
+    method: chart?.method ?? 'original chart UV',
+    toGrid: chart?.toGrid ?? uvOf,
+    toSurface: chart?.toSurface ?? (([u, v]) => evaluateSurface(surface, 0, u, v)),
   };
+  // Coarse cells can cross a cut seam, where one chart position per coarse node is not enough.
+  const cellSettings =
+    chart && settings.cells.rule.kind === 'coarse'
+      ? { ...settings, cells: { ...settings.cells, rule: { kind: 'uniform' as const } } }
+      : settings;
+  if (cellSettings !== settings)
+    issues.push('Coarse rule is not available on a cut closed surface yet; cells use the fill.');
   const cellStructure = assignCells(
     graph,
     polys.map((p) => p.flat()),
     uvMapping,
-    settings,
+    cellSettings,
     issues
   );
   const side = Math.min(128, Math.max(8, Math.ceil(Math.sqrt(placements.length)))),
     buckets: number[][] = Array.from({ length: side * side }, () => []);
   const bin = (x: number) => Math.max(0, Math.min(side - 1, Math.floor(x * side)));
-  const metrics: Metric[] = [];
+  const metrics: Metric[] = [],
+    loopUV: Vec2[] = [];
   let radiusUV = 0,
     work = 0;
   const tick = () => {
@@ -145,12 +171,15 @@ export function rasterizeSurfaceNetwork(
   );
   placements.forEach((p, i) => {
     tick();
-    const [u, v] = p.loop.uv;
+    const local = chart?.loop(p),
+      [u, v] = local?.uv ?? p.loop.uv;
     if (![u, v].every(Number.isFinite) || u < 0 || u > 1 || v < 0 || v > 1)
       throw new Error('Surface rasterization requires original UV in [0,1].');
     buckets[bin(v) * side + bin(u)]!.push(i);
+    loopUV.push([u, v]);
     let m: Metric;
-    if (!gauge) {
+    if (local) m = local.metric;
+    else if (!gauge) {
       const e = settings.startEdge ?? 'v0';
       m =
         e === 'v0'
@@ -219,15 +248,15 @@ export function rasterizeSurfaceNetwork(
         for (const li of buckets[by * side + bx]!) {
           tick();
           const p = placements[li]!,
-            uv = p.loop.uv;
+            uv = loopUV[li]!;
           if (uv[0] >= x0 - pad && uv[0] <= x1 + pad && uv[1] >= y0 - pad && uv[1] <= y1 + pad)
             fn(p, li, imageIndex(w, h, p.needle, p.course));
         }
   };
   polys.forEach((poly, ci) => {
     const slot = resolve(cellStructure[ci]!);
-    visit(bounds(poly), 0, (p, _li, i) => {
-      if (kind[i] === SOURCE.background && inside(p.loop.uv, poly)) {
+    visit(bounds(poly), 0, (_p, li, i) => {
+      if (kind[i] === SOURCE.background && inside(loopUV[li]!, poly)) {
         structure[i] = slot;
         kind[i] = SOURCE.cell;
         element[i] = ci;
@@ -243,27 +272,27 @@ export function rasterizeSurfaceNetwork(
       r = settings.edges.width / 2;
     graph.edges.forEach((edge, ei) => {
       if (edge.cells.length < 2 && !settings.edges.boundary) return;
-      const line = edgeLines[ei]!;
-      for (let s = 1; s < line.length; s++)
-        visit(bounds([line[s - 1]!, line[s]!]), radiusUV, (p, li, i) => {
-          let a = metricPoint(line[s - 1]!, p.loop.uv, metrics[li]!),
-            b = metricPoint(line[s]!, p.loop.uv, metrics[li]!);
-          if (b[0] < a[0] || (b[0] === a[0] && b[1] < a[1])) [a, b] = [b, a];
-          const dx = b[0] - a[0],
-            dy = b[1] - a[1],
-            len = Math.hypot(dx, dy),
-            t = len ? (-a[0] * dx - a[1] * dy) / (len * len) : 0;
-          const hit =
-            len && t >= 0 && t <= 1
-              ? (dx * -a[1] - dy * -a[0]) / len > -r + 1e-9 &&
-                (dx * -a[1] - dy * -a[0]) / len <= r + 1e-9
-              : Math.hypot(...(t > 1 ? b : a)) < r;
-          if (hit) {
-            structure[i] = slot;
-            kind[i] = SOURCE.edge;
-            element[i] = ei;
-          }
-        });
+      for (const line of edgeLines[ei]!)
+        for (let s = 1; s < line.length; s++)
+          visit(bounds([line[s - 1]!, line[s]!]), radiusUV, (_p, li, i) => {
+            let a = metricPoint(line[s - 1]!, loopUV[li]!, metrics[li]!),
+              b = metricPoint(line[s]!, loopUV[li]!, metrics[li]!);
+            if (b[0] < a[0] || (b[0] === a[0] && b[1] < a[1])) [a, b] = [b, a];
+            const dx = b[0] - a[0],
+              dy = b[1] - a[1],
+              len = Math.hypot(dx, dy),
+              t = len ? (-a[0] * dx - a[1] * dy) / (len * len) : 0;
+            const hit =
+              len && t >= 0 && t <= 1
+                ? (dx * -a[1] - dy * -a[0]) / len > -r + 1e-9 &&
+                  (dx * -a[1] - dy * -a[0]) / len <= r + 1e-9
+                : Math.hypot(...(t > 1 ? b : a)) < r;
+            if (hit) {
+              structure[i] = slot;
+              kind[i] = SOURCE.edge;
+              element[i] = ei;
+            }
+          });
     });
   }
   const boundary = new Set(
@@ -275,22 +304,24 @@ export function rasterizeSurfaceNetwork(
     const odd = special.has(node.id),
       id = (odd && settings.nodes.extraordinary) || settings.nodes.structure;
     if (!id) return;
-    const uv = nodes.get(node.id)!,
-      slot = resolve(id),
+    const slot = resolve(id),
       r = settings.nodes.size / 2;
-    visit([uv[0], uv[1], uv[0], uv[1]], radiusUV, (p, li, i) => {
-      const [x, y] = metricPoint(uv, p.loop.uv, metrics[li]!);
-      if (x >= -r - 1e-9 && x < r - 1e-9 && y >= -r - 1e-9 && y < r - 1e-9) {
-        structure[i] = slot;
-        kind[i] = odd && settings.nodes.extraordinary ? SOURCE.extraordinary : SOURCE.node;
-        element[i] = ni;
-      }
-    });
+    for (const uv of nodeCopies[ni]!)
+      visit([uv[0], uv[1], uv[0], uv[1]], radiusUV, (_p, li, i) => {
+        const [x, y] = metricPoint(uv, loopUV[li]!, metrics[li]!);
+        if (x >= -r - 1e-9 && x < r - 1e-9 && y >= -r - 1e-9 && y < r - 1e-9) {
+          structure[i] = slot;
+          kind[i] = odd && settings.nodes.extraordinary ? SOURCE.extraordinary : SOURCE.node;
+          element[i] = ni;
+        }
+      });
   });
   if (unknown.size)
     issues.push(`Unknown structures: ${[...unknown].join(', ')}; fill used instead.`);
   issues.push(
-    'Network marks use an original-UV local loop metric; widths on curved charts are sampled approximations, not geodesic guarantees.'
+    chart
+      ? 'Network marks use the flat-net position and the uniform needle/pass grid; cut edges and nodes are drawn on both seam sides.'
+      : 'Network marks use an original-UV local loop metric; widths on curved charts are sampled approximations, not geodesic guarantees.'
   );
   return { w, h, structure, kind, element, structures, cellStructure, issues };
 }

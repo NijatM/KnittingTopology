@@ -3,7 +3,7 @@
 import type { GenerationContext, KnitSettings, ProjectState, SwatchEntry } from '../core/types';
 import { defaultFill, keyById, BASIC, type Key } from './keys';
 import { isTwoLayer, tileOp } from './structures';
-import { knitSupported, planeMapping, programSize, type KnitMapping } from './mapping';
+import { knitAvailable, planeMapping, programSize, type KnitMapping } from './mapping';
 import { rasterizeNetwork, type Raster } from './rasterize';
 import { insertTransfers, type SkippedTransfer, type TransferChange } from './transfers';
 import { runChecks, type Finding } from './checks';
@@ -61,10 +61,20 @@ export function buildKnitProgram(
 ): KnitBuild {
   const settings = knitSettingsOf(project),
     swatches = swatchesOf(project);
-  if (!knitSupported(project.surface))
+  if (!knitAvailable(project.surface))
     return {
       ok: false,
-      reason: 'Knit programs need a plane, saddle or supplied rectangular OBJ chart.',
+      reason:
+        'Knit programs need a plane, saddle, supplied rectangular OBJ chart, or a cube opened by a crease cut.',
+    };
+  if (
+    project.surface.kind === 'cube' &&
+    settings.mode === 'network' &&
+    settings.size.source !== 'gauge'
+  )
+    return {
+      ok: false,
+      reason: 'On a cube, the flat net is sized from your measurements; typed sizes are not used.',
     };
   if (settings.mode === 'shape') return buildShapeProgram(project, settings, swatches, context);
   if (!project.graph) return { ok: false, reason: 'Generate a network first.' };

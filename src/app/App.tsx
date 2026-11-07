@@ -69,7 +69,7 @@ import KnitBitmap from './knit/KnitBitmap';
 import KnitPanel from './knit/KnitPanel';
 import { loopSelection, marksOf, selectionLoops, shapeOverlay } from './knit/provenance';
 import { knitSettingsOf, swatchesOf } from '../knit/program';
-import { knitSupported } from '../knit/mapping';
+import { knitAvailable, knitSupported } from '../knit/mapping';
 import { useCutPlan } from './knit/useCutPlan';
 import CutControls from './knit/CutControls';
 import CutPanel from './knit/CutPanel';
@@ -664,7 +664,7 @@ export default function App() {
   const changeCut = (cut: KnitCutSettings) =>
     commit({ ...projectRef.current, knit: { ...knitSettingsOf(projectRef.current), cut } });
   const cutJob = useCutPlan(project.surface, project.graph, knitSettings.cut, changeCut);
-  const showProgram = knitOpen && knitSupported(project.surface);
+  const showProgram = knitOpen && knitAvailable(project.surface);
   const cutEdgeIds = cutJob.matches ? knitSettings.cut?.edgeIds : undefined;
   const knitJob = useKnitBuild(
     {
@@ -1079,18 +1079,7 @@ export default function App() {
                   ))}
                 </div>
               </section>
-              {knitSupported(project.surface) ? (
-                <KnitControls
-                  pickingEdge={pickingKnitEdge}
-                  onToggleEdgePicking={() => setPickingKnitEdge((v) => !v)}
-                  settings={knitSettings}
-                  open={knitOpen}
-                  status={`${knitStatus}${knitJob.outdated ? ' · Program settings pending generation' : ''}`}
-                  shapeJob={knitJob.usesWorker ? knitJob : undefined}
-                  onChange={changeKnit}
-                  onToggleOpen={() => setKnitOpen((v) => !v)}
-                />
-              ) : cutJob.closed ? (
+              {cutJob.closed && (
                 <CutControls
                   surface={project.surface}
                   cut={knitSettings.cut}
@@ -1106,13 +1095,28 @@ export default function App() {
                     setTab('knit');
                   }}
                 />
+              )}
+              {knitAvailable(project.surface) ? (
+                <KnitControls
+                  closed={project.surface.kind === 'cube'}
+                  pickingEdge={pickingKnitEdge}
+                  onToggleEdgePicking={() => setPickingKnitEdge((v) => !v)}
+                  settings={knitSettings}
+                  open={knitOpen}
+                  status={`${knitStatus}${knitJob.outdated ? ' · Program settings pending generation' : ''}`}
+                  shapeJob={knitJob.usesWorker ? knitJob : undefined}
+                  onChange={changeKnit}
+                  onToggleOpen={() => setKnitOpen((v) => !v)}
+                />
               ) : (
                 <section className="control-section knit-controls">
                   <h2>
-                    <span>04</span> Knit program <i />
+                    <span>{cutJob.closed ? '05' : '04'}</span> Knit program <i />
                   </h2>
                   <p className="hint">
-                    Knit programs support plane, saddle and supplied rectangular OBJ charts.
+                    {cutJob.closed
+                      ? 'Sphere knit programs are not available yet; cut planning and seam export work above. Knitting supports planes, saddles, supplied rectangular OBJ charts and cubes.'
+                      : 'Knit programs support plane, saddle and supplied rectangular OBJ charts, and cubes opened by a crease cut.'}
                   </p>
                 </section>
               )}
@@ -2081,7 +2085,7 @@ export default function App() {
           )}
           {!inspectionOnly &&
             tab === 'knit' &&
-            (cutJob.closed ? (
+            (cutJob.closed && !knitAvailable(project.surface) ? (
               <CutPanel
                 job={cutJob}
                 cut={knitSettings.cut}
@@ -2090,25 +2094,36 @@ export default function App() {
                 onSelect={setSelection}
               />
             ) : (
-              <KnitPanel
-                build={knitBuild}
-                settings={knitSettings}
-                swatches={swatches}
-                graph={project.graph}
-                projectName={project.name}
-                surfaceSize={project.surface.size}
-                hover={knitHover}
-                selection={selection}
-                onSettings={changeKnit}
-                onSwatches={(next) => {
-                  setKnitMarks(null);
-                  commit({ ...projectRef.current, swatches: next });
-                }}
-                onMark={(cells) => {
-                  setKnitMarks(cells);
-                  if (cells) setKnitOpen(true);
-                }}
-              />
+              <>
+                {cutJob.closed && (
+                  <CutPanel
+                    job={cutJob}
+                    cut={knitSettings.cut}
+                    name={project.name}
+                    selection={selection}
+                    onSelect={setSelection}
+                  />
+                )}
+                <KnitPanel
+                  build={knitBuild}
+                  settings={knitSettings}
+                  swatches={swatches}
+                  graph={project.graph}
+                  projectName={project.name}
+                  surfaceSize={project.surface.size}
+                  hover={knitHover}
+                  selection={selection}
+                  onSettings={changeKnit}
+                  onSwatches={(next) => {
+                    setKnitMarks(null);
+                    commit({ ...projectRef.current, swatches: next });
+                  }}
+                  onMark={(cells) => {
+                    setKnitMarks(cells);
+                    if (cells) setKnitOpen(true);
+                  }}
+                />
+              </>
             ))}
           {!inspectionOnly && tab === 'methods' && (
             <>

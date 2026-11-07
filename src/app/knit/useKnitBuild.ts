@@ -7,6 +7,8 @@ type Input = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
 /** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. */
 export function useKnitBuild(input: Input, staleNetwork: boolean) {
   const shape = input.knit?.mode === 'shape';
+  // Shape generation has no graph input, except on a cube, whose flat net comes from the cut network.
+  const graphFree = shape && input.surface.kind !== 'cube';
   const usesWorker =
     input.knit?.mode === 'both' ||
     shape ||
@@ -19,8 +21,7 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
     () => JSON.stringify([input.knit, input.swatches]),
     [input.knit, input.swatches]
   );
-  // Shape generation has no graph input. Reuse the large immutable surface serialization.
-  const signature = `${surfaceSignature}:${settingsSignature}:${shape ? '' : graphSignature}`;
+  const signature = `${surfaceSignature}:${settingsSignature}:${graphFree ? '' : graphSignature}`;
   const [accepted, setAccepted] = useState<{
     signature: string;
     surface: string;
@@ -50,7 +51,7 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
             ok: true,
             program: {
               ...accepted.build.program,
-              staleNetwork: !shape && staleNetwork,
+              staleNetwork: !graphFree && staleNetwork,
               exportBlockers: [
                 ...accepted.build.program.exportBlockers,
                 'Program preview is stale. Generate the current settings before operation export.',
@@ -60,7 +61,7 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
         : accepted.build.ok
           ? {
               ...accepted.build,
-              program: { ...accepted.build.program, staleNetwork: !shape && staleNetwork },
+              program: { ...accepted.build.program, staleNetwork: !graphFree && staleNetwork },
             }
           : accepted.build;
   } else
@@ -75,7 +76,7 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
     ? shape || input.knit?.mode === 'both'
       ? 'Shape and combined modes need a measured jersey swatch.'
       : 'No jersey measurement. Add one or type needles and passes.'
-    : !shape && !input.graph
+    : !graphFree && !input.graph
       ? 'Generate a network first.'
       : '';
   if (!accepted && preflight) build = { ok: false, reason: preflight };
@@ -87,7 +88,7 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
     setProgress('Starting knit program generation');
     try {
       const result = await generateKnitInWorker(
-        shape ? { ...input, graph: null } : input,
+        graphFree ? { ...input, graph: null } : input,
         job.signal,
         (fraction, stage) => {
           if (!job.signal.aborted) setProgress(`${stage} · ${Math.round(fraction * 100)}%`);

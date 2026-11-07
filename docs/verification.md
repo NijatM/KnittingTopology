@@ -131,3 +131,13 @@ See [network mapping and tile semantics](knit-network-mapping.md). Mark widths u
 - Export rechecks the actual boundary, disk topology, paired directions, endpoint coverage and current draft. Original 3D vertex copies agree exactly. Source sampled-path endpoints use the documented relative tolerance; the measured cube gyro endpoint residual was approximately 6.94e-18 m.
 
 The [cut method and contract](closed-surface-cuts.md) state the supported source topology, graph-path and crease presets, numeric tolerances, parallel boundary-edge identities, noncryptographic freshness signature and export bounds. This checkpoint verifies a combinatorial disk and paired seam map. Planar development, sewing order, closed-surface course/bitmap generation and physical fabrication remain subsequent work.
+
+## Cube knit programs from crease-cut flat nets (M4b) — 6 November 2026
+
+- **461/461 unit tests passed** across 21 files, including 141 knit tests. Type checking, formatting and the production build passed.
+- **28/28 browser tests passed against development** (2.8 minutes) and **28/28 against production** (2.5 minutes), with no page or console errors. Both used installed Chrome, software WebGL and `/KnittingTopology/`.
+- The 10 new cube-net tests enumerate all 384 seven-crease cuts that open the cube into one disk. For every cut, hinge points coincide within 1e-12, cut creases separate, unit face edges keep unit length, no face is mirrored, cells do not overlap, and every row and column of the net is unbroken. The cuts give 11 distinct net shapes. The first 12 also pass the M4a disk checks.
+- A hand-checked cross net (12 cm cube, 6 mm × 4 mm test swatch, not a measured gauge) gives 20 needles × 30 passes per face, an 80 × 90 bitmap, two reported shifts (a late start at pass 31 and an extra course at pass 61), two needle stops, zero yarn jumps, one parent per loop and 60 new edge loops. Other tests cover face-interior and partial cut refusal, seam loop counts with opposite M4a seam sides, all four start edges, network cell coverage with both copies of every cut edge, and refusal of stale cuts and typed sizes.
+- The browser test generates the cross-net shape and combined programs from the cut preset, reads the flat-net report, needle stops and seams, and checks that BMP export is enabled. A local cube shape screenshot was inspected.
+
+See [closed-surface knitting](closed-surface-knitting.md). Needle stops are reported, not drawn, because the colour key has no cast-off; Knit Grammar's held-loop check can flag them. Sewing order, face-interior cube cuts, the coarse-cell rule on a cut cube, sphere bitmaps, machine simulation and physical validation remain outside this milestone.

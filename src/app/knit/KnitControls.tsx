@@ -14,6 +14,8 @@ interface Props {
   shapeJob?: { progress: string | null; error: string; generate: () => void; cancel: () => void };
   pickingEdge: boolean;
   onToggleEdgePicking: () => void;
+  /** Cube opened by a validated crease cut: measured flat-net layout only. */
+  closed?: boolean;
 }
 
 const RULES: { kind: KnitCellRule['kind']; name: string }[] = [
@@ -105,6 +107,7 @@ export default function KnitControls({
   pickingEdge,
   onToggleEdgePicking,
   shapeJob,
+  closed = false,
 }: Props) {
   const key = keyById(s.keyId) ?? BASIC;
   const rule = s.cells.rule;
@@ -120,7 +123,7 @@ export default function KnitControls({
   return (
     <section className="control-section knit-controls">
       <h2>
-        <span>04</span> Knit program <i />
+        <span>{closed ? '05' : '04'}</span> Knit program <i />
       </h2>
       <p className="hint">
         {s.mode === 'shape'
@@ -151,7 +154,7 @@ export default function KnitControls({
           onChange={(e) =>
             set({
               mode: e.target.value as KnitSettings['mode'],
-              ...(e.target.value !== 'network' ? { size: { source: 'gauge' } } : {}),
+              ...(e.target.value !== 'network' || closed ? { size: { source: 'gauge' } } : {}),
             })
           }
         >
@@ -168,18 +171,21 @@ export default function KnitControls({
             value={s.startEdge ?? 'v0'}
             onChange={(e) => set({ startEdge: e.target.value as KnitSettings['startEdge'] })}
           >
-            <option value="v0">v = 0 (default)</option>
-            <option value="u1">u = 1</option>
-            <option value="v1">v = 1</option>
-            <option value="u0">u = 0</option>
+            <option value="v0">{closed ? 'Net bottom (default)' : 'v = 0 (default)'}</option>
+            <option value="u1">{closed ? 'Net right side' : 'u = 1'}</option>
+            <option value="v1">{closed ? 'Net top' : 'v = 1'}</option>
+            <option value="u0">{closed ? 'Net left side' : 'u = 0'}</option>
           </select>
         </label>
-        <button type="button" aria-pressed={pickingEdge} onClick={onToggleEdgePicking}>
-          {pickingEdge ? 'Cancel start edge picking' : 'Pick start edge on surface'}
-        </button>
+        {!closed && (
+          <button type="button" aria-pressed={pickingEdge} onClick={onToggleEdgePicking}>
+            {pickingEdge ? 'Cancel start edge picking' : 'Pick start edge on surface'}
+          </button>
+        )}
         <p className="hint">
-          Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts
-          are unmeasured. Click near a chart boundary when picking.
+          {closed
+            ? 'The validated cut is unfolded into a flat net; the chosen side of the net is knitted first. Sizes come from your measurements.'
+            : 'Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts are unmeasured. Click near a chart boundary when picking.'}
         </p>
       </>
       {shapeJob && (
@@ -203,7 +209,7 @@ export default function KnitControls({
         <select
           aria-label="Program size"
           value={s.size.source}
-          disabled={s.mode !== 'network'}
+          disabled={s.mode !== 'network' || closed}
           onChange={(e) =>
             set({
               size:
@@ -218,7 +224,7 @@ export default function KnitControls({
               ? 'From the fill measurement (jersey fallback)'
               : 'From the jersey measurement'}
           </option>
-          <option value="typed">Typed needles × passes</option>
+          {!closed && <option value="typed">Typed needles × passes</option>}
         </select>
       </label>
       {s.mode === 'network' && s.size.source === 'typed' && (
@@ -261,11 +267,13 @@ export default function KnitControls({
                 setRule(ruleFor(e.target.value as KnitCellRule['kind'], s.cells.fill))
               }
             >
-              {RULES.map((r) => (
-                <option key={r.kind} value={r.kind}>
-                  {r.name}
-                </option>
-              ))}
+              {RULES.filter((r) => !closed || r.kind !== 'coarse' || rule.kind === 'coarse').map(
+                (r) => (
+                  <option key={r.kind} value={r.kind}>
+                    {r.name}
+                  </option>
+                )
+              )}
             </select>
           </label>
           {rule.kind === 'sides' &&

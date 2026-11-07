@@ -18,9 +18,12 @@ export interface KnitMapping {
   toSurface(g: Vec2): Vec3;
 }
 
-/** Surfaces with a knit program in this version. */
+/** Surfaces with a rectangular knit chart (start edges can be picked on the chart). */
 export const knitSupported = (surface: SurfaceSpec) =>
   surface.kind === 'plane' || surface.kind === 'saddle' || hasRectangularMapping(surface);
+/** Surfaces with a knit program: rectangular charts, and the cube through a validated crease cut. */
+export const knitAvailable = (surface: SurfaceSpec) =>
+  knitSupported(surface) || surface.kind === 'cube';
 
 /** Typed rectangular chart coordinates; no physical sizing or shaping claim. */
 export function chartMapping(

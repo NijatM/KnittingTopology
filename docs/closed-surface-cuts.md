@@ -38,4 +38,4 @@ Cut construction runs in a disposable worker. Cancellation or changed cut/source
 
 ## What follows
 
-The cut disk still needs an appropriate nonrectangular computational domain, loop/course generation and boundary-to-program registration. The sphere's pole treatment and the cube net's abrupt width changes need explicit handling within the available operation key. Until those steps are verified, closed-surface knit generation remains unavailable. A valid paired seam set can branch and does not specify one unbranched sewing line or a machine sequence.
+On a cube, a cut made only of whole crease lines can now be knitted from its exact flat net. See [closed-surface knitting](closed-surface-knitting.md). Cube cuts through face interiors still need a general nonrectangular domain. The sphere still needs its own layout and an explicit pole treatment. Until those steps are verified, they do not produce bitmaps. A valid paired seam set can branch and does not specify one unbranched sewing line or a machine sequence.

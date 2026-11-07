@@ -7,49 +7,41 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 451,
+    "passed": 461,
     "core": 104,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 131
+    "knit_program": 141
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 528.9,
+    "initial_js_kb": 550.33,
     "lazy_viewer_js_kb": 582.93,
-    "initial_js_gzip_kb": 169.07,
+    "initial_js_gzip_kb": 176.71,
     "lazy_viewer_js_gzip_kb": 147.17,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 94.22,
-    "knit_worker_js_kb": 64.48,
+    "knit_worker_js_kb": 88.11,
     "cut_worker_js_kb": 27.74
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4a-development-results",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4b-development",
     "result": "pass",
-    "passed": 27,
+    "passed": 28,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.1,
-    "full_run_passed": 26,
-    "full_run_failed": 1,
-    "note": "All 27 cases verified across the full run and the corrected-selector retest. The initial failure was an ambiguous Sphere button selector, not an application error.",
-    "selector_retest": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npx playwright test tests/browser/knit.spec.ts -g 'offered only' --output=tmp/qa/m4a-development-selector-retest",
-      "passed": 1,
-      "duration_seconds_reported": 6.8
-    }
+    "duration_minutes_reported": 2.8
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4a-production-results",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4b-production",
     "result": "pass",
-    "passed": 27,
+    "passed": 28,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 2.6
+    "duration_minutes_reported": 2.5
   },
   "mobile": {
     "viewport_width": 375,
@@ -59,7 +51,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Editable closed-surface cuts, disk validation and seam maps (M4a)",
+  "milestone": "Cube knit programs from exact crease-cut flat nets (M4b)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -126,7 +118,7 @@
       "bmp": "4.S52 basic key: 7200 exact, 0 snapped, 0 unknown",
       "page_or_console_errors": 0
     },
-    "available": "shape, network and combined modes on plane, saddle and eligible supplied rectangular OBJ charts; 4.S52 basic key",
+    "available": "shape, network and combined modes on plane, saddle and eligible supplied rectangular OBJ charts, and on a cube opened by a validated whole-crease cut; 4.S52 basic key",
     "physical_validation": false,
     "lab_rules_confirmed": false,
     "shaping": {
@@ -183,9 +175,40 @@
     ],
     "seam_export": "knitting-topology-seam-map JSON v1; meters; revalidated before export",
     "project_schema": "optional knit.cut; derived cut complexes not persisted",
-    "flat_layout_generated": false,
-    "closed_surface_knit_bitmap_generated": false,
+    "flat_layout_generated": "cube whole-crease cuts only",
+    "closed_surface_knit_bitmap_generated": "cube whole-crease cuts only; sphere not supported",
     "minimum_cut_guarantee": false,
+    "physical_validation": false
+  },
+  "closed_surface_knitting": {
+    "method": "cube-crease-net-v1",
+    "source": "project construction; no cited planar development method",
+    "supported_cuts": "exactly seven whole cube creases forming a disk-opening cut; face-interior and partial crease cuts refused",
+    "nets_enumerated": {
+      "crease_cuts": 384,
+      "distinct_nets": 11,
+      "overlapping": 0,
+      "broken_rows_or_columns": 0
+    },
+    "checks": [
+      "hinge point continuity below 1e-12 for all 384 cuts",
+      "cut crease separation, isometry and orientation for all 384 cuts",
+      "no overlap, unbroken rows and columns and 11 distinct net shapes for all 384 cuts",
+      "face-interior and partial cut refusal",
+      "hand-checked cross-net face sizes, shifts and stops",
+      "zero yarn jumps on the cross net",
+      "single parent per loop and new-loop roles",
+      "seam side loop counts and opposite M4a seam sides",
+      "all four start edges",
+      "network cell coverage and two copies of every cut edge",
+      "stale cut and typed size refusal"
+    ],
+    "narrowing": "needle stops reported by pass and needle range; no cast-off operation in the key; export allowed",
+    "yarn_travel": "start-end run changes wait one pass and are reported as late starts or extra courses",
+    "coarse_rule_on_cut_cube": false,
+    "sewing_order": false,
+    "sphere_bitmap": false,
+    "machine_simulation": false,
     "physical_validation": false
   }
 }

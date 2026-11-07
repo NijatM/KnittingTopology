@@ -1,5 +1,6 @@
 // Design-level shaping contracts. Surface positions and arc lengths are in meters.
 import type { Vec2, Vec3 } from '../core/types';
+import type { CubeNetLayout } from './cube-net';
 
 export type StartEdge = 'v0' | 'u1' | 'v1' | 'u0';
 export interface ShapePoint {
@@ -8,6 +9,10 @@ export interface ShapePoint {
   position: Vec3;
   /** Distance from the needle-1 side, in meters. */
   across: number;
+  /** Cube patch of `uv`; closed-surface nets only. */
+  patch?: number;
+  /** Flat-net position in face-edge units; closed-surface nets only. */
+  net?: Vec2;
 }
 export interface ShapeLoop extends ShapePoint {
   id: string;
@@ -79,4 +84,6 @@ export interface ShapeResult {
   placementAt: Int32Array;
   /** Reasons blocking operation-file export; reports remain available. */
   blockers: string[];
+  /** Closed-surface flat net: stops, one-pass shifts and seam loops. */
+  closed?: CubeNetLayout;
 }

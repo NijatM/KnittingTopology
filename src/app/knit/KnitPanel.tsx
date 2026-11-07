@@ -290,14 +290,50 @@ export default function KnitPanel(props: Props) {
           {program.shape && (
             <section aria-label="Shape report">
               <h3 className="knit-heading">Shape report</h3>
-              <p className="hint">
-                Courses → loops → needle layout. Course and loop construction adapt{' '}
-                <a href="https://doi.org/10.3929/ethz-b-000408640" target="_blank" rel="noreferrer">
-                  Mariana A. Popescu (2019), KnitCrete, §§5.2 and 6.2
-                </a>
-                . The distance field, alignment and needle operations are project adaptations; this
-                is not an exact reproduction.
-              </p>
+              {program.shape.closed ? (
+                <>
+                  <p className="hint">
+                    Flat cube net: the validated cut of seven whole creases is unfolded exactly.
+                    Folds between hinged faces are knitted straight through, so the knit does not
+                    form the creases. Project construction.
+                  </p>
+                  <p className="hint">
+                    {program.shape.closed.net.cols} × {program.shape.closed.net.rows} faces ·{' '}
+                    {program.shape.closed.needlesPerFace} needles ×{' '}
+                    {program.shape.closed.passesPerFace} passes per face ·{' '}
+                    {program.shape.closed.shifts.length} one-pass shifts ·{' '}
+                    {program.shape.closed.seams.length} seams with loops listed in the report.
+                  </p>
+                  {program.shape.closed.stops.length > 0 && (
+                    <>
+                      <p className="hint warn">
+                        The colour key has no cast-off. Cast off these stops in the lab software, or
+                        hold the loops to the end:
+                      </p>
+                      <ul className="hint" aria-label="Needle stops">
+                        {program.shape.closed.stops.map((x) => (
+                          <li key={`${x.pass}:${x.from}`}>
+                            Last loops in pass {x.pass}: needles {x.from + 1}–{x.to + 1}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </>
+              ) : (
+                <p className="hint">
+                  Courses → loops → needle layout. Course and loop construction adapt{' '}
+                  <a
+                    href="https://doi.org/10.3929/ethz-b-000408640"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Mariana A. Popescu (2019), KnitCrete, §§5.2 and 6.2
+                  </a>
+                  . The distance field, alignment and needle operations are project adaptations;
+                  this is not an exact reproduction.
+                </p>
+              )}
               {program.rectification && (
                 <p className="hint">
                   Network-only rectangular output: {program.rectification.addedCells} filled
@@ -321,32 +357,34 @@ export default function KnitPanel(props: Props) {
                 Not simulated; not verified until knitted. See Report TXT for rounding, method and
                 unresolved steps.
               </p>
-              <div className="inline-actions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    download(
-                      referencesBibtex(['popescu2019knitcrete']),
-                      'knit-shaping.bib',
-                      'application/x-bibtex'
-                    )
-                  }
-                >
-                  Citation BibTeX
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    download(
-                      JSON.stringify(referencesCSL(['popescu2019knitcrete']), null, 2),
-                      'knit-shaping-citation.json',
-                      'application/json'
-                    )
-                  }
-                >
-                  Citation CSL JSON
-                </button>
-              </div>
+              {!program.shape.closed && (
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      download(
+                        referencesBibtex(['popescu2019knitcrete']),
+                        'knit-shaping.bib',
+                        'application/x-bibtex'
+                      )
+                    }
+                  >
+                    Citation BibTeX
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      download(
+                        JSON.stringify(referencesCSL(['popescu2019knitcrete']), null, 2),
+                        'knit-shaping-citation.json',
+                        'application/json'
+                      )
+                    }
+                  >
+                    Citation CSL JSON
+                  </button>
+                </div>
+              )}
             </section>
           )}
           <h3 className="knit-heading">Export</h3>

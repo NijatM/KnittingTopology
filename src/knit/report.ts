@@ -2,6 +2,7 @@
 // and the lab rules still to confirm.
 import type { KnitProgram } from './program';
 import { rgbText } from './keys';
+import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 
 const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(n - s.length));
 const mm = (m: number) => `${+(m * 1000).toFixed(3)} mm`;
@@ -39,7 +40,8 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
           `Network-only reference layout: ${p.rectification.addedCells} filled cells; maximum ${p.rectification.maxAddedPasses} added passes per needle, ${mm(p.rectification.maxAddedCourseLengthM)} nominal course-height accumulation. Shaping transfers are not applied. This is not physical shape error or a shape prediction.`,
         ]
       : []),
-    ...(p.shape
+    ...(p.shape?.closed ? closedLines(p.shape.closed, p) : []),
+    ...(p.shape && !p.shape.closed
       ? [
           'Source: Mariana Adriana Popescu (2019), KnitCrete, sections 5.2 and 6.2. https://doi.org/10.3929/ethz-b-000408640',
           'Course and loop stages adapted from the thesis. Distance source, monotone alignment, needle placement and operation checks are independent project methods; not a full reproduction.',
@@ -148,4 +150,38 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
     ),
   ];
   return lines.join('\n') + '\n';
+}
+
+function closedLines(c: CubeNetLayout, p: KnitProgram): string[] {
+  const n = p.shape!.needles,
+    fresh = n.placements.filter((x) => x.course > 0 && !x.parents.length).length;
+  const ends = (loops: CubeNetLayout['seams'][0]['sides'][0]['loops']) =>
+    loops.length
+      ? `needle ${loops[0]!.needle + 1}, pass ${loops[0]!.course + 1} -> needle ${loops.at(-1)!.needle + 1}, pass ${loops.at(-1)!.course + 1}`
+      : 'no loops';
+  return [
+    'Flat cube net (closed surface): the validated cut of seven whole creases is unfolded exactly into a planar net. Folds between the remaining hinged faces are knitted straight through; the knit does not form the crease. Project construction, not taken from the thesis; no physical shape prediction.',
+    `Cut creases: ${c.net.cutCreases.map(creaseLabel).join(', ')}. Kept folds: ${c.net.hinges.map(creaseLabel).join(', ')}.`,
+    `Net: ${c.net.cols} x ${c.net.rows} faces, start side ${p.settings.startEdge ?? 'v0'}. Each face is ${c.needlesPerFace} needles x ${c.passesPerFace} passes; face edge minus knitted size: ${mm(c.widthRounding)} across, ${mm(c.heightRounding)} along the wales.`,
+    `New loops where a needle starts after pass 1: ${fresh} (${p.settings.newLoop === 'tuck' ? 'tuck first' : 'knit'}). Sideways transfers: ${n.moves.length}. Yarn jumps: ${n.yarnJumps}.`,
+    c.stops.length
+      ? 'Needles that stop while other needles keep knitting. The colour key has no cast-off: cast off here in the lab software, or hold the loops to the end.'
+      : 'No needles stop before the last pass.',
+    ...c.stops.map((x) => `  last loops in pass ${x.pass}, needles ${x.from + 1}-${x.to + 1}`),
+    ...(c.shifts.length
+      ? ['Run changes moved by one pass so the yarn does not float across needles:']
+      : []),
+    ...c.shifts.map(
+      (x) =>
+        `  pass ${x.pass}, needles ${x.from + 1}-${x.to + 1}: ${x.kind === 'late start' ? 'start one pass late' : 'one extra course'}`
+    ),
+    'Seams: loops on both sides of every cut crease, each listed from the crease end with the lower coordinate. The two counts can differ; no sewing order is implied.',
+    ...c.seams.flatMap((seam) => [
+      `  ${creaseLabel(seam.crease)} (${seam.sourceEdgeIds.length} cut network edges)`,
+      ...seam.sides.map(
+        (side) =>
+          `    ${faceLabel(side.face)} ${side.kind}: ${side.loops.length} loops, ${ends(side.loops)}${side.shifted ? `; ${side.shifted} ${side.kind === 'start' || side.kind === 'end' ? 'one pass from the net edge' : 'missing after a one-pass shift'}` : ''}`
+      ),
+    ]),
+  ];
 }

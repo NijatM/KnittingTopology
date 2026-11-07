@@ -119,8 +119,8 @@ test('knit program: size, split view, linked provenance, exports, swatches and u
 test('knit program is offered only where it works', async ({ page }) => {
   await page.goto('./');
   await page.getByRole('button', { name: 'Sphere / Closed / curved', exact: true }).click();
-  await expect(page.locator('.knit-controls')).toContainText(
-    'Knit programs support plane, saddle and supplied rectangular OBJ charts.'
+  await expect(page.locator('.knit-controls').last()).toContainText(
+    'Sphere knit programs are not available yet'
   );
   await expect(page.getByRole('button', { name: 'Show program beside the surface' })).toHaveCount(
     0
@@ -337,4 +337,49 @@ test('typed curved network uses declared pixel dimensions without measured gauge
   ).toBeVisible();
   await expect(page.getByRole('region', { name: 'Shape report' })).toHaveCount(0);
   await expect(page.locator('.knit-panel')).toContainText('no measured physical size');
+});
+
+test('cube knit program from a validated crease cut: flat net, stops, seams and both modes', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Cube / }).click();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await expect(page.locator('.progress-panel')).toHaveCount(0);
+  const sidebar = page.locator('.sidebar, aside').first();
+  await expect(page.getByRole('heading', { name: /04\s*Cuts and seams/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /05\s*Knit program/ })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await expect(page.getByRole('button', { name: 'Pick start edge on surface' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  // Without a validated cut the cube has no flat net.
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.locator('.knit-shape-job')).toContainText(/validated cut/i);
+  await page.getByRole('button', { name: 'Cube cross-net cut', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Cut topology result' })).toContainText(
+    'Validated disk'
+  );
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap/ });
+  await expect(bitmap).toBeVisible();
+  const report = page.getByRole('region', { name: 'Shape report' });
+  await expect(report).toContainText('Flat cube net');
+  await expect(report.getByRole('list', { name: 'Needle stops' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  const text = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(text).toContain('Flat cube net');
+  expect(text).toContain('cast off here in the lab software');
+  expect(text.match(/^ {2}[+−][XYZ]\|[+−][XYZ] \(/gm)).toHaveLength(7);
+  await page.screenshot({ path: 'tmp/qa/m4b-cube-shape.png', fullPage: true });
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('both');
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(page.locator('.knit-shape-job')).not.toContainText(/Shape generation:/);
+  await expect(bitmap).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await expect(sidebar).not.toContainText('Typed needles');
 });

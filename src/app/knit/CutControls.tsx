@@ -24,12 +24,11 @@ export default function CutControls({
       <h2>
         <span>04</span> Cuts and seams <i />
       </h2>
+      <p className="hint">Prepare one topological disk and paired boundary segments.</p>
       <p className="hint">
-        Prepare one topological disk and paired boundary segments. Closed-surface knit bitmaps
-        follow domain mapping.
-      </p>
-      <p className="hint">
-        Knit programs support plane, saddle and supplied rectangular OBJ charts.
+        {surface.kind === 'cube'
+          ? 'A cut made only of whole crease lines, such as the cross-net preset, can then be knitted from its flat net in 05 Knit program.'
+          : 'Sphere knit bitmaps are not available yet.'}
       </p>
       <button
         type="button"
