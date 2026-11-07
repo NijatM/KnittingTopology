@@ -320,6 +320,32 @@ export default function KnitPanel(props: Props) {
                     </>
                   )}
                 </>
+              ) : program.shape.sphere ? (
+                <>
+                  <p className="hint">
+                    Sphere opened from pole to pole: each needle knits one circle of latitude,
+                    starting at the cut. Shorter circles skip out-and-back short rows spread evenly
+                    around the circle. Project construction.
+                  </p>
+                  <p className="hint">
+                    {program.shape.sphere.needles} needles pole to pole ·{' '}
+                    {Math.min(...program.shape.sphere.counts)}–
+                    {Math.max(...program.shape.sphere.counts)} loops per needle ·{' '}
+                    {program.shape.sphere.turns} passes turn early · loops held for up to{' '}
+                    {program.shape.sphere.maxHeld} passes.
+                  </p>
+                  <p className="hint warn">
+                    Gather the pole edges closed (the colour key has no gather operation):{' '}
+                    {program.shape.sphere.poles
+                      .map((x) => `needle ${x.needle + 1} at the ${x.pole} pole, ${x.loops} loops`)
+                      .join('; ')}
+                    .
+                  </p>
+                  <p className="hint">
+                    Seam: pass 1 loops meet the last-pass loops along the cut, needle by needle;
+                    loops per cut edge are listed in the report.
+                  </p>
+                </>
               ) : (
                 <p className="hint">
                   Courses → loops → needle layout. Course and loop construction adapt{' '}
@@ -357,7 +383,7 @@ export default function KnitPanel(props: Props) {
                 Not simulated; not verified until knitted. See Report TXT for rounding, method and
                 unresolved steps.
               </p>
-              {!program.shape.closed && (
+              {!program.shape.closed && !program.shape.sphere && (
                 <div className="inline-actions">
                   <button
                     type="button"

@@ -1098,7 +1098,11 @@ export default function App() {
               )}
               {knitAvailable(project.surface) ? (
                 <KnitControls
-                  closed={project.surface.kind === 'cube'}
+                  closed={
+                    project.surface.kind === 'cube' || project.surface.kind === 'sphere'
+                      ? project.surface.kind
+                      : undefined
+                  }
                   pickingEdge={pickingKnitEdge}
                   onToggleEdgePicking={() => setPickingKnitEdge((v) => !v)}
                   settings={knitSettings}
@@ -1111,12 +1115,11 @@ export default function App() {
               ) : (
                 <section className="control-section knit-controls">
                   <h2>
-                    <span>{cutJob.closed ? '05' : '04'}</span> Knit program <i />
+                    <span>04</span> Knit program <i />
                   </h2>
                   <p className="hint">
-                    {cutJob.closed
-                      ? 'Sphere knit programs are not available yet; cut planning and seam export work above. Knitting supports planes, saddles, supplied rectangular OBJ charts and cubes.'
-                      : 'Knit programs support plane, saddle and supplied rectangular OBJ charts, and cubes opened by a crease cut.'}
+                    Knit programs support plane, saddle and supplied rectangular OBJ charts, cubes
+                    opened by a crease cut and spheres opened from pole to pole.
                   </p>
                 </section>
               )}

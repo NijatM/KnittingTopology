@@ -141,3 +141,25 @@ The [cut method and contract](closed-surface-cuts.md) state the supported source
 - The browser test generates the cross-net shape and combined programs from the cut preset, reads the flat-net report, needle stops and seams, and checks that BMP export is enabled. A local cube shape screenshot was inspected.
 
 See [closed-surface knitting](closed-surface-knitting.md). Needle stops are reported, not drawn, because the colour key has no cast-off; Knit Grammar's held-loop check can flag them. Sewing order, face-interior cube cuts, the coarse-cell rule on a cut cube, sphere bitmaps, machine simulation and physical validation remain outside this milestone.
+
+## Sphere knit programs from pole-to-pole cuts (M4c) — 6 November 2026
+
+- **484/484 unit tests passed** across 22 files, including 164 knit tests. Type checking, formatting and the production build passed.
+- **28/28 browser tests passed against development** (3.1 minutes) and **28/28 against production** (2.8 minutes), with no page or console errors. Both used installed Chrome, software WebGL and `/KnittingTopology/`.
+- The 23 new sphere tests check the meridian preset on six network families at three spacings: each preset is one descending path. Branched, partial and level or climbing cuts are refused.
+- The short-row layout is checked on five sphere and swatch sizes (test values, not measured gauges), with both first-pass directions:
+  - every pass is one unbroken run that changes only at the end where it finishes, with zero yarn jumps;
+  - every needle knits the first and last passes, and outer needles knit only passes their inner neighbours knit;
+  - counts are within 1.5 loops of each circle over the course height;
+  - loops are within 2 to 3.5 loops of their even place around the circle. On an 18 cm sphere at 6 mm × 4 mm, this gives 48 × 141, 1.32 and 2.35 loops.
+- Both start sides are checked for:
+  - single parent loops;
+  - which pole needle 1 sits at;
+  - outward orientation;
+  - seam loops on all 32 needles, with opposite M4a sides for every cut edge;
+  - the report.
+- Network cells are checked on six networks with a pole node, a pole inside a cell and a pole on an edge. Every loop lies in a cell, and any loop placed in a different cell from the 3D cell that holds it is within `1e-5 × sphere size` of an outline (largest seen: 0.4 µm). Cut edges are drawn on both seam sides, and a pole node marks the whole pole needle. Chart round trips and refusal of typed sizes, net start sides and stale cuts are also covered.
+- In a scratch run of 96 configurations (6 families × 4 spacings × 2 diameters × 2 start sides), every loop was in a cell, with zero yarn jumps and no export blockers.
+- The browser test generates the sphere from the meridian preset in shape mode, on both start sides, and in combined mode. It reads the report and checks that BMP export is enabled. Local sphere screenshots were inspected.
+
+See [closed-surface knitting](closed-surface-knitting.md). Pole openings are reported, not drawn, because the colour key has no gather operation. Long holds near the poles can be flagged by Knit Grammar's held-loop check. Short-row turns add no wrap or tuck; the lab is still to confirm this. This milestone closes M4. Sewing order, face-interior cube cuts, other sphere cuts, the coarse-cell rule on closed surfaces, machine simulation and physical validation remain outside it.

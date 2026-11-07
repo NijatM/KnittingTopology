@@ -65,16 +65,19 @@ export function buildKnitProgram(
     return {
       ok: false,
       reason:
-        'Knit programs need a plane, saddle, supplied rectangular OBJ chart, or a cube opened by a crease cut.',
+        'Knit programs need a plane, saddle, supplied rectangular OBJ chart, a cube opened by a crease cut, or a sphere opened from pole to pole.',
     };
   if (
-    project.surface.kind === 'cube' &&
+    (project.surface.kind === 'cube' || project.surface.kind === 'sphere') &&
     settings.mode === 'network' &&
     settings.size.source !== 'gauge'
   )
     return {
       ok: false,
-      reason: 'On a cube, the flat net is sized from your measurements; typed sizes are not used.',
+      reason:
+        project.surface.kind === 'cube'
+          ? 'On a cube, the flat net is sized from your measurements; typed sizes are not used.'
+          : 'On a sphere, the layout is sized from your measurements; typed sizes are not used.',
     };
   if (settings.mode === 'shape') return buildShapeProgram(project, settings, swatches, context);
   if (!project.graph) return { ok: false, reason: 'Generate a network first.' };

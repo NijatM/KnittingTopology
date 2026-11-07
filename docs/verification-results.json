@@ -7,41 +7,41 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 461,
+    "passed": 484,
     "core": 104,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 141
+    "knit_program": 164
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 550.33,
+    "initial_js_kb": 567.59,
     "lazy_viewer_js_kb": 582.93,
-    "initial_js_gzip_kb": 176.71,
+    "initial_js_gzip_kb": 182.28,
     "lazy_viewer_js_gzip_kb": 147.17,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 94.22,
-    "knit_worker_js_kb": 88.11,
-    "cut_worker_js_kb": 27.74
+    "knit_worker_js_kb": 101.35,
+    "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4b-development",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4c-development",
+    "result": "pass",
+    "passed": 28,
+    "page_or_console_errors": 0,
+    "duration_minutes_reported": 3.1
+  },
+  "production_browser_tests": {
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4c-production",
     "result": "pass",
     "passed": 28,
     "page_or_console_errors": 0,
     "duration_minutes_reported": 2.8
-  },
-  "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4b-production",
-    "result": "pass",
-    "passed": 28,
-    "page_or_console_errors": 0,
-    "duration_minutes_reported": 2.5
   },
   "mobile": {
     "viewport_width": 375,
@@ -51,7 +51,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Cube knit programs from exact crease-cut flat nets (M4b)",
+  "milestone": "Sphere knit programs from pole-to-pole cuts (M4c); closes M4",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -181,33 +181,107 @@
     "physical_validation": false
   },
   "closed_surface_knitting": {
-    "method": "cube-crease-net-v1",
-    "source": "project construction; no cited planar development method",
-    "supported_cuts": "exactly seven whole cube creases forming a disk-opening cut; face-interior and partial crease cuts refused",
-    "nets_enumerated": {
-      "crease_cuts": 384,
-      "distinct_nets": 11,
-      "overlapping": 0,
-      "broken_rows_or_columns": 0
+    "cube": {
+      "method": "cube-crease-net-v1",
+      "source": "project construction; no cited planar development method",
+      "supported_cuts": "exactly seven whole cube creases forming a disk-opening cut; face-interior and partial crease cuts refused",
+      "nets_enumerated": {
+        "crease_cuts": 384,
+        "distinct_nets": 11,
+        "overlapping": 0,
+        "broken_rows_or_columns": 0
+      },
+      "checks": [
+        "hinge point continuity below 1e-12 for all 384 cuts",
+        "cut crease separation, isometry and orientation for all 384 cuts",
+        "no overlap, unbroken rows and columns and 11 distinct net shapes for all 384 cuts",
+        "face-interior and partial cut refusal",
+        "hand-checked cross-net face sizes, shifts and stops",
+        "zero yarn jumps on the cross net",
+        "single parent per loop and new-loop roles",
+        "seam side loop counts and opposite M4a seam sides",
+        "all four start edges",
+        "network cell coverage and two copies of every cut edge",
+        "stale cut and typed size refusal"
+      ],
+      "narrowing": "needle stops reported by pass and needle range; no cast-off operation in the key; export allowed",
+      "yarn_travel": "start-end run changes wait one pass and are reported as late starts or extra courses"
     },
-    "checks": [
-      "hinge point continuity below 1e-12 for all 384 cuts",
-      "cut crease separation, isometry and orientation for all 384 cuts",
-      "no overlap, unbroken rows and columns and 11 distinct net shapes for all 384 cuts",
-      "face-interior and partial cut refusal",
-      "hand-checked cross-net face sizes, shifts and stops",
-      "zero yarn jumps on the cross net",
-      "single parent per loop and new-loop roles",
-      "seam side loop counts and opposite M4a seam sides",
-      "all four start edges",
-      "network cell coverage and two copies of every cut edge",
-      "stale cut and typed size refusal"
-    ],
-    "narrowing": "needle stops reported by pass and needle range; no cast-off operation in the key; export allowed",
-    "yarn_travel": "start-end run changes wait one pass and are reported as late starts or extra courses",
-    "coarse_rule_on_cut_cube": false,
+    "sphere": {
+      "method": "sphere-pole-courses-v1",
+      "source": "project construction; no cited sphere knitting method",
+      "supported_cuts": "one unbranched path of network edges from a highest to a lowest node (1e-9 x size), strictly descending at every edge sample (1e-12 x size); other sphere cuts refused",
+      "preset": "meridian preset prefers a descending path; falls back to the previous highest/lowest path when none exists",
+      "layout": "needles pole to pole, each knitting one circle of latitude; out-and-back short-row groups per bed half chosen outwards from the middle by a min-max dynamic program",
+      "straight_meridian_results": [
+        {
+          "diameter_m": 0.05,
+          "swatch_m": [0.006, 0.004],
+          "needles": 14,
+          "passes": 39,
+          "max_count_error_loops": 1.23,
+          "max_course_deviation_loops": 1.41,
+          "max_hold_passes": 18
+        },
+        {
+          "diameter_m": 0.1,
+          "swatch_m": [0.0035, 0.0025],
+          "needles": 45,
+          "passes": 126,
+          "max_count_error_loops": 1.43,
+          "max_course_deviation_loops": 2.43,
+          "max_hold_passes": 122
+        },
+        {
+          "diameter_m": 0.12,
+          "swatch_m": [0.006, 0.004],
+          "needles": 32,
+          "passes": 94,
+          "max_count_error_loops": 1.38,
+          "max_course_deviation_loops": 2.0,
+          "max_hold_passes": 48
+        },
+        {
+          "diameter_m": 0.18,
+          "swatch_m": [0.006, 0.004],
+          "needles": 48,
+          "passes": 141,
+          "max_count_error_loops": 1.32,
+          "max_course_deviation_loops": 2.35,
+          "max_hold_passes": 80
+        },
+        {
+          "diameter_m": 0.3,
+          "swatch_m": [0.005, 0.0035],
+          "needles": 95,
+          "passes": 269,
+          "max_count_error_loops": 1.39,
+          "max_course_deviation_loops": 3.21,
+          "max_hold_passes": 144
+        }
+      ],
+      "swatch_note": "test values, not measured gauges",
+      "checks": [
+        "meridian preset is one descending path on six families at three spacings",
+        "branched, partial and level or climbing cut refusal",
+        "unbroken runs changing only at the finishing end and zero yarn jumps, both first-pass directions",
+        "every needle in the first and last pass; nested passes",
+        "counts within 1.5 loops; loops within 2 to 3.5 loops of their even place",
+        "single parent per loop, pole sides and outward orientation for both start sides",
+        "seam loops on every needle with opposite M4a seam sides",
+        "every loop in a cell; disagreement with the 3D cell within 1e-5 x size of an outline (largest seen 0.4 micrometres) on six networks including pole nodes, pole cells and poles on edges",
+        "cut edges drawn on both seam sides; pole node marks the whole pole needle",
+        "chart round trips",
+        "typed size, net start side and stale cut refusal"
+      ],
+      "scratch_configurations_full_coverage": 96,
+      "poles": "pole needles reported with loop counts, to be gathered closed; no gather operation in the key",
+      "short_row_turns": "no wrap or tuck; to confirm with the lab"
+    },
+    "coarse_rule_on_closed_surfaces": false,
+    "face_interior_cube_cuts": false,
+    "other_sphere_cuts": false,
     "sewing_order": false,
-    "sphere_bitmap": false,
     "machine_simulation": false,
     "physical_validation": false
   }

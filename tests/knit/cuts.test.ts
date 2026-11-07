@@ -16,6 +16,7 @@ import {
   historyReducer,
 } from '../../src/app/project';
 import { defaultKnitSettings, validateKnitSettings } from '../../src/knit/settings';
+import { sphereCutPath } from '../../src/knit/sphere-knit';
 import {
   buildCutDisk,
   cutSourceSignature,
@@ -236,6 +237,8 @@ describe('generated cube/sphere presets and project contract', () => {
         r = generateCutPlan({ ...p, preset: 'sphere-meridian' });
       expect(new Set(ids).size).toBe(ids.length);
       expect(r.ok, r.ok ? '' : r.reason).toBe(true);
+      // The preset prefers one path that descends at every sample, which can be knitted.
+      expect(() => sphereCutPath(p.surface, p.graph, ids)).not.toThrow();
     }
   );
   it('persists only cut inputs, leaving the geometric signature and undo intact', () => {

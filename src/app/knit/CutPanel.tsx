@@ -77,8 +77,8 @@ export default function CutPanel({
           </section>
           <p className="hint">
             One boundary can contain a branched set of paired seams. These checks establish a
-            combinatorial disk; flat layout, sewing order and a closed-surface knit program are
-            later steps.
+            combinatorial disk; they do not set a sewing order. Supported cube and sphere cuts are
+            knitted in 05 Knit program.
           </p>
           <button
             type="button"

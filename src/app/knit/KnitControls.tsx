@@ -14,8 +14,8 @@ interface Props {
   shapeJob?: { progress: string | null; error: string; generate: () => void; cancel: () => void };
   pickingEdge: boolean;
   onToggleEdgePicking: () => void;
-  /** Cube opened by a validated crease cut: measured flat-net layout only. */
-  closed?: boolean;
+  /** Closed surface opened by a validated cut: measured layout only. */
+  closed?: 'cube' | 'sphere';
 }
 
 const RULES: { kind: KnitCellRule['kind']; name: string }[] = [
@@ -107,7 +107,7 @@ export default function KnitControls({
   pickingEdge,
   onToggleEdgePicking,
   shapeJob,
-  closed = false,
+  closed,
 }: Props) {
   const key = keyById(s.keyId) ?? BASIC;
   const rule = s.cells.rule;
@@ -171,10 +171,22 @@ export default function KnitControls({
             value={s.startEdge ?? 'v0'}
             onChange={(e) => set({ startEdge: e.target.value as KnitSettings['startEdge'] })}
           >
-            <option value="v0">{closed ? 'Net bottom (default)' : 'v = 0 (default)'}</option>
-            <option value="u1">{closed ? 'Net right side' : 'u = 1'}</option>
-            <option value="v1">{closed ? 'Net top' : 'v = 1'}</option>
-            <option value="u0">{closed ? 'Net left side' : 'u = 0'}</option>
+            {closed === 'sphere' ? (
+              <>
+                <option value="v0">Needle 1 at the bottom pole (default)</option>
+                <option value="v1">Needle 1 at the top pole</option>
+                {(s.startEdge === 'u0' || s.startEdge === 'u1') && (
+                  <option value={s.startEdge}>{s.startEdge} (not used on a sphere)</option>
+                )}
+              </>
+            ) : (
+              <>
+                <option value="v0">{closed ? 'Net bottom (default)' : 'v = 0 (default)'}</option>
+                <option value="u1">{closed ? 'Net right side' : 'u = 1'}</option>
+                <option value="v1">{closed ? 'Net top' : 'v = 1'}</option>
+                <option value="u0">{closed ? 'Net left side' : 'u = 0'}</option>
+              </>
+            )}
           </select>
         </label>
         {!closed && (
@@ -183,9 +195,11 @@ export default function KnitControls({
           </button>
         )}
         <p className="hint">
-          {closed
-            ? 'The validated cut is unfolded into a flat net; the chosen side of the net is knitted first. Sizes come from your measurements.'
-            : 'Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts are unmeasured. Click near a chart boundary when picking.'}
+          {closed === 'sphere'
+            ? 'Courses run from pole to pole, starting at the validated cut. Each needle knits one circle of latitude, and short rows are spread evenly. Sizes come from your measurements.'
+            : closed
+              ? 'The validated cut is unfolded into a flat net; the chosen side of the net is knitted first. Sizes come from your measurements.'
+              : 'Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts are unmeasured. Click near a chart boundary when picking.'}
         </p>
       </>
       {shapeJob && (
@@ -209,7 +223,7 @@ export default function KnitControls({
         <select
           aria-label="Program size"
           value={s.size.source}
-          disabled={s.mode !== 'network' || closed}
+          disabled={s.mode !== 'network' || !!closed}
           onChange={(e) =>
             set({
               size:

@@ -28,7 +28,7 @@ export default function CutControls({
       <p className="hint">
         {surface.kind === 'cube'
           ? 'A cut made only of whole crease lines, such as the cross-net preset, can then be knitted from its flat net in 05 Knit program.'
-          : 'Sphere knit bitmaps are not available yet.'}
+          : 'A single cut running from a highest node to a lowest node, descending at every point, such as the meridian preset, can then be knitted from pole to pole in 05 Knit program.'}
       </p>
       <button
         type="button"
@@ -42,7 +42,7 @@ export default function CutControls({
       <p className="hint">
         {surface.kind === 'cube'
           ? 'Cut seven cube crease chains, retaining five cross-net hinges.'
-          : 'A +X-biased graph path joins the nodes nearest the poles; this is a sampled path.'}
+          : 'A +X-biased graph path joins a highest node to a lowest node, descending at every sample when the network allows it; this is a sampled path, not a geodesic.'}
       </p>
       <button
         type="button"

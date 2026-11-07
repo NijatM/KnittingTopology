@@ -10,6 +10,13 @@ import {
   layoutCubeNet,
   type CubeNetLayout,
 } from './cube-net';
+import {
+  layoutSphere,
+  sphereChart,
+  sphereCutPath,
+  sphereSeam,
+  type SphereKnitLayout,
+} from './sphere-knit';
 import type { NetworkChart } from './rasterize-surface';
 import { buildShapeGeometry } from './shape-geometry';
 import { placeShapeNeedles } from './shape-needles';
@@ -58,6 +65,7 @@ export function buildShapeProgram(
     let geometry: ShapeGeometry,
       needles: ShapeNeedles,
       closed: CubeNetLayout | undefined,
+      sphere: SphereKnitLayout | undefined,
       chart: NetworkChart | undefined;
     if (project.surface.kind === 'cube') {
       // Closed cube: rebuild and recheck the saved cut, then unfold it; never trust a stored plan.
@@ -90,6 +98,36 @@ export function buildShapeProgram(
       };
       if (settings.mode !== 'shape')
         chart = cubeNetChart(project.surface, project.graph, built.layout);
+    } else if (project.surface.kind === 'sphere') {
+      // Closed sphere: rebuild and recheck the saved cut, which must run from pole to pole.
+      if (!project.graph || !settings.cut)
+        return {
+          ok: false,
+          reason: 'A sphere needs a network and a validated cut first. Use 04 Cuts and seams.',
+        };
+      const start = settings.startEdge ?? 'v0';
+      if (start !== 'v0' && start !== 'v1')
+        return { ok: false, reason: 'On a sphere, needle 1 starts at the bottom or the top pole.' };
+      const disk = buildCutDisk(project.surface, project.graph, settings.cut, context);
+      if (!disk.ok) return { ok: false, reason: `Cut: ${disk.reason}` };
+      const cut = sphereCutPath(project.surface, project.graph, settings.cut.edgeIds);
+      context?.progress?.(0.4, 'Spreading short rows around the sphere');
+      const built = layoutSphere(
+        project.surface,
+        cut,
+        gauge.stitchWidth,
+        gauge.courseHeight,
+        firstDir,
+        start
+      );
+      geometry = built.geometry;
+      needles = built.needles;
+      sphere = {
+        ...built.layout,
+        seam: sphereSeam(project.surface, project.graph, disk.plan, cut, built.layout, needles),
+      };
+      if (settings.mode !== 'shape')
+        chart = sphereChart(project.surface, project.graph, cut, built.layout);
     } else {
       geometry = buildShapeGeometry(
         project.surface,
@@ -185,6 +223,7 @@ export function buildShapeProgram(
       placementAt,
       blockers: [],
       ...(closed ? { closed } : {}),
+      ...(sphere ? { sphere } : {}),
     };
     const violations = shaping ? validateShapeOperations(shape, cells, key) : [];
     const blockers = [
@@ -215,7 +254,7 @@ export function buildShapeProgram(
     const issues = [
       ...geometry.issues,
       ...raster.issues,
-      ...(closed
+      ...(closed || sphere
         ? []
         : [
             'Structure tiles stay anchored to needle and pass indices across shaping transfers.',

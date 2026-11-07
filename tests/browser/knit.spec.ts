@@ -116,15 +116,58 @@ test('knit program: size, split view, linked provenance, exports, swatches and u
   await page.screenshot({ path: 'tmp/qa/knit-gauge.png', fullPage: true });
 });
 
-test('knit program is offered only where it works', async ({ page }) => {
+test('sphere knit program from a pole-to-pole cut: short rows, poles, seam and both modes', async ({
+  page,
+}) => {
   await page.goto('./');
   await page.getByRole('button', { name: 'Sphere / Closed / curved', exact: true }).click();
-  await expect(page.locator('.knit-controls').last()).toContainText(
-    'Sphere knit programs are not available yet'
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await expect(page.locator('.progress-panel')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /05\s*Knit program/ })).toBeVisible();
+  await expect(page.locator('.cut-controls')).toContainText('knitted from pole to pole');
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  const start = page.getByRole('combobox', { name: 'Start edge' });
+  await expect(start.locator('option')).toHaveText([
+    'Needle 1 at the bottom pole (default)',
+    'Needle 1 at the top pole',
+  ]);
+  await expect(page.getByRole('button', { name: 'Pick start edge on surface' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  // Without a validated cut the sphere has no layout.
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.locator('.knit-shape-job')).toContainText(/validated cut/i);
+  await page.getByRole('button', { name: 'Sphere meridian cut', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Cut topology result' })).toContainText(
+    'Validated disk'
   );
-  await expect(page.getByRole('button', { name: 'Show program beside the surface' })).toHaveCount(
-    0
-  );
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap/ });
+  await expect(bitmap).toBeVisible();
+  const report = page.getByRole('region', { name: 'Shape report' });
+  await expect(report).toContainText('Sphere opened from pole to pole');
+  await expect(report).toContainText('Gather the pole edges closed');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  const text = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(text).toContain('Sphere opened from pole to pole');
+  expect(text).toMatch(/Loops per needle \(needle 1 first\): \d+/);
+  expect(text).toMatch(/^ {2}start side: pass 1, \d+ loops/m);
+  expect(text).toContain('Yarn jumps: 0.');
+  await page.screenshot({ path: 'tmp/qa/m4c-sphere-shape.png', fullPage: true });
+  await start.selectOption('v1');
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(report).toContainText('at the top pole');
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('both');
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(page.locator('.knit-shape-job')).not.toContainText(/Shape generation:/);
+  await expect(bitmap).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await expect(page.locator('.knit-controls').last()).not.toContainText('Typed needles');
+  await page.screenshot({ path: 'tmp/qa/m4c-sphere-both.png', fullPage: true });
 });
 
 test('shape program: saddle measurement, explicit generation, start-edge undo and stale exports', async ({

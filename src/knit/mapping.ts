@@ -23,7 +23,7 @@ export const knitSupported = (surface: SurfaceSpec) =>
   surface.kind === 'plane' || surface.kind === 'saddle' || hasRectangularMapping(surface);
 /** Surfaces with a knit program: rectangular charts, and the cube through a validated crease cut. */
 export const knitAvailable = (surface: SurfaceSpec) =>
-  knitSupported(surface) || surface.kind === 'cube';
+  knitSupported(surface) || surface.kind === 'cube' || surface.kind === 'sphere';
 
 /** Typed rectangular chart coordinates; no physical sizing or shaping claim. */
 export function chartMapping(

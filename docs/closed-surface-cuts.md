@@ -24,7 +24,7 @@ A leaf of the cut tree can retain one vertex copy shared by both boundary sides.
 
 **Cube cross-net cut:** retain five face hinges: +Y to +X, −X, +Z and −Z, and +X to −Y. Cut the other seven cube crease chains. The preset requires all twelve crease chains to exist in the network. Crease membership uses a `1e-8 × surface size` coordinate tolerance. The hinge arrangement corresponds to a conventional cross net; its planar development is not computed here.
 
-**Sphere meridian cut:** join the highest- and lowest-Z network nodes with a weighted shortest graph path biased towards the +X meridian. A sampled edge length is multiplied by `1 + 4 × mean((abs(y) + max(-x, 0)) / radius)`. This is a deterministic project preference, not an exact meridian or geodesic certificate. Graph vertices need not coincide exactly with the poles.
+**Sphere meridian cut:** join a highest and a lowest network node with a weighted shortest graph path biased towards the +X meridian. A sampled edge length is multiplied by `1 + 4 × mean((abs(y) + max(-x, 0)) / radius)`. The preset first searches only paths that descend at every edge sample. They run from any node within `1e-9 × surface size` of the highest to any node that close to the lowest. Such a path can be knitted from pole to pole. If none exists, the highest and lowest nodes in ID order are joined without that condition. This is a deterministic project preference, not an exact meridian or geodesic certificate. Graph vertices need not coincide exactly with the poles.
 
 Preset selection and every manual edge toggle are undoable. The viewer tool must be armed to edit edges; orbiting is disabled while it is armed. Invalid drafts remain editable. The previous validated result remains inspectable on the same source, with seam export blocked until the current draft is validated.
 
@@ -38,4 +38,4 @@ Cut construction runs in a disposable worker. Cancellation or changed cut/source
 
 ## What follows
 
-On a cube, a cut made only of whole crease lines can now be knitted from its exact flat net. See [closed-surface knitting](closed-surface-knitting.md). Cube cuts through face interiors still need a general nonrectangular domain. The sphere still needs its own layout and an explicit pole treatment. Until those steps are verified, they do not produce bitmaps. A valid paired seam set can branch and does not specify one unbranched sewing line or a machine sequence.
+On a cube, a cut made only of whole crease lines can now be knitted from its exact flat net. On a sphere, one cut from pole to pole that descends at every point can be knitted with pole-to-pole courses. See [closed-surface knitting](closed-surface-knitting.md). Cube cuts through face interiors and other sphere cuts would need a general nonrectangular domain. They do not produce bitmaps. A valid paired seam set can branch and does not specify one unbranched sewing line or a machine sequence.

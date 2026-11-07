@@ -82,3 +82,9 @@ export const cutEdgeLength = (edge: Pick<GraphEdge, 'path'>, a: Vec3, b: Vec3) =
     throw new Error('Cut edges need finite positive sampled length.');
   return len;
 };
+/** Edge samples ordered from node `a` to node `b`. */
+export function orientedEdgePath(edge: Pick<GraphEdge, 'path'>, a: Vec3, b: Vec3): Vec3[] {
+  const p = edge.path && edge.path.length >= 2 ? edge.path : [a, b];
+  const d = (q: Vec3, s: Vec3) => Math.hypot(q[0] - s[0], q[1] - s[1], q[2] - s[2]);
+  return d(p[0]!, a) <= d(p[0]!, b) ? p : [...p].reverse();
+}

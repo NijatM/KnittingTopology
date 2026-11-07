@@ -18,7 +18,7 @@ import { imageIndex } from './grid';
 import type { KnitMapping } from './mapping';
 import { hasRectangularMapping } from '../import/uv-mapping';
 
-type Metric = [number, number, number, number];
+export type Metric = [number, number, number, number];
 /** Explicit chart for a cut closed surface: one polygon per source cell, and one or more
  * copies per source edge and node (cut copies lie on both sides of a seam). */
 export interface NetworkChart {
@@ -30,6 +30,10 @@ export interface NetworkChart {
   loop(p: ShapePlacement): { uv: Vec2; metric: Metric };
   toSurface(uv: Vec2): Vec3;
   toGrid(p: Vec3): Vec2;
+  /** The chart repeats with period 1 in u; shapes are also tested shifted by -1 and +1. */
+  periodic?: boolean;
+  /** Report line on how network marks are placed. */
+  marks?: string;
 }
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -152,7 +156,9 @@ export function rasterizeSurfaceNetwork(
   const bin = (x: number) => Math.max(0, Math.min(side - 1, Math.floor(x * side)));
   const metrics: Metric[] = [],
     loopUV: Vec2[] = [];
-  let radiusUV = 0,
+  // Search padding per chart axis: the chart extent of a mark around any loop.
+  let padU = 0,
+    padV = 0,
     work = 0;
   const tick = () => {
     if (++work > 50_000_000)
@@ -230,42 +236,89 @@ export function rasterizeSurfaceNetwork(
     const det = m[0] * m[3] - m[1] * m[2];
     if (!Number.isFinite(det) || Math.abs(det) < 1e-12)
       throw new Error('Degenerate local UV-to-loop metric.');
-    radiusUV = Math.max(
-      radiusUV,
-      (Math.SQRT2 * maxMark * Math.max(Math.hypot(m[3], m[1]), Math.hypot(m[2], m[0]))) /
-        Math.abs(det)
-    );
+    // Hit tests allow 1e-9 loops beyond a mark; the reach keeps a margin above that.
+    const reach = maxMark + 1e-6;
+    padU = Math.max(padU, (reach * (Math.abs(m[3]) + Math.abs(m[1]))) / Math.abs(det));
+    padV = Math.max(padV, (reach * (Math.abs(m[2]) + Math.abs(m[0]))) / Math.abs(det));
     metrics.push(m);
   });
+  // A periodic chart tests every shape at u shifts -1, 0 and +1; `fn` gets the shift.
+  const shifts = chart?.periodic ? [-1, 0, 1] : [0];
   const visit = (
     box: [number, number, number, number],
-    pad: number,
-    fn: (p: ShapePlacement, li: number, i: number) => void
+    pad: [number, number],
+    fn: (p: ShapePlacement, li: number, i: number, shift: number) => void
   ) => {
-    const [x0, y0, x1, y1] = box;
-    for (let by = bin(y0 - pad); by <= bin(y1 + pad); by++)
-      for (let bx = bin(x0 - pad); bx <= bin(x1 + pad); bx++)
-        for (const li of buckets[by * side + bx]!) {
-          tick();
-          const p = placements[li]!,
-            uv = loopUV[li]!;
-          if (uv[0] >= x0 - pad && uv[0] <= x1 + pad && uv[1] >= y0 - pad && uv[1] <= y1 + pad)
-            fn(p, li, imageIndex(w, h, p.needle, p.course));
-        }
+    const [pu, pv] = pad;
+    for (const shift of shifts) {
+      const x0 = box[0] + shift,
+        x1 = box[2] + shift,
+        [, y0, , y1] = box;
+      if (x1 + pu < 0 || x0 - pu > 1) continue;
+      for (let by = bin(y0 - pv); by <= bin(y1 + pv); by++)
+        for (let bx = bin(x0 - pu); bx <= bin(x1 + pu); bx++)
+          for (const li of buckets[by * side + bx]!) {
+            tick();
+            const p = placements[li]!,
+              uv = loopUV[li]!;
+            if (uv[0] >= x0 - pu && uv[0] <= x1 + pu && uv[1] >= y0 - pv && uv[1] <= y1 + pv)
+              fn(p, li, imageIndex(w, h, p.needle, p.course), shift);
+          }
+    }
   };
   polys.forEach((poly, ci) => {
     const slot = resolve(cellStructure[ci]!);
-    visit(bounds(poly), 0, (_p, li, i) => {
-      if (kind[i] === SOURCE.background && inside(loopUV[li]!, poly)) {
+    visit(bounds(poly), [0, 0], (_p, li, i, shift) => {
+      const [u, v] = loopUV[li]!;
+      if (kind[i] === SOURCE.background && inside([u - shift, v], poly)) {
         structure[i] = slot;
         kind[i] = SOURCE.cell;
         element[i] = ci;
       }
     });
   });
-  const metricPoint = (q: Vec2, p: Vec2, m: Metric): Vec2 => [
-    m[0] * (q[0] - p[0]) + m[1] * (q[1] - p[1]),
-    m[2] * (q[0] - p[0]) + m[3] * (q[1] - p[1]),
+  if (chart?.periodic) {
+    // Cells tile a closed surface. A loop on a shared outline can be missed by both cells through
+    // rounding; it takes the cell with the nearest outline.
+    let missed = 0;
+    placements.forEach((p, li) => {
+      const i = imageIndex(w, h, p.needle, p.course);
+      if (kind[i] !== SOURCE.background) return;
+      const [u, v] = loopUV[li]!;
+      let best = Infinity,
+        cell = -1;
+      polys.forEach((poly, ci) => {
+        for (const shift of shifts)
+          poly.forEach((a, k) => {
+            tick();
+            const b = poly[(k + 1) % poly.length]!,
+              dx = b[0] - a[0],
+              dy = b[1] - a[1],
+              x = u - shift - a[0],
+              y = v - a[1],
+              t = Math.max(0, Math.min(1, (x * dx + y * dy) / (dx * dx + dy * dy || 1))),
+              d = Math.hypot(x - t * dx, y - t * dy);
+            if (d < best) {
+              best = d;
+              cell = ci;
+            }
+          });
+      });
+      if (cell < 0) return;
+      structure[i] = resolve(cellStructure[cell]!);
+      kind[i] = SOURCE.cell;
+      element[i] = cell;
+      missed++;
+    });
+    if (missed)
+      issues.push(
+        `${missed} loops lie on cell outlines and take the cell with the nearest outline.`
+      );
+  }
+  // `shift` moves the chart point q by whole periods.
+  const metricPoint = (q: Vec2, p: Vec2, m: Metric, shift = 0): Vec2 => [
+    m[0] * (q[0] + shift - p[0]) + m[1] * (q[1] - p[1]),
+    m[2] * (q[0] + shift - p[0]) + m[3] * (q[1] - p[1]),
   ];
   if (settings.edges.structure) {
     const slot = resolve(settings.edges.structure),
@@ -274,9 +327,9 @@ export function rasterizeSurfaceNetwork(
       if (edge.cells.length < 2 && !settings.edges.boundary) return;
       for (const line of edgeLines[ei]!)
         for (let s = 1; s < line.length; s++)
-          visit(bounds([line[s - 1]!, line[s]!]), radiusUV, (_p, li, i) => {
-            let a = metricPoint(line[s - 1]!, loopUV[li]!, metrics[li]!),
-              b = metricPoint(line[s]!, loopUV[li]!, metrics[li]!);
+          visit(bounds([line[s - 1]!, line[s]!]), [padU, padV], (_p, li, i, shift) => {
+            let a = metricPoint(line[s - 1]!, loopUV[li]!, metrics[li]!, shift),
+              b = metricPoint(line[s]!, loopUV[li]!, metrics[li]!, shift);
             if (b[0] < a[0] || (b[0] === a[0] && b[1] < a[1])) [a, b] = [b, a];
             const dx = b[0] - a[0],
               dy = b[1] - a[1],
@@ -307,8 +360,8 @@ export function rasterizeSurfaceNetwork(
     const slot = resolve(id),
       r = settings.nodes.size / 2;
     for (const uv of nodeCopies[ni]!)
-      visit([uv[0], uv[1], uv[0], uv[1]], radiusUV, (_p, li, i) => {
-        const [x, y] = metricPoint(uv, loopUV[li]!, metrics[li]!);
+      visit([uv[0], uv[1], uv[0], uv[1]], [padU, padV], (_p, li, i, shift) => {
+        const [x, y] = metricPoint(uv, loopUV[li]!, metrics[li]!, shift);
         if (x >= -r - 1e-9 && x < r - 1e-9 && y >= -r - 1e-9 && y < r - 1e-9) {
           structure[i] = slot;
           kind[i] = odd && settings.nodes.extraordinary ? SOURCE.extraordinary : SOURCE.node;
@@ -320,7 +373,8 @@ export function rasterizeSurfaceNetwork(
     issues.push(`Unknown structures: ${[...unknown].join(', ')}; fill used instead.`);
   issues.push(
     chart
-      ? 'Network marks use the flat-net position and the uniform needle/pass grid; cut edges and nodes are drawn on both seam sides.'
+      ? (chart.marks ??
+          'Network marks use the flat-net position and the uniform needle/pass grid; cut edges and nodes are drawn on both seam sides.')
       : 'Network marks use an original-UV local loop metric; widths on curved charts are sampled approximations, not geodesic guarantees.'
   );
   return { w, h, structure, kind, element, structures, cellStructure, issues };

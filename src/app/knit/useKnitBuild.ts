@@ -7,8 +7,8 @@ type Input = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
 /** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. */
 export function useKnitBuild(input: Input, staleNetwork: boolean) {
   const shape = input.knit?.mode === 'shape';
-  // Shape generation has no graph input, except on a cube, whose flat net comes from the cut network.
-  const graphFree = shape && input.surface.kind !== 'cube';
+  // Shape generation has no graph input, except on a cube or sphere, whose layout comes from the cut network.
+  const graphFree = shape && input.surface.kind !== 'cube' && input.surface.kind !== 'sphere';
   const usesWorker =
     input.knit?.mode === 'both' ||
     shape ||

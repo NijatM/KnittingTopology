@@ -3,6 +3,7 @@
 import type { KnitProgram } from './program';
 import { rgbText } from './keys';
 import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
+import type { SphereKnitLayout } from './sphere-knit';
 
 const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(n - s.length));
 const mm = (m: number) => `${+(m * 1000).toFixed(3)} mm`;
@@ -41,7 +42,8 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
         ]
       : []),
     ...(p.shape?.closed ? closedLines(p.shape.closed, p) : []),
-    ...(p.shape && !p.shape.closed
+    ...(p.shape?.sphere ? sphereLines(p.shape.sphere, p) : []),
+    ...(p.shape && !p.shape.closed && !p.shape.sphere
       ? [
           'Source: Mariana Adriana Popescu (2019), KnitCrete, sections 5.2 and 6.2. https://doi.org/10.3929/ethz-b-000408640',
           'Course and loop stages adapted from the thesis. Distance source, monotone alignment, needle placement and operation checks are independent project methods; not a full reproduction.',
@@ -183,5 +185,42 @@ function closedLines(c: CubeNetLayout, p: KnitProgram): string[] {
           `    ${faceLabel(side.face)} ${side.kind}: ${side.loops.length} loops, ${ends(side.loops)}${side.shifted ? `; ${side.shifted} ${side.kind === 'start' || side.kind === 'end' ? 'one pass from the net edge' : 'missing after a one-pass shift'}` : ''}`
       ),
     ]),
+  ];
+}
+
+function sphereLines(c: SphereKnitLayout, p: KnitProgram): string[] {
+  const n = p.shape!.needles,
+    courses = p.shape!.geometry.courses,
+    early = courses.filter((x) => x.turnStart || x.turnEnd),
+    side = (i: 0 | 1) => {
+      const x = c.seam.sides[i],
+        pass = x.loops[0] ? x.loops[0].course + 1 : 0;
+      return `  ${x.kind} side: pass ${pass}, ${x.loops.length} loops, needles 1-${c.needles}`;
+    };
+  return [
+    'Sphere opened from pole to pole (closed surface): courses run from pole to pole along the validated cut, so each needle knits one circle of latitude starting at the cut. Shorter circles skip out-and-back short rows, spread evenly around the circle. Project construction, not taken from the thesis; no physical shape prediction.',
+    `Needle 1 is at the ${c.poles[0]!.pole} pole (start side ${c.start}). ${c.needles} needles x ${c.passes} passes; half meridian minus knitted width: ${mm(c.widthRounding)}.`,
+    `Loops per needle (needle 1 first): ${c.counts.join(', ')}.`,
+    `Largest difference from circle / course height: ${c.maxCountError.toFixed(2)} loops. Largest distance of a loop from its even place around its circle: ${c.maxCourseDeviation.toFixed(2)} loops.`,
+    `Short rows: ${c.turns} passes turn before the end of the bed; turns add no wrap or tuck (confirm with the lab). A needle holds its loop for up to ${c.maxHeld} passes. Sideways transfers: ${n.moves.length}. Yarn jumps: ${n.yarnJumps}.`,
+    'Pole openings, to be gathered closed. The colour key has no gather operation, so none is drawn.',
+    ...c.poles.map((x) => `  needle ${x.needle + 1} at the ${x.pole} pole: ${x.loops} loops`),
+    `Each circle starts at the cut, which strays up to ${mm(c.cutWander)} from a single meridian.`,
+    'Seam: pass 1 loops (start side) meet the last-pass loops (end side) along the cut, needle by needle. No sewing order is implied.',
+    side(0),
+    side(1),
+    `  cut network edges, top to bottom, with the needles whose circles start there and the M4a seam side on the start/end side:`,
+    ...c.seam.edges
+      .slice(0, LIST_LIMIT)
+      .map(
+        (x) =>
+          `    ${x.id}: ${x.needles ? `needles ${x.needles[0] + 1}-${x.needles[1] + 1}` : 'no needle'}; sides ${c.seam.sides[0].cutSides[x.id] ?? '-'}/${c.seam.sides[1].cutSides[x.id] ?? '-'}`
+      ),
+    'Passes that turn before the end of the bed, with the needles they knit:',
+    ...early.slice(0, LIST_LIMIT).map((x) => {
+      const l = x.loops.length ? Math.round(x.extent[0] / p.shape!.geometry.stitchWidth) : 0;
+      return `  pass ${x.index + 1}: needles ${l + 1}-${l + x.loops.length}`;
+    }),
+    ...(early.length > LIST_LIMIT ? [`  … ${early.length - LIST_LIMIT} more`] : []),
   ];
 }
