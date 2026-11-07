@@ -1,5 +1,7 @@
 // Sidebar section 04: how the accepted network becomes a knit program. Only what works is offered.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { KnitRequirement, KnitRequirementId } from '../../knit/requirements';
+import KnitFeedback from './KnitFeedback';
 import type { KnitCellRule, KnitSettings } from '../../core/types';
 import { PRESET_KEYS, settingsKey } from '../../knit/keys';
 import { structuresForKey, type Structure } from '../../knit/structures';
@@ -12,7 +14,15 @@ interface Props {
   status: string;
   onChange: (next: KnitSettings, coalesceKey?: string) => void;
   onToggleOpen: () => void;
-  shapeJob?: { progress: string | null; error: string; generate: () => void; cancel: () => void };
+  shapeJob?: {
+    progress: string | null;
+    error: string;
+    attempts: number;
+    generate: () => void;
+    cancel: () => void;
+  };
+  requirements: KnitRequirement[];
+  onRepair: (id: KnitRequirementId | 'settings') => void;
   pickingEdge: boolean;
   onToggleEdgePicking: () => void;
   /** Closed surface opened by a validated cut: measured layout only. */
@@ -112,11 +122,15 @@ export default function KnitControls({
   pickingEdge,
   onToggleEdgePicking,
   shapeJob,
+  requirements,
+  onRepair,
   closed,
 }: Props) {
   const key = settingsKey(s),
     library = structuresForKey(key, s.tiles, s.keys);
   const [keyNote, setKeyNote] = useState('');
+  const sizeSelect = useRef<HTMLSelectElement>(null);
+  const missingMeasurement = requirements.some((r) => r.id === 'measurement');
   const rule = s.cells.rule;
   const set = (change: Partial<KnitSettings>, coalesceKey?: string) =>
     onChange({ ...s, ...change }, coalesceKey);
@@ -233,26 +247,12 @@ export default function KnitControls({
               : 'Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts are unmeasured. Click near a chart boundary when picking.'}
         </p>
       </>
-      {shapeJob && (
-        <div className="knit-shape-job">
-          <button type="button" disabled={!!shapeJob.progress} onClick={shapeJob.generate}>
-            {s.mode === 'shape' ? 'Generate shape' : 'Generate knit program'}
-          </button>
-          {shapeJob.progress && (
-            <>
-              <p role="status">{shapeJob.progress}</p>
-              <button type="button" onClick={shapeJob.cancel}>
-                {s.mode === 'shape' ? 'Cancel shape generation' : 'Cancel knit program generation'}
-              </button>
-            </>
-          )}
-          {shapeJob.error && <p role="alert">{shapeJob.error}</p>}
-        </div>
-      )}
-      <label className="select-label">
+      <label className={`select-label ${missingMeasurement ? 'knit-required-control' : ''}`}>
         Size
         <select
+          ref={sizeSelect}
           aria-label="Program size"
+          aria-describedby={missingMeasurement ? 'knit-size-requirement' : undefined}
           value={s.size.source}
           disabled={s.mode !== 'network' || !!closed}
           onChange={(e) =>
@@ -272,6 +272,14 @@ export default function KnitControls({
           {!closed && <option value="typed">Typed needles × passes</option>}
         </select>
       </label>
+      {missingMeasurement && (
+        <p id="knit-size-requirement" className="knit-required-hint">
+          Measurement required
+          {!closed && s.mode === 'network'
+            ? ', or choose typed needles × passes.'
+            : ' for this layout.'}
+        </p>
+      )}
       {s.mode === 'network' && s.size.source === 'typed' && (
         <div className="boundary-counts knit-pair">
           <NumberField
@@ -294,6 +302,45 @@ export default function KnitControls({
           />
         </div>
       )}
+
+      <div className="knit-shape-job">
+        {shapeJob && (
+          <>
+            <button
+              id="knit-generate"
+              type="button"
+              disabled={!!shapeJob.progress}
+              onClick={shapeJob.generate}
+            >
+              {s.mode === 'shape' ? 'Generate shape' : 'Generate knit program'}
+            </button>
+            {shapeJob.progress && (
+              <>
+                <p role="status">{shapeJob.progress}</p>
+                <button type="button" onClick={shapeJob.cancel}>
+                  {s.mode === 'shape'
+                    ? 'Cancel shape generation'
+                    : 'Cancel knit program generation'}
+                </button>
+              </>
+            )}
+          </>
+        )}
+        {shapeJob && !requirements.length && !shapeJob.error && !shapeJob.progress && (
+          <p className="knit-ready">Ready to generate.</p>
+        )}
+        <KnitFeedback
+          requirements={requirements}
+          error={shapeJob?.error ?? ''}
+          attempts={shapeJob?.attempts ?? 0}
+          allowTyped={s.mode === 'network' && !closed}
+          onRepair={onRepair}
+          onTyped={() => {
+            set({ size: { source: 'typed', needles: 100, passes: 100 } });
+            sizeSelect.current?.focus();
+          }}
+        />
+      </div>
 
       <StructureSelect
         options={library}

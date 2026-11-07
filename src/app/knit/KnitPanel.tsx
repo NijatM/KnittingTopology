@@ -1,5 +1,5 @@
 // Inspector "Knit" tab: program summary, provenance, checks, exports, measurement table and lab rules.
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
 import type { KnitSettings, PatternGraph, SwatchEntry } from '../../core/types';
 import type { ViewerSelection } from '../../viewer/types';
 import type { KnitBuild } from '../../knit/program';
@@ -8,7 +8,7 @@ import { structuresForKey, type Structure } from '../../knit/structures';
 import { SOURCE } from '../../knit/rasterize';
 import { bmpBytes, grammarJson } from '../../knit/files';
 import { knitReport } from '../../knit/report';
-import { parseSwatchFile, swatchFileText, validateSwatches } from '../../knit/gauge';
+import { parseSwatchFile, SPACING_RANGE, swatchFileText, validateSwatches } from '../../knit/gauge';
 import { download, projectFilename } from '../../adapters/export';
 import { loopText } from './provenance';
 import { referencesBibtex, referencesCSL } from '../../learning/citations';
@@ -17,6 +17,9 @@ import TileEditor from './TileEditor';
 
 interface Props {
   build: KnitBuild;
+  needsMeasurement: boolean;
+  measurementRequest: number;
+  onMeasurementSaved: () => void;
   settings: KnitSettings;
   swatches: SwatchEntry[];
   graph: PatternGraph | null;
@@ -37,12 +40,16 @@ function SwatchForm({
   taken,
   onSave,
   onRemove,
+  needed = false,
+  request = 0,
 }: {
   structures: readonly Structure[];
   entry: SwatchEntry | null;
   taken: Set<string>;
   onSave: (e: SwatchEntry) => string | null;
   onRemove?: () => void;
+  needed?: boolean;
+  request?: number;
 }) {
   const blank = {
     structure: STRUCTURES.find((s) => !taken.has(s.id))?.id ?? 'jersey',
@@ -69,9 +76,46 @@ function SwatchForm({
       : blank
   );
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const form = useRef<HTMLDivElement>(null);
+  const structureField = useRef<HTMLSelectElement>(null);
+  const widthField = useRef<HTMLInputElement>(null);
+  const heightField = useRef<HTMLInputElement>(null);
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const id = useId();
+  const validSpacing = (text: string) =>
+    text.trim() !== '' &&
+    Number.isFinite(Number(text)) &&
+    Number(text) / 1000 >= SPACING_RANGE[0] &&
+    Number(text) / 1000 <= SPACING_RANGE[1];
+  const widthMissing = !validSpacing(d.width);
+  const heightMissing = !validSpacing(d.height);
+  const highlight = submitted || (needed && request > 0 && d.structure === 'jersey');
+  // Repair requests focus once; typing and unrelated renders must not steal focus.
+  useEffect(() => {
+    if (!request) return;
+    const details = form.current?.closest('details');
+    if (details) details.open = true;
+    const target =
+      d.structure !== 'jersey'
+        ? structureField.current
+        : widthMissing
+          ? widthField.current
+          : heightMissing
+            ? heightField.current
+            : saveButton.current;
+    target?.focus();
+    target?.scrollIntoView({ block: 'center' });
+  }, [request]);
   const field = (k: keyof typeof d) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setD({ ...d, [k]: e.target.value });
   const save = () => {
+    setSubmitted(true);
+    if (widthMissing || heightMissing) {
+      setError('Enter a stitch width and course height from 0.01 to 100 mm.');
+      (widthMissing ? widthField : heightField).current?.focus();
+      return;
+    }
     const width = Number(d.width) / 1000,
       height = Number(d.height) / 1000;
     const next: SwatchEntry = {
@@ -86,11 +130,19 @@ function SwatchForm({
     if (!message && !entry) setD(blank);
   };
   return (
-    <div className="swatch-form">
+    <div ref={form} className={`swatch-form ${needed ? 'knit-required-measurement' : ''}`}>
+      {needed && (
+        <p id={`${id}-requirement`} className="knit-required-hint">
+          Required for generation: save a single jersey measurement. Stitch width and course height
+          are required; the other fields are optional.
+        </p>
+      )}
       <label className="select-label">
         Structure
         <select
+          ref={structureField}
           aria-label="Measured structure"
+          aria-describedby={needed ? `${id}-requirement` : undefined}
           value={d.structure}
           disabled={!!entry}
           onChange={field('structure')}
@@ -106,20 +158,48 @@ function SwatchForm({
         <label>
           Stitch width (mm)
           <input
+            ref={widthField}
             aria-label="Stitch width (mm)"
+            aria-invalid={highlight && widthMissing ? true : undefined}
+            aria-describedby={
+              highlight && widthMissing
+                ? `${id}-width-error`
+                : needed
+                  ? `${id}-requirement`
+                  : undefined
+            }
             inputMode="decimal"
             value={d.width}
             onChange={field('width')}
           />
+          {highlight && widthMissing && (
+            <span id={`${id}-width-error`} className="knit-field-error">
+              Enter stitch width (0.01–100 mm).
+            </span>
+          )}
         </label>
         <label>
           Course height (mm)
           <input
+            ref={heightField}
             aria-label="Course height (mm)"
+            aria-invalid={highlight && heightMissing ? true : undefined}
+            aria-describedby={
+              highlight && heightMissing
+                ? `${id}-height-error`
+                : needed
+                  ? `${id}-requirement`
+                  : undefined
+            }
             inputMode="decimal"
             value={d.height}
             onChange={field('height')}
           />
+          {highlight && heightMissing && (
+            <span id={`${id}-height-error`} className="knit-field-error">
+              Enter course height (0.01–100 mm).
+            </span>
+          )}
         </label>
       </div>
       <div className="boundary-counts knit-pair">
@@ -154,7 +234,7 @@ function SwatchForm({
         </p>
       )}
       <div className="inline-actions">
-        <button type="button" onClick={save}>
+        <button ref={saveButton} type="button" onClick={save}>
           {entry ? 'Save measurement' : 'Add measurement'}
         </button>
         {onRemove && (
@@ -187,6 +267,7 @@ export default function KnitPanel(props: Props) {
         ? swatches.map((x) => (x.structure === entry.structure ? entry : x))
         : [...swatches, entry];
       props.onSwatches(validateSwatches(next));
+      if (props.needsMeasurement && entry.structure === 'jersey') props.onMeasurementSaved();
       return null;
     } catch (error) {
       return (error as Error).message;
@@ -208,7 +289,9 @@ export default function KnitPanel(props: Props) {
     <div className="knit-panel">
       <div className="inspector-title">
         <span className="eyebrow">Design-level knit program</span>
-        <h2>Knit program</h2>
+        <h2 id="knit-panel-title" tabIndex={-1}>
+          Knit program
+        </h2>
         <p className="hint">
           Knit Grammar convention for the lab software. Not machine-ready; not verified until
           knitted.
@@ -518,7 +601,10 @@ export default function KnitPanel(props: Props) {
 
       <KeyEditor settings={s} onChange={props.onSettings} />
       <TileEditor key={key.id} settings={s} swatches={swatches} onChange={props.onSettings} />
-      <h3 className="knit-heading">Measurement table</h3>
+      <h3 className="knit-heading">
+        Measurement table{' '}
+        {props.needsMeasurement && <span className="knit-required-label">Required</span>}
+      </h3>
       <p className="hint">
         From your swatches; values are never filled in for you. Unmeasured structures use the jersey
         values and are flagged.
@@ -538,12 +624,17 @@ export default function KnitPanel(props: Props) {
         </details>
       ))}
       {taken.size < STRUCTURES.length && (
-        <details className="swatch-entry" open={swatches.length === 0}>
+        <details
+          className={`swatch-entry ${props.needsMeasurement ? 'knit-required-control' : ''}`}
+          open={swatches.length === 0 || (props.needsMeasurement && props.measurementRequest > 0)}
+        >
           <summary>Add a measurement</summary>
           <SwatchForm
             structures={STRUCTURES}
             key={swatches.length}
             entry={null}
+            needed={props.needsMeasurement}
+            request={props.needsMeasurement ? props.measurementRequest : 0}
             taken={taken}
             onSave={(e) => saveSwatch(e, false)}
           />

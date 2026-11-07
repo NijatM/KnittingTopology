@@ -65,6 +65,7 @@ import MeshInspector from '../import/MeshInspector';
 import { seedMeshReport, useMeshReport } from '../import/useMeshReport';
 import KnitControls from './knit/KnitControls';
 import { useKnitBuild } from './knit/useKnitBuild';
+import type { KnitRequirementId } from '../knit/requirements';
 import KnitBitmap from './knit/KnitBitmap';
 import KnitPanel from './knit/KnitPanel';
 import { loopSelection, marksOf, selectionLoops, shapeOverlay } from './knit/provenance';
@@ -333,6 +334,7 @@ export default function App() {
   const [pickingCutEdge, setPickingCutEdge] = useState(false);
   useEffect(() => setPickingCutEdge(false), [project.graph, project.surface.revision]);
   const [knitOpen, setKnitOpen] = useState(false);
+  const [measurementRequest, setMeasurementRequest] = useState(0);
   const [knitHover, setKnitHover] = useState<number | null>(null);
   const [knitMarks, setKnitMarks] = useState<number[] | null>(null);
   const [split, setSplit] = useState(0.5);
@@ -683,8 +685,29 @@ export default function App() {
       knit: project.knit,
       swatches: project.swatches,
     },
-    stale
+    stale,
+    cutJob.matches
   );
+  const repairKnit = (id: KnitRequirementId | 'settings') => {
+    setPickingKnitEdge(false);
+    if (id === 'measurement' || id === 'settings') {
+      setTab('knit');
+      if (id === 'measurement') setMeasurementRequest((n) => n + 1);
+      else
+        requestAnimationFrame(() => {
+          const target = document.getElementById('knit-panel-title');
+          target?.focus();
+          target?.scrollIntoView({ block: 'nearest' });
+        });
+    } else {
+      const target = document.getElementById(
+        id === 'network' ? 'generate-network' : 'knit-cut-controls'
+      );
+      target?.focus();
+      target?.scrollIntoView({ block: 'nearest' });
+    }
+  };
+  const needsKnitMeasurement = knitJob.requirements.some((r) => r.id === 'measurement');
   const knitBuild = knitJob.build;
   const knitProgram = knitBuild.ok ? knitBuild.program : null;
   // A program that matches the current settings and network, so a capture can keep it.
@@ -1098,6 +1121,7 @@ export default function App() {
                   job={cutJob}
                   picking={pickingCutEdge}
                   hasGraph={!!project.graph}
+                  requiredForKnit={knitJob.requirements.some((r) => r.id === 'cut')}
                   onChange={changeCut}
                   onInspect={() => setTab('knit')}
                   onTogglePicking={() => {
@@ -1121,6 +1145,8 @@ export default function App() {
                   open={knitOpen}
                   status={`${knitStatus}${knitJob.outdated ? ' · Program settings pending generation' : ''}`}
                   shapeJob={knitJob.usesWorker ? knitJob : undefined}
+                  requirements={knitJob.requirements}
+                  onRepair={repairKnit}
                   onChange={changeKnit}
                   onToggleOpen={() => setKnitOpen((v) => !v)}
                 />
@@ -1140,6 +1166,7 @@ export default function App() {
         </div>
         <div className="generate-area">
           <button
+            id="generate-network"
             className="generate-button"
             onClick={generate}
             disabled={!!busy || inspectionOnly}
@@ -1556,6 +1583,9 @@ export default function App() {
                 key={t}
                 role="tab"
                 aria-selected={tab === t}
+                aria-describedby={
+                  t === 'knit' && needsKnitMeasurement ? 'knit-tab-requirement' : undefined
+                }
                 onClick={() => setTab(t)}
                 className={tab === t ? 'active' : ''}
               >
@@ -1564,9 +1594,19 @@ export default function App() {
                   : t === 'surface'
                     ? 'Source'
                     : t[0].toUpperCase() + t.slice(1)}
+                {t === 'knit' && needsKnitMeasurement && (
+                  <span className="knit-required-badge" aria-hidden="true">
+                    !
+                  </span>
+                )}
               </button>
             ))}
           </div>
+        )}
+        {needsKnitMeasurement && (
+          <span id="knit-tab-requirement" className="sr-only">
+            Jersey measurement required for knit generation.
+          </span>
         )}
         <div
           className="inspector-content"
@@ -2142,6 +2182,17 @@ export default function App() {
                 )}
                 <KnitPanel
                   build={knitBuild}
+                  needsMeasurement={needsKnitMeasurement}
+                  measurementRequest={measurementRequest}
+                  onMeasurementSaved={() =>
+                    requestAnimationFrame(() => {
+                      const target =
+                        document.getElementById('knit-generation-feedback') ??
+                        document.getElementById('knit-generate');
+                      target?.focus();
+                      target?.scrollIntoView({ block: 'nearest' });
+                    })
+                  }
                   settings={knitSettings}
                   swatches={swatches}
                   graph={project.graph}

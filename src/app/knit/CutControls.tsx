@@ -9,6 +9,7 @@ export default function CutControls({
   onChange,
   onInspect,
   hasGraph,
+  requiredForKnit,
 }: {
   surface: SurfaceSpec;
   cut?: KnitCutSettings;
@@ -18,9 +19,15 @@ export default function CutControls({
   onChange: (cut: KnitCutSettings) => void;
   onInspect: () => void;
   hasGraph: boolean;
+  requiredForKnit: boolean;
 }) {
   return (
-    <section className="control-section knit-controls cut-controls">
+    <section
+      id="knit-cut-controls"
+      tabIndex={-1}
+      aria-label="Cuts and seams"
+      className={`control-section knit-controls cut-controls ${requiredForKnit ? 'knit-required-control' : ''}`}
+    >
       <h2>
         <span>04</span> Cuts and seams <i />
       </h2>

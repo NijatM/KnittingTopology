@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-07T04:29:30.996Z",
+  "generated_at_utc": "2026-11-07T05:17:02.816Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-06",
@@ -10,23 +10,23 @@
     "unit_tests": {
       "command": "npm test",
       "result": "pass",
-      "passed": 514,
+      "passed": 520,
       "core": 106,
       "project_and_persistence": 32,
       "learning_and_citations": 33,
       "import_parsing_and_projects": 84,
       "mapping_kernel_generation_and_projects": 67,
-      "knit_program": 192,
-      "duration_seconds": 18.04
+      "knit_program": 198,
+      "duration_seconds": 18.56
     },
     "production_build": {
       "command": "npm run build",
       "result": "pass",
       "base": "/KnittingTopology/",
       "worker": "separate ES module",
-      "initial_js_kb": 585.42,
+      "initial_js_kb": 591.47,
       "lazy_viewer_js_kb": 582.93,
-      "initial_js_gzip_kb": 187.5,
+      "initial_js_gzip_kb": 189.35,
       "lazy_viewer_js_gzip_kb": 147.17,
       "import_worker_js_kb": 27.85,
       "generation_worker_js_kb": 96.03,
@@ -34,20 +34,30 @@
       "cut_worker_js_kb": 28.28
     },
     "development_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-development",
-      "result": "pass",
-      "passed": 32,
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-feedback-development",
+      "result": "pass after targeted retest",
+      "passed": 35,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 3.4,
-      "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
+      "initial_run": {
+        "passed": 34,
+        "failed": 1,
+        "duration_minutes_reported": 3.6,
+        "failure": "An existing test expected the replaced No jersey measurement sentence; updated to check the repair action instead."
+      },
+      "targeted_retest": {
+        "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'knit program: size, split view' --output=tmp/qa/knit-feedback-development-retest",
+        "result": "pass",
+        "passed": 1,
+        "duration_seconds_reported": 12.5
+      },
+      "note": "No runtime changes after the full development run; only the obsolete assertion was updated."
     },
     "production_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-production",
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-feedback-production",
       "result": "pass",
-      "passed": 32,
+      "passed": 35,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 3.2,
-      "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
+      "duration_minutes_reported": 3.1
     },
     "mobile": {
       "viewport_width": 375,
@@ -57,7 +67,7 @@
     },
     "physical_or_manufacturing_validation": false,
     "remote_deployment_tested": false,
-    "milestone": "CI sphere seam audit timing correction after M5c",
+    "milestone": "Persistent knit generation requirements and repair links",
     "prior_baseline_only": {
       "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
       "production_network": {
@@ -350,7 +360,37 @@
       "local_correction": "The same three scales and assertions run as independent parameterized cases, each with a 30000 ms timeout. No skipped coverage or runtime changes.",
       "local_check_command": "npm run check",
       "local_check_result": "pass",
-      "corrected_remote_run_verified": false
+      "corrected_remote_run_verified": true,
+      "corrected_run_url": "https://github.com/NijatM/KnittingTopology/actions/runs/42338725192",
+      "corrected_commit": "ffe1c20",
+      "corrected_run_verify_and_build": "success",
+      "corrected_run_deployment": "Configure Pages failed: site not enabled (404). No successful live deployment check recorded here.",
+      "current_feedback_source_remote_ci_verified": false
+    },
+    "knit_feedback": {
+      "known_requirements": [
+        "jersey stitch width and course height when measured sizing is required",
+        "network except for open-surface Shape mode",
+        "current cut settings on cube or sphere"
+      ],
+      "blocked_click_starts_worker": false,
+      "missing_requirements": "persistent amber summary, labelled repair actions, keyboard focus, inline field associations and Knit-tab badge",
+      "generation_failure": "separate persistent red region, tied to generating inputs; previous accepted preview preserved",
+      "typed_alternative": "explicit action in open-surface Network mode only; no measured values invented and no silent mode change",
+      "cut_validation": "presence/freshness preflight only; numerical worker still validates disk topology and supported cut geometry",
+      "checks": [
+        "six pure prerequisite unit cases",
+        "blocked worker count is zero",
+        "repair link opens Knit tab and focuses dimensions",
+        "partial measurement keeps remaining field highlighted; save clears requirement",
+        "network and cut repair targets receive focus",
+        "injected worker failure stays visible with previous preview and successful retry clears it",
+        "375px repair flow has no document overflow"
+      ],
+      "focused_browser_run": "3 passed in 15.0s; tmp/qa/knit-feedback-focused-final",
+      "manual_screen_reader_testing": false,
+      "uncalibrated_shaping_added": false,
+      "schema_or_numerical_algorithm_changes": false
     }
   },
   "source_sha256": {
@@ -364,19 +404,20 @@
     "scripts/snapshot-verification.mjs": "245dabcec4e2bbf900d474ce67bfcf7992c390df9d2210c81af0069d0db09967",
     "src/adapters/citations.ts": "c6fe9f4ba64d0ec0d7e746d77283cf5904bff16c0991669ffb3b62ce19811027",
     "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
-    "src/app/App.tsx": "d91545ecbd78dee009ec2f30ca362964cfc23600a0137495c725329dff143e15",
-    "src/app/knit/CutControls.tsx": "04bc33fea5f1fb0c00d809a55f64f52030e66aa396ad51b2ebebcef5e85e2968",
+    "src/app/App.tsx": "716651f8bd8753eaa114d599a390adbe8c92f56d3aa7770d798f4f4c5e3aff86",
+    "src/app/knit/CutControls.tsx": "75bf461eef5fcc580c41adffe6fe73109b98c9fbb1944012bb4215d0b86ad32b",
     "src/app/knit/CutPanel.tsx": "ab9ae7eeb56117cb1391af3052ccf84ca7433d34e453bf2df185d4789d0b9676",
     "src/app/knit/KeyEditor.tsx": "c671f8dfe88bc8d3e2f82bbf6d54da0e6dc5e4ef1b3563b5d8ed911306675771",
     "src/app/knit/KnitBitmap.tsx": "dee68b6c51763f648306c745f197af42f56f0a3885ef51924e236d2547ccae46",
-    "src/app/knit/KnitControls.tsx": "4de64d6b1b6755ca0b8790c442651b2c11fca94f1678c33e0ae16a4d72ee0594",
-    "src/app/knit/KnitPanel.tsx": "604076b37a46b70dd7c40e4f6546d5e618effef43429c7c8ce3ba57fa352df1e",
+    "src/app/knit/KnitControls.tsx": "87bf3dea3ac13496cac3633e6e13b4da988bc4e75b7e4e7184fe07bc084f9218",
+    "src/app/knit/KnitFeedback.tsx": "8cd49c9cb95c2d6ca271ff315304526815f94ac93b06a65ff958116784f01ab5",
+    "src/app/knit/KnitPanel.tsx": "4a59983827cce9a34c4f29e95a38ad810ef366835b86d7c7d29c1f10bc713cdb",
     "src/app/knit/KnitThumb.tsx": "76c02d2c29bdf0ac742fe63c564f12c2b3ffdd15fe20e9a4e450d3de43d76e82",
     "src/app/knit/KnitVariant.tsx": "6b856d304ef9be340d988caf9913e787166e6019d12605cef01785e2cfb79c29",
     "src/app/knit/TileEditor.tsx": "7395652482d87dc0e9a0c79820e54618eb2702deb715897a77ed6480617c5656",
     "src/app/knit/provenance.ts": "d90ff35293399ea0a980244e76dab6a4dfd76f28a72a76a1f910ded22632bd7d",
     "src/app/knit/useCutPlan.ts": "c1f59295388ed2edef936b67ec4eb66ba596cc1c5eee1b059d17a9ed7205cda8",
-    "src/app/knit/useKnitBuild.ts": "78eb63779d699014a812eceae1071b75c4d742e786be5938f34898d686ef466c",
+    "src/app/knit/useKnitBuild.ts": "280e6acf68d244269fc2d7b7e4204b87a732c35cd6d6680eb17cb38f3df3d2b3",
     "src/app/persistence.ts": "45fc3499ff01f2aeb6d3185d44d9b3bc02e3387755fd3094c9a9bb25a2fe2aaf",
     "src/app/project.ts": "31ace9b37c87599875da7f59284883bbccd16838bd2db518a6292ec7b0ba2854",
     "src/core/README.md": "71c0031030f4d6d5d27eb80636da43c831283c0263764074cc6963690d262fac",
@@ -413,6 +454,7 @@
     "src/knit/rasterize-surface.ts": "1fdc3f180492d04993506fc067bc23a44f2720c5b4cad9e435d091c622afd9e0",
     "src/knit/rasterize.ts": "88e913a679c887f266e076ec7bdcb5dc33ccea9fb40d2b116d3a9afb2f22c799",
     "src/knit/report.ts": "52a10b9e5632cddc071fc7d1b3ded6baa75cdac60419375ed9632f9444ecb7a2",
+    "src/knit/requirements.ts": "aa8f6bc1ab4f6a95bde2f942f2543e473b76aca960f2e467a6c8374d926a93d5",
     "src/knit/settings.ts": "bb0151c606da93b5f62fdd57de769631dd9ffd5eb5ac822b9af790556d378e72",
     "src/knit/shape-geometry.ts": "72188488da50fe03d18088620f98fac6e72c1846c64133bd940a2cd7d10fb59c",
     "src/knit/shape-needles.ts": "916fdf8f0989381a95ef897da11108eb70e18ddc99d26f0253959963bfa9b022",
@@ -433,7 +475,7 @@
     "src/learning/references.ts": "9b5e91e5bc0b021378f6d93beb1f2ae546e46f929242e3039493691b599b56ce",
     "src/learning/types.ts": "23eaf238e00ddcef0cffe75ae16c78a33bc55228adcab0d13ef448c00064770f",
     "src/main.tsx": "2e321c8d93adfc7e6c1616ebd55e6d2f35d7a114d701bb010172aaeb3e2cab19",
-    "src/styles.css": "7595199ccce46d1f42ad394c0763f5a46d7730256b25e9b2591a1b72c6262f3b",
+    "src/styles.css": "f5460dea25ddddf4fd1c8b3d288eb6b1be8c0f4222a055a2d45545f6f9ad14c6",
     "src/viewer/README.md": "24a91c5a7e8fae02d9081cfcdd202befbbdf09c23a65c0ca1e227904ada87fa4",
     "src/viewer/SurfaceViewer.tsx": "d6c40b1958a3a292633f4d274275a8e9fd3bacaa98b062b4f85fdcd80ca30b81",
     "src/viewer/types.ts": "b8f0c83772bd990975b0884bf31e3dc75c312c5ea7a519d3410f5a1af0d865f1",
@@ -449,7 +491,7 @@
     "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
     "tests/browser/cuts.spec.ts": "42beb15ff4544122f02a3c19c4c215726e6268d2e3f7dc5ce86308744e808fee",
     "tests/browser/import.spec.ts": "e4bf91ed8f0fc8fe47e5a15e3aca78fa9860daaeaed3b801267f2efb17d424bd",
-    "tests/browser/knit.spec.ts": "7f87735a0daa3f250c089c691b33f4961059e20c54473ceb019a4a4e1b8eafa5",
+    "tests/browser/knit.spec.ts": "a7ba087a6a07197f7153acb4e5ebeff7b33b05c21578f05d3bcddc8cbb9933a8",
     "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/mapping.spec.ts": "1230fb5074444fad69cb40aa83361e8f5c8cce49d5e49dda23a15cf7e02eea84",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
@@ -483,6 +525,7 @@
     "tests/knit/cuts.test.ts": "0304207655a064be4f36790afc0edb10c64c17405a610ccb1866a5829af7652e",
     "tests/knit/grammar.test.ts": "024858b2b7560badf22191c38a23e1d377237626b4eca91ca2c7c5c6abaab790",
     "tests/knit/program.test.ts": "74941a427867669fbf992f9748212a632b0538c30bd431fb313c71bdd9d4f135",
+    "tests/knit/requirements.test.ts": "73a607c421e4cc45789c29af3cb734293379f0fab3f1dc7a70a5880c5bed095f",
     "tests/knit/settings.test.ts": "6659a352ab974e6be73ea3f50858922859ee1f16454077cab4ee16d66fc1ce77",
     "tests/knit/shape-fixtures.ts": "f58f6b6df6aa10c39d92fd869b73d7ba230c2931fb2fb3b3d1752f20d6aac2dc",
     "tests/knit/shape-geometry.test.ts": "a8219310ae040a1081af090f25d529fecfab67daa78153ef4d418b281f5e7cd1",

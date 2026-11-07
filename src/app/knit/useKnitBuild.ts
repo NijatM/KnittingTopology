@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ProjectState } from '../../core/types';
 import { buildKnitProgram, type KnitBuild } from '../../knit/program';
 import { generateKnitInWorker } from '../../knit/client';
+import { knitRequirements } from '../../knit/requirements';
 
 type Input = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
 /** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. */
-export function useKnitBuild(input: Input, staleNetwork: boolean) {
+export function useKnitBuild(input: Input, staleNetwork: boolean, cutMatchesSource = true) {
   const shape = input.knit?.mode === 'shape';
   // Shape generation has no graph input, except on a cube or sphere, whose layout comes from the cut network.
   const graphFree = shape && input.surface.kind !== 'cube' && input.surface.kind !== 'sphere';
@@ -28,7 +29,13 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
     build: KnitBuild;
   } | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
-  const [error, setError] = useState('');
+  const [failure, setFailure] = useState<{ signature: string; message: string } | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const error = failure?.signature === signature ? failure.message : '';
+  const requirements = useMemo(
+    () => knitRequirements(input, cutMatchesSource),
+    [input.surface, input.graph, input.knit, input.swatches, cutMatchesSource]
+  );
   const controller = useRef<AbortController | null>(null);
   const latest = useRef(signature);
   latest.current = signature;
@@ -69,22 +76,19 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
       ok: false,
       reason: 'Generate the knit program after entering measurements or a typed network size.',
     };
-  const needsGauge =
-    (shape || input.knit?.mode === 'both' || input.knit?.size.source !== 'typed') &&
-    !input.swatches?.some((s) => s.structure === 'jersey');
-  const preflight = needsGauge
-    ? shape || input.knit?.mode === 'both'
-      ? 'Shape and combined modes need a measured jersey swatch.'
-      : 'No jersey measurement. Add one or type needles and passes.'
-    : !graphFree && !input.graph
-      ? 'Generate a network first.'
-      : '';
+  const preflight = requirements[0]?.message ?? '';
   if (!accepted && preflight) build = { ok: false, reason: preflight };
   async function generate() {
     controller.current?.abort();
+    setAttempts((n) => n + 1);
+    // A missing input is not a numerical job: keep the explanation visible without flashing progress.
+    if (requirements.length) {
+      setProgress(null);
+      return;
+    }
     const job = new AbortController();
     controller.current = job;
-    setError('');
+    setFailure(null);
     setProgress('Starting knit program generation');
     try {
       const result = await generateKnitInWorker(
@@ -96,10 +100,11 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
       );
       if (!job.signal.aborted && latest.current === signature) {
         if (result.ok) setAccepted({ signature, surface: surfaceSignature, build: result });
-        else setError(result.reason);
+        else setFailure({ signature, message: result.reason });
       }
     } catch (cause) {
-      if (!job.signal.aborted) setError((cause as Error).message);
+      if (!job.signal.aborted && latest.current === signature)
+        setFailure({ signature, message: (cause as Error).message });
     } finally {
       if (controller.current === job) setProgress(null);
     }
@@ -108,7 +113,9 @@ export function useKnitBuild(input: Input, staleNetwork: boolean) {
     build,
     outdated,
     progress,
-    error: preflight || error,
+    requirements,
+    attempts,
+    error,
     usesWorker,
     generate,
     cancel: () => {

@@ -7,23 +7,23 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 514,
+    "passed": 520,
     "core": 106,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 192,
-    "duration_seconds": 18.04
+    "knit_program": 198,
+    "duration_seconds": 18.56
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 585.42,
+    "initial_js_kb": 591.47,
     "lazy_viewer_js_kb": 582.93,
-    "initial_js_gzip_kb": 187.5,
+    "initial_js_gzip_kb": 189.35,
     "lazy_viewer_js_gzip_kb": 147.17,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 96.03,
@@ -31,20 +31,30 @@
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-development",
-    "result": "pass",
-    "passed": 32,
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-feedback-development",
+    "result": "pass after targeted retest",
+    "passed": 35,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.4,
-    "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
+    "initial_run": {
+      "passed": 34,
+      "failed": 1,
+      "duration_minutes_reported": 3.6,
+      "failure": "An existing test expected the replaced No jersey measurement sentence; updated to check the repair action instead."
+    },
+    "targeted_retest": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'knit program: size, split view' --output=tmp/qa/knit-feedback-development-retest",
+      "result": "pass",
+      "passed": 1,
+      "duration_seconds_reported": 12.5
+    },
+    "note": "No runtime changes after the full development run; only the obsolete assertion was updated."
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-production",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-feedback-production",
     "result": "pass",
-    "passed": 32,
+    "passed": 35,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.2,
-    "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
+    "duration_minutes_reported": 3.1
   },
   "mobile": {
     "viewport_width": 375,
@@ -54,7 +64,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "CI sphere seam audit timing correction after M5c",
+  "milestone": "Persistent knit generation requirements and repair links",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -347,6 +357,36 @@
     "local_correction": "The same three scales and assertions run as independent parameterized cases, each with a 30000 ms timeout. No skipped coverage or runtime changes.",
     "local_check_command": "npm run check",
     "local_check_result": "pass",
-    "corrected_remote_run_verified": false
+    "corrected_remote_run_verified": true,
+    "corrected_run_url": "https://github.com/NijatM/KnittingTopology/actions/runs/42338725192",
+    "corrected_commit": "ffe1c20",
+    "corrected_run_verify_and_build": "success",
+    "corrected_run_deployment": "Configure Pages failed: site not enabled (404). No successful live deployment check recorded here.",
+    "current_feedback_source_remote_ci_verified": false
+  },
+  "knit_feedback": {
+    "known_requirements": [
+      "jersey stitch width and course height when measured sizing is required",
+      "network except for open-surface Shape mode",
+      "current cut settings on cube or sphere"
+    ],
+    "blocked_click_starts_worker": false,
+    "missing_requirements": "persistent amber summary, labelled repair actions, keyboard focus, inline field associations and Knit-tab badge",
+    "generation_failure": "separate persistent red region, tied to generating inputs; previous accepted preview preserved",
+    "typed_alternative": "explicit action in open-surface Network mode only; no measured values invented and no silent mode change",
+    "cut_validation": "presence/freshness preflight only; numerical worker still validates disk topology and supported cut geometry",
+    "checks": [
+      "six pure prerequisite unit cases",
+      "blocked worker count is zero",
+      "repair link opens Knit tab and focuses dimensions",
+      "partial measurement keeps remaining field highlighted; save clears requirement",
+      "network and cut repair targets receive focus",
+      "injected worker failure stays visible with previous preview and successful retry clears it",
+      "375px repair flow has no document overflow"
+    ],
+    "focused_browser_run": "3 passed in 15.0s; tmp/qa/knit-feedback-focused-final",
+    "manual_screen_reader_testing": false,
+    "uncalibrated_shaping_added": false,
+    "schema_or_numerical_algorithm_changes": false
   }
 }

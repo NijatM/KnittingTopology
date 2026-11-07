@@ -50,7 +50,9 @@ test('knit program: size, split view, linked provenance, exports, swatches and u
 }) => {
   await planeNetwork(page);
   const sidebar = page.locator('.knit-controls');
-  await expect(sidebar).toContainText('No jersey measurement');
+  await expect(
+    sidebar.getByRole('button', { name: 'Add jersey measurement', exact: true })
+  ).toBeVisible();
 
   // typed size, then the program beside the surface
   await page.getByRole('combobox', { name: 'Program size' }).selectOption('typed');
@@ -91,7 +93,9 @@ test('knit program: size, split view, linked provenance, exports, swatches and u
 
   // a jersey measurement sizes the program from the plane
   await page.getByRole('combobox', { name: 'Program size' }).selectOption('gauge');
-  await expect(sidebar).toContainText('No jersey measurement');
+  await expect(
+    sidebar.getByRole('button', { name: 'Add jersey measurement', exact: true })
+  ).toBeVisible();
   await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('2');
   await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('1.5');
   await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
@@ -110,9 +114,13 @@ test('knit program: size, split view, linked provenance, exports, swatches and u
 
   // undo removes the measurement again
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(sidebar).toContainText('No jersey measurement');
+  await expect(
+    sidebar.getByRole('button', { name: 'Add jersey measurement', exact: true })
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Redo', exact: true }).click();
-  await expect(sidebar).not.toContainText('No jersey measurement');
+  await expect(
+    sidebar.getByRole('button', { name: 'Add jersey measurement', exact: true })
+  ).toHaveCount(0);
   await page.screenshot({ path: 'tmp/qa/knit-gauge.png', fullPage: true });
 });
 
@@ -630,4 +638,146 @@ test('supplied OBJ topology exports every bitmap pixel faithfully and regenerate
   );
   expect(restored.cells).toBe(grammar.cells);
   expect(restored.key).toEqual(grammar.key);
+});
+
+async function countKnitWorkers(page: Page) {
+  await page.addInitScript(() => {
+    const state = window as unknown as { knitWorkerStarts: number; failKnit: boolean };
+    state.knitWorkerStarts = 0;
+    state.failKnit = false;
+    const NativeWorker = window.Worker;
+    window.Worker = class extends NativeWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        if (String(url).includes('knit.worker')) {
+          state.knitWorkerStarts++;
+          if (state.failKnit)
+            this.postMessage = () => {
+              throw new DOMException('Simulated worker input failure', 'DataCloneError');
+            };
+        }
+      }
+    };
+  });
+}
+
+test('knit requirements persist, focus the repair fields, and prevent work until inputs are complete', async ({
+  page,
+}) => {
+  await countKnitWorkers(page);
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('both');
+  const generate = page.getByRole('button', { name: 'Generate knit program', exact: true });
+  const missing = page.getByRole('region', { name: 'Knit generation requirements' });
+  await expect(missing.locator('li')).toHaveCount(2);
+  await generate.click();
+  await expect(missing).toBeFocused();
+  await expect(missing).toContainText('Cannot generate yet');
+  await expect(
+    page.getByRole('button', { name: 'Cancel knit program generation', exact: true })
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate(() => (window as unknown as { knitWorkerStarts: number }).knitWorkerStarts)
+  ).toBe(0);
+  await expect(page.getByRole('button', { name: 'Use typed needles × passes' })).toHaveCount(0);
+  await page.screenshot({ path: 'tmp/qa/knit-missing-requirements.png', fullPage: true });
+  await missing.getByRole('button', { name: /Add jersey measurement/ }).click();
+  await expect(page.getByRole('tab', { name: 'Knit', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+  const width = page.getByRole('textbox', { name: 'Stitch width (mm)' });
+  const height = page.getByRole('textbox', { name: 'Course height (mm)' });
+  await expect(width).toBeFocused();
+  await expect(width).toHaveAttribute('aria-invalid', 'true');
+  await expect(height).toHaveAttribute('aria-invalid', 'true');
+  await page.screenshot({ path: 'tmp/qa/knit-repair-measurement.png', fullPage: true });
+  // Test values, not measured gauges.
+  await width.fill('10');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await expect(height).toBeFocused();
+  await expect(width).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(missing).toBeVisible();
+  await height.fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await expect(missing.locator('li')).toHaveCount(1);
+  await expect(page.locator('.knit-required-badge')).toHaveCount(0);
+  await missing.getByRole('button', { name: /Go to network generation/ }).click();
+  const network = page.getByRole('button', { name: 'Generate network', exact: true });
+  await expect(network).toBeFocused();
+  await network.click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await expect(missing).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await generate.click();
+  await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
+  expect(
+    await page.evaluate(() => (window as unknown as { knitWorkerStarts: number }).knitWorkerStarts)
+  ).toBe(1);
+});
+
+test('knit failure remains visible with the accepted preview and clears after a successful retry', async ({
+  page,
+}) => {
+  await countKnitWorkers(page);
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  const missing = page.getByRole('region', { name: 'Knit generation requirements' });
+  await missing.getByRole('button', { name: 'Use typed needles × passes', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Program size' })).toBeFocused();
+  await expect(missing).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  const generate = page.getByRole('button', { name: 'Generate knit program', exact: true });
+  await generate.click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap/ });
+  await expect(bitmap).toBeVisible();
+  const label = await bitmap.getAttribute('aria-label');
+  await page.evaluate(() => {
+    (window as unknown as { failKnit: boolean }).failKnit = true;
+  });
+  await generate.click();
+  const failure = page.getByRole('region', { name: 'Knit generation failure' });
+  await expect(failure).toBeFocused();
+  await expect(failure).toHaveClass(/failure/);
+  await expect(failure).toContainText('Simulated worker input failure');
+  await expect(bitmap).toHaveAttribute('aria-label', label!);
+  await failure.getByRole('button', { name: /Review knit settings/ }).click();
+  await expect(page.getByRole('tab', { name: 'Knit', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+  await expect(failure).toBeVisible();
+  await page.screenshot({ path: 'tmp/qa/knit-generation-failure.png', fullPage: true });
+  await page.evaluate(() => {
+    (window as unknown as { failKnit: boolean }).failKnit = false;
+  });
+  await generate.click();
+  await expect(
+    page.getByRole('button', { name: 'Cancel knit program generation', exact: true })
+  ).toHaveCount(0);
+  await expect(failure).toHaveCount(0);
+  await expect(bitmap).toHaveAttribute('aria-label', label!);
+});
+
+test('knit repair links reach cuts and measurements at 375px without page overflow', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('./');
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  const missing = page.getByRole('region', { name: 'Knit generation requirements' });
+  await missing.getByRole('button', { name: 'Review cuts and seams', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Cuts and seams', exact: true })).toBeFocused();
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await missing.getByRole('button', { name: 'Add jersey measurement', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Stitch width (mm)' })).toBeFocused();
+  await expect(page.getByRole('textbox', { name: 'Course height (mm)' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Knit', exact: true })).toHaveClass('active');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
+  await page.screenshot({ path: 'tmp/qa/knit-repair-mobile.png', fullPage: true });
 });

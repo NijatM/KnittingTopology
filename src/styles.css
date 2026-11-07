@@ -1807,6 +1807,109 @@ kbd {
   font-size: 11px;
 }
 
+/* Persistent generation feedback, with text and focus cues as well as colour. */
+.knit-feedback {
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  background: #201b13;
+  padding: 12px;
+  color: var(--hi);
+  overflow-wrap: anywhere;
+}
+.knit-feedback h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #e6b875;
+}
+.knit-feedback p {
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+.knit-feedback ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.knit-feedback li + li {
+  margin-top: 14px;
+}
+.knit-feedback button {
+  border-color: var(--warn);
+  color: #f0c994;
+  text-align: left;
+  max-width: 100%;
+  white-space: normal;
+}
+.knit-feedback:focus {
+  outline: 2px solid var(--warn);
+  outline-offset: 3px;
+}
+.knit-feedback.failure {
+  background: #251717;
+  border-color: #df9292;
+}
+.knit-feedback.failure h3,
+.knit-feedback.failure button,
+.knit-error {
+  color: #f1abab;
+}
+.knit-feedback.failure button {
+  border-color: #df9292;
+}
+.knit-feedback.failure:focus {
+  outline-color: #df9292;
+}
+.knit-repair-alternative {
+  margin-top: 12px;
+  border-top: 1px solid #61513b;
+  padding-top: 12px;
+}
+.knit-ready {
+  color: var(--hi);
+}
+.knit-required-control select,
+.knit-required-control.cut-controls,
+details.knit-required-control,
+.swatch-form input[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+.swatch-form input[aria-invalid='true'] {
+  box-shadow: inset 3px 0 var(--warn);
+}
+.knit-required-control:focus {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+}
+.knit-required-hint,
+.knit-field-error,
+.knit-required-label,
+.knit-required-badge {
+  color: #e6b875;
+}
+.knit-required-hint,
+.knit-field-error {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.knit-required-label,
+.knit-required-badge {
+  display: inline-block;
+  border: 1px solid var(--warn);
+  padding: 0 5px;
+  margin-left: 5px;
+  font-size: 10px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .knit-tile-editor {
   border: 1px solid var(--line);
   padding: 8px;
