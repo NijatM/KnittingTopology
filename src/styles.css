@@ -1812,3 +1812,33 @@ kbd {
   justify-content: space-between;
   overflow-wrap: anywhere;
 }
+
+.cut-panel code {
+  font-size: 9px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.cut-seam-list {
+  padding-left: 22px;
+}
+.cut-seam-list li {
+  margin: 8px 0;
+}
+.cut-seam-list button {
+  width: 100%;
+  text-align: left;
+  padding: 5px;
+}
+.cut-seam-list small {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+}
+.cut-panel section[aria-label='Selected seam pair'] {
+  border: 1px solid var(--line);
+  padding: 8px;
+  margin-top: 14px;
+}
+.cut-controls > button {
+  margin-bottom: 6px;
+}

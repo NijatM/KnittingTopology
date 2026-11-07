@@ -34,6 +34,7 @@ type Runtime = {
   meshData: SurfaceMesh | null;
   cellMesh: THREE.Mesh | null;
   cellIds: string[];
+  edgePickPaths: { id: string; path: Vec3[] }[];
   draw: () => void;
   fit: () => void;
   resize: () => void;
@@ -358,6 +359,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       meshData: null,
       cellMesh: null,
       cellIds: [],
+      edgePickPaths: [],
       draw,
       fit,
       resize,
@@ -604,6 +606,41 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     };
     const down = (event: PointerEvent) => {
       if (event.button !== 0) return;
+      if (current.current.pickCutEdge) {
+        const sample = pick(event);
+        if (!sample) return;
+        let nearest: string | null = null,
+          best = (current.current.surface.size * 0.035) ** 2;
+        const p = sample.position;
+        for (const edge of state.edgePickPaths)
+          for (let i = 1; i < edge.path.length; i++) {
+            const a = edge.path[i - 1]!,
+              b = edge.path[i]!,
+              dx = b[0] - a[0],
+              dy = b[1] - a[1],
+              dz = b[2] - a[2],
+              length = dx * dx + dy * dy + dz * dz;
+            const t = length
+              ? Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy + (p[2] - a[2]) * dz) / length
+                  )
+                )
+              : 0;
+            const d =
+              (p[0] - a[0] - t * dx) ** 2 +
+              (p[1] - a[1] - t * dy) ** 2 +
+              (p[2] - a[2] - t * dz) ** 2;
+            if (d < best) {
+              best = d;
+              nearest = edge.id;
+            }
+          }
+        if (nearest) current.current.onCutEdgePick?.(nearest);
+        return;
+      }
       if (current.current.pickStartEdge) {
         const sample = pick(event);
         if (sample) {
@@ -783,6 +820,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     clear(state.graphGroup);
     state.cellMesh = null;
     state.cellIds = [];
+    state.edgePickPaths = [];
     const graph = props.graph;
     const light = props.options.background === 'light';
     if (graph && supportsGuides(props.surface)) {
@@ -798,6 +836,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       const target = graph.provenance.parameters.spacing;
       for (const edge of graph.edges) {
         const path = edgePath(props.surface, edge, nodeMap);
+        state.edgePickPaths.push({ id: edge.id, path });
         let color = new THREE.Color(light ? '#303030' : '#e1e1e1');
         if (props.options.overlay === 'spacing') {
           const measured = edge.path?.length ? pathLength(edge.path) : pathLength(path);
@@ -904,6 +943,14 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     if (!state || !ready) return;
     clear(state.selectionGroup);
     const { graph, selection, surface } = props;
+    if (graph && props.cutEdgeIds?.length) {
+      const ids = new Set(props.cutEdgeIds),
+        segments: number[] = [],
+        nodes = new Map(graph.nodes.map((n) => [n.id, n.position]));
+      for (const e of graph.edges)
+        if (ids.has(e.id)) appendPath(segments, edgePath(surface, e, nodes));
+      lineSegments(state.selectionGroup, segments, '#e98b4b');
+    }
     if (surface.kind === 'mesh' && selection?.kind === 'triangle' && state.meshData) {
       const face = Number(selection.id);
       const mesh = state.meshData;
@@ -1015,6 +1062,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     props.surface,
     props.shapeOverlay,
     props.startEdge,
+    props.cutEdgeIds,
   ]);
 
   useEffect(() => {
@@ -1041,21 +1089,24 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const seams = state.surfaceGroup.getObjectByName('surface-seams');
     if (seams) seams.visible = props.options.showSeams;
     const meshDraw = !supportsGuides(props.surface) && props.options.mode === 'draw';
-    state.controls.enabled = props.options.mode === 'orbit' || meshDraw;
+    state.controls.enabled = (props.options.mode === 'orbit' || meshDraw) && !props.pickCutEdge;
     state.renderer.domElement.setAttribute(
       'aria-label',
-      !supportsGuides(props.surface)
-        ? 'Interactive imported mesh. Orbit to rotate, pan and zoom; select mode to inspect triangles.'
-        : 'Interactive surface. Use orbit mode to rotate, pan and zoom; draw mode to draw a surface guide.'
+      props.pickCutEdge
+        ? 'Interactive cut editor. Click near a visible network edge to toggle it in the cut draft.'
+        : !supportsGuides(props.surface)
+          ? 'Interactive imported mesh. Orbit to rotate, pan and zoom; select mode to inspect triangles.'
+          : 'Interactive surface. Use orbit mode to rotate, pan and zoom; draw mode to draw a surface guide.'
     );
-    state.renderer.domElement.style.cursor =
-      props.options.mode === 'draw' && !meshDraw
+    state.renderer.domElement.style.cursor = props.pickCutEdge
+      ? 'crosshair'
+      : props.options.mode === 'draw' && !meshDraw
         ? 'crosshair'
         : props.options.mode === 'select'
           ? 'pointer'
           : 'grab';
     state.draw();
-  }, [ready, props.options, props.surface]);
+  }, [ready, props.options, props.surface, props.pickCutEdge]);
 
   return (
     <div

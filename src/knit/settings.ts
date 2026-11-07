@@ -1,6 +1,6 @@
 // Knit program settings: defaults and bounded validation for project files.
 import type { KnitCellRule, KnitSettings } from '../core/types';
-import { MAX_GRAPH_CELLS } from '../core/limits';
+import { MAX_GRAPH_CELLS, MAX_GRAPH_EDGES } from '../core/limits';
 import { PRESET_KEYS } from './keys';
 import { DEFAULT_LIMITS } from './checks';
 import { MAX_SIDE } from './grid';
@@ -84,6 +84,24 @@ export function validateKnitSettings(value: unknown): KnitSettings {
   const nodes = obj(s.nodes, 'node marks');
   const limits = obj(s.limits, 'check limits');
   const lab = obj(s.lab, 'lab rules');
+  const cut = s.cut === undefined ? undefined : obj(s.cut, 'cut settings');
+  if (cut) {
+    if (
+      typeof cut.surfaceRevision !== 'string' ||
+      !cut.surfaceRevision.length ||
+      cut.surfaceRevision.length > 200 ||
+      typeof cut.sourceSignature !== 'string' ||
+      !/^cut-source-fnv1a32:[0-9a-f]{8}$/.test(cut.sourceSignature)
+    )
+      throw new Error('cut source revision/signature is invalid.');
+    if (
+      !Array.isArray(cut.edgeIds) ||
+      cut.edgeIds.length > MAX_GRAPH_EDGES ||
+      cut.edgeIds.some((v) => typeof v !== 'string' || !v.length || v.length > 400) ||
+      new Set(cut.edgeIds).size !== cut.edgeIds.length
+    )
+      throw new Error('cut edge IDs must be unique bounded source IDs.');
+  }
   if (typeof s.autoTransfers !== 'boolean')
     throw new Error('automatic transfers must be on or off.');
   if (typeof edges.boundary !== 'boolean') throw new Error('boundary lines must be on or off.');
@@ -96,6 +114,20 @@ export function validateKnitSettings(value: unknown): KnitSettings {
       ? {}
       : { newLoop: pick(s.newLoop, 'new loop action', ['knit', 'tuck'] as const) }),
     keyId,
+    ...(cut
+      ? {
+          cut: {
+            surfaceRevision: cut.surfaceRevision as string,
+            sourceSignature: cut.sourceSignature as string,
+            preset: pick(cut.preset, 'cut preset', [
+              'cube-cross',
+              'sphere-meridian',
+              'manual',
+            ] as const),
+            edgeIds: [...(cut.edgeIds as string[])],
+          },
+        }
+      : {}),
     ...(s.tiles === undefined ? {} : { tiles: validateTiles(s.tiles) }),
     size:
       source === 'gauge'

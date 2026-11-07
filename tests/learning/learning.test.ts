@@ -231,6 +231,7 @@ describe('method-appropriate references and citation export', () => {
       'lipman2014',
       'popescu2019knitcrete',
       'popescu2018automated',
+      'erickson2004cut',
     ];
     expect(bibliography.trim()).toBe(referencesBibtex(ids).trim());
   });

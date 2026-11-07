@@ -1,0 +1,97 @@
+import type { KnitCutSettings, SurfaceSpec } from '../../core/types';
+import type { CutJob } from './useCutPlan';
+export default function CutControls({
+  surface,
+  cut,
+  job,
+  picking,
+  onTogglePicking,
+  onChange,
+  onInspect,
+  hasGraph,
+}: {
+  surface: SurfaceSpec;
+  cut?: KnitCutSettings;
+  job: CutJob;
+  picking: boolean;
+  onTogglePicking: () => void;
+  onChange: (cut: KnitCutSettings) => void;
+  onInspect: () => void;
+  hasGraph: boolean;
+}) {
+  return (
+    <section className="control-section knit-controls cut-controls">
+      <h2>
+        <span>04</span> Cuts and seams <i />
+      </h2>
+      <p className="hint">
+        Prepare one topological disk and paired boundary segments. Closed-surface knit bitmaps
+        follow domain mapping.
+      </p>
+      <p className="hint">
+        Knit programs support plane, saddle and supplied rectangular OBJ charts.
+      </p>
+      <button
+        type="button"
+        disabled={!hasGraph || !!job.progress}
+        onClick={() =>
+          void job.generate(surface.kind === 'cube' ? 'cube-cross' : 'sphere-meridian')
+        }
+      >
+        {surface.kind === 'cube' ? 'Cube cross-net cut' : 'Sphere meridian cut'}
+      </button>
+      <p className="hint">
+        {surface.kind === 'cube'
+          ? 'Cut seven cube crease chains, retaining five cross-net hinges.'
+          : 'A +X-biased graph path joins the nodes nearest the poles; this is a sampled path.'}
+      </p>
+      <button
+        type="button"
+        disabled={!hasGraph || (!job.matches && !!cut)}
+        aria-pressed={picking}
+        onClick={onTogglePicking}
+      >
+        {picking ? 'Stop editing cut edges' : 'Edit cut edges in viewer'}
+      </button>
+      <button type="button" disabled={!hasGraph} onClick={() => onChange(job.empty())}>
+        New empty cut draft
+      </button>
+      <button
+        type="button"
+        disabled={!hasGraph || !job.matches || !!job.progress}
+        onClick={() => void job.generate()}
+      >
+        Validate cut draft
+      </button>
+      <button type="button" onClick={onInspect}>
+        Inspect cut and seams
+      </button>
+      <p className="knit-status" role="status">
+        {!hasGraph
+          ? 'Generate a network first.'
+          : cut
+            ? `${cut.edgeIds.length} draft cut edges${job.matches ? '' : ' · source changed; restore a preset or start a new draft'}`
+            : 'Choose a preset or start editing source edges.'}
+      </p>
+      {job.progress && (
+        <>
+          <p role="status">{job.progress}</p>
+          <button type="button" onClick={job.cancel}>
+            Cancel cut validation
+          </button>
+        </>
+      )}
+      {job.error && (
+        <p className="hint warn" role="alert">
+          {job.error}
+        </p>
+      )}
+      {job.outdated && (
+        <p className="hint warn">
+          Draft changed. Validate it before seam export; the previous validated result remains
+          inspectable.
+        </p>
+      )}
+    </section>
+  );
+}

@@ -7,38 +7,47 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 425,
+    "passed": 451,
     "core": 104,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 105
+    "knit_program": 131
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 511.02,
-    "lazy_viewer_js_kb": 582.06,
-    "initial_js_gzip_kb": 163.48,
-    "lazy_viewer_js_gzip_kb": 146.84,
+    "initial_js_kb": 528.9,
+    "lazy_viewer_js_kb": 582.93,
+    "initial_js_gzip_kb": 169.07,
+    "lazy_viewer_js_gzip_kb": 147.17,
     "import_worker_js_kb": 27.85,
-    "generation_worker_js_kb": 93.38,
-    "knit_worker_js_kb": 64.48
+    "generation_worker_js_kb": 94.22,
+    "knit_worker_js_kb": 64.48,
+    "cut_worker_js_kb": 27.74
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m3-development-results",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4a-development-results",
     "result": "pass",
-    "passed": 25,
+    "passed": 27,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 2.8
+    "duration_minutes_reported": 3.1,
+    "full_run_passed": 26,
+    "full_run_failed": 1,
+    "note": "All 27 cases verified across the full run and the corrected-selector retest. The initial failure was an ambiguous Sphere button selector, not an application error.",
+    "selector_retest": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npx playwright test tests/browser/knit.spec.ts -g 'offered only' --output=tmp/qa/m4a-development-selector-retest",
+      "passed": 1,
+      "duration_seconds_reported": 6.8
+    }
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m3-production-results",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4a-production-results",
     "result": "pass",
-    "passed": 25,
+    "passed": 27,
     "page_or_console_errors": 0,
     "duration_minutes_reported": 2.6
   },
@@ -50,7 +59,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Curved network and combined modes; immutable tile editor (M3)",
+  "milestone": "Editable closed-surface cuts, disk validation and seam maps (M4a)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -153,5 +162,30 @@
       "coincident_3d_chart_identity_test": true,
       "work_cap_candidate_visits": 50000000
     }
+  },
+  "closed_surface_cuts": {
+    "algorithm": "cut-corner-fans-v1",
+    "source": "accepted cube/sphere networks; closed oriented manifold with Euler characteristic 2",
+    "presets": [
+      "cube cross-net crease tree",
+      "sphere pole-to-pole graph path biased towards +X meridian"
+    ],
+    "graph_families_tested": ["quad", "dual", "ambo", "kis", "gyro", "diagonal"],
+    "disk_checks": [
+      "source incidence/orientation/vertex links",
+      "connected acyclic nonempty cut",
+      "duplicated vertex fans",
+      "result incidence/orientation/vertex links",
+      "one component",
+      "one boundary cycle",
+      "Euler characteristic 1",
+      "paired boundary directions and endpoint coverage"
+    ],
+    "seam_export": "knitting-topology-seam-map JSON v1; meters; revalidated before export",
+    "project_schema": "optional knit.cut; derived cut complexes not persisted",
+    "flat_layout_generated": false,
+    "closed_surface_knit_bitmap_generated": false,
+    "minimum_cut_guarantee": false,
+    "physical_validation": false
   }
 }

@@ -1,6 +1,6 @@
 # Open-surface knit shaping
 
-Shape mode takes a plane, saddle or supplied rectangular OBJ chart and measured loop dimensions. It produces a design-level loop layout and a Knit Grammar operation bitmap. The geometric cell network remains a separate representation; shape mode does not rasterize that network. Network and combined modes on curved surfaces remain later work.
+Shape mode takes a plane, saddle or supplied rectangular OBJ chart and measured loop dimensions. It produces a design-level loop layout and a Knit Grammar operation bitmap. The geometric cell network remains a separate representation; shape mode does not rasterize that network. Network and combined modes reuse this reference layout, as described in [network pattern mapping](knit-network-mapping.md).
 
 ## Source and attribution
 

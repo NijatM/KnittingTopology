@@ -118,7 +118,7 @@ test('knit program: size, split view, linked provenance, exports, swatches and u
 
 test('knit program is offered only where it works', async ({ page }) => {
   await page.goto('./');
-  await page.getByRole('button', { name: /^Sphere / }).click();
+  await page.getByRole('button', { name: 'Sphere / Closed / curved', exact: true }).click();
   await expect(page.locator('.knit-controls')).toContainText(
     'Knit programs support plane, saddle and supplied rectangular OBJ charts.'
   );

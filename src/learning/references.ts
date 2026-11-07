@@ -2,6 +2,26 @@ import type { ReferenceId, ScientificReference } from './types';
 
 /** Bibliography for the implemented methods, not a claim of full paper reproduction. */
 export const REFERENCES: Record<ReferenceId, ScientificReference> = {
+  erickson2004cut: {
+    id: 'erickson2004cut',
+    type: 'article-journal',
+    title: 'Optimally Cutting a Surface into a Disk',
+    authors: [
+      { given: 'Jeff', family: 'Erickson' },
+      { given: 'Sariel', family: 'Har-Peled' },
+    ],
+    year: 2004,
+    containerTitle: 'Discrete & Computational Geometry',
+    volume: '31',
+    issue: '1',
+    pages: '37–59',
+    url: 'https://jeffe.cs.illinois.edu/pubs/schema.html',
+    pdfUrl: 'https://jeffe.cs.illinois.edu/pubs/pdf/schema.pdf',
+    accessed: '2026-11-06',
+    note: 'Cut-graph definitions and oriented surface background, sections 1 and 2.1; project presets and verification do not implement the optimization algorithms',
+    verificationNote:
+      'Author publication page verifies journal/year/pages. Author preprint introduction and section 2.1 read directly (printed pages 1–3). The paper defines paired boundary edges of a cut graph. No minimum-cut or approximation guarantee is claimed.',
+  },
   popescu2019knitcrete: {
     id: 'popescu2019knitcrete',
     type: 'thesis',

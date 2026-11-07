@@ -24,6 +24,7 @@ import type {
   PatternFamily,
   PatternParameters,
   ProjectState,
+  KnitCutSettings,
   TopologyPreset,
 } from '../core/types';
 import { analyzeGraph } from '../core/diagnostics';
@@ -69,6 +70,9 @@ import KnitPanel from './knit/KnitPanel';
 import { loopSelection, marksOf, selectionLoops, shapeOverlay } from './knit/provenance';
 import { knitSettingsOf, swatchesOf } from '../knit/program';
 import { knitSupported } from '../knit/mapping';
+import { useCutPlan } from './knit/useCutPlan';
+import CutControls from './knit/CutControls';
+import CutPanel from './knit/CutPanel';
 
 const SurfaceViewer = lazy(() => import('../viewer/SurfaceViewer'));
 const SURFACES: { key: AnalyticSurfaceKind; name: string; caption: string }[] = [
@@ -324,6 +328,8 @@ export default function App() {
     'measures' | 'topology' | 'compare' | 'methods' | 'surface' | 'knit'
   >('measures');
   const [pickingKnitEdge, setPickingKnitEdge] = useState(false);
+  const [pickingCutEdge, setPickingCutEdge] = useState(false);
+  useEffect(() => setPickingCutEdge(false), [project.graph, project.surface.revision]);
   const [knitOpen, setKnitOpen] = useState(false);
   const [knitHover, setKnitHover] = useState<number | null>(null);
   const [knitMarks, setKnitMarks] = useState<number[] | null>(null);
@@ -655,6 +661,11 @@ export default function App() {
       : undefined;
   const knitSettings = knitSettingsOf(project);
   const swatches = swatchesOf(project);
+  const changeCut = (cut: KnitCutSettings) =>
+    commit({ ...projectRef.current, knit: { ...knitSettingsOf(projectRef.current), cut } });
+  const cutJob = useCutPlan(project.surface, project.graph, knitSettings.cut, changeCut);
+  const showProgram = knitOpen && knitSupported(project.surface);
+  const cutEdgeIds = cutJob.matches ? knitSettings.cut?.edgeIds : undefined;
   const knitJob = useKnitBuild(
     {
       surface: project.surface,
@@ -1079,6 +1090,22 @@ export default function App() {
                   onChange={changeKnit}
                   onToggleOpen={() => setKnitOpen((v) => !v)}
                 />
+              ) : cutJob.closed ? (
+                <CutControls
+                  surface={project.surface}
+                  cut={knitSettings.cut}
+                  job={cutJob}
+                  picking={pickingCutEdge}
+                  hasGraph={!!project.graph}
+                  onChange={changeCut}
+                  onInspect={() => setTab('knit')}
+                  onTogglePicking={() => {
+                    setPickingCutEdge((v) => !v);
+                    setPickingKnitEdge(false);
+                    setView((v) => ({ ...v, mode: 'orbit', showGraph: true }));
+                    setTab('knit');
+                  }}
+                />
               ) : (
                 <section className="control-section knit-controls">
                   <h2>
@@ -1232,7 +1259,7 @@ export default function App() {
           </div>
         </div>
         <div
-          className={`stage-split ${knitOpen ? 'split' : ''}`}
+          className={`stage-split ${showProgram ? 'split' : ''}`}
           style={{ '--split': `${split * 100}%` } as React.CSSProperties}
         >
           <div className="canvas-wrap">
@@ -1250,6 +1277,17 @@ export default function App() {
                 options={view}
                 selection={knitHoverSelection ?? selection}
                 marker={knitMarker}
+                cutEdgeIds={cutEdgeIds}
+                pickCutEdge={cutJob.closed && pickingCutEdge}
+                onCutEdgePick={(id) => {
+                  const current =
+                    cutJob.matches && knitSettings.cut ? knitSettings.cut : cutJob.empty();
+                  const ids = new Set(current.edgeIds);
+                  if (ids.has(id)) ids.delete(id);
+                  else ids.add(id);
+                  changeCut({ ...current, preset: 'manual', edgeIds: [...ids].sort() });
+                  setSelection({ kind: 'edge', id });
+                }}
                 startEdge={
                   knitSupported(project.surface) ? (knitSettings.startEdge ?? 'v0') : undefined
                 }
@@ -1370,7 +1408,7 @@ export default function App() {
               </div>
             )}
           </div>
-          {knitOpen && (
+          {showProgram && (
             <>
               <div
                 className="split-handle"
@@ -2041,27 +2079,37 @@ export default function App() {
               )}
             </>
           )}
-          {!inspectionOnly && tab === 'knit' && (
-            <KnitPanel
-              build={knitBuild}
-              settings={knitSettings}
-              swatches={swatches}
-              graph={project.graph}
-              projectName={project.name}
-              surfaceSize={project.surface.size}
-              hover={knitHover}
-              selection={selection}
-              onSettings={changeKnit}
-              onSwatches={(next) => {
-                setKnitMarks(null);
-                commit({ ...projectRef.current, swatches: next });
-              }}
-              onMark={(cells) => {
-                setKnitMarks(cells);
-                if (cells) setKnitOpen(true);
-              }}
-            />
-          )}
+          {!inspectionOnly &&
+            tab === 'knit' &&
+            (cutJob.closed ? (
+              <CutPanel
+                job={cutJob}
+                cut={knitSettings.cut}
+                name={project.name}
+                selection={selection}
+                onSelect={setSelection}
+              />
+            ) : (
+              <KnitPanel
+                build={knitBuild}
+                settings={knitSettings}
+                swatches={swatches}
+                graph={project.graph}
+                projectName={project.name}
+                surfaceSize={project.surface.size}
+                hover={knitHover}
+                selection={selection}
+                onSettings={changeKnit}
+                onSwatches={(next) => {
+                  setKnitMarks(null);
+                  commit({ ...projectRef.current, swatches: next });
+                }}
+                onMark={(cells) => {
+                  setKnitMarks(cells);
+                  if (cells) setKnitOpen(true);
+                }}
+              />
+            ))}
           {!inspectionOnly && tab === 'methods' && (
             <>
               {mapped && (

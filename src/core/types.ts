@@ -237,6 +237,13 @@ export interface KnitTile {
   rows: string[][];
   note?: string;
 }
+export interface KnitCutSettings {
+  surfaceRevision: string;
+  /** Noncryptographic signature of the accepted source graph and surface. */
+  sourceSignature: string;
+  preset: 'cube-cross' | 'sphere-meridian' | 'manual';
+  edgeIds: string[];
+}
 export interface KnitSettings {
   mode: KnitMode;
   /** Chart side used for the first course. Missing in older projects means v0. */
@@ -246,6 +253,8 @@ export interface KnitSettings {
   keyId: string;
   /** Immutable saved copies. New designs get new IDs and do not inherit measurements. */
   tiles?: KnitTile[];
+  /** A draft closed-surface cut; derived cut complexes are not persisted. */
+  cut?: KnitCutSettings;
   /** From the jersey swatch and the surface size, or typed directly. */
   size: { source: 'gauge' } | { source: 'typed'; needles: number; passes: number };
   cells: { fill: string; rule: KnitCellRule; overrides: Record<string, string> };

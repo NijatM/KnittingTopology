@@ -39,6 +39,9 @@ export interface SurfaceViewerProps {
   pickStartEdge?: boolean;
   onStartEdge?: (edge: 'v0' | 'u1' | 'v1' | 'u0') => void;
   onShapePick?: (index: number) => void;
+  cutEdgeIds?: readonly string[];
+  pickCutEdge?: boolean;
+  onCutEdgePick?: (edgeId: string) => void;
   onStroke: (samples: GuideSample[]) => void;
   onSelect: (selection: ViewerSelection | null) => void;
   onHover?: (text: string) => void;
