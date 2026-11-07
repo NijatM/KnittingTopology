@@ -183,3 +183,17 @@ See [closed-surface knitting](closed-surface-knitting.md). Pole openings are rep
   - combined mode with double knit and birdseye on a plane has no blocker. The symbolic parent check now follows every bed a yarn guide works; one-guide results are unchanged (all earlier tests pass).
 - The browser test switches to the two-guide key, makes a custom copy, recolours an operation and finds the exact RGB in the exported BMP. It also checks guarded removal, reading the exported Knit Grammar JSON back without a duplicate key, and undo.
 - Not claimed: custom colours are the user's choice; the lab's script, importer and handling of two yarns on short rows are unconfirmed. Output remains design-level and is not verified until knitted.
+
+## Knit variants in Compare (M5b) — 6 November 2026
+
+- **512/512 unit tests passed** across 24 files, including 192 knit tests. Type checking, formatting and the production build passed.
+- **31/31 browser tests passed against development** (3.3 minutes) and **31/31 against production** (2.9 minutes), with no page or console errors.
+- The 3 new unit tests check that a snapshot copies the cells and key and records the metrics. A recoloured custom key gives 0 differing cells. A reverse-jersey fill differs in every knitted cell. A different swatch size is not compared cell by cell and is noted as different inputs (test values, not measured gauges).
+- The 2 new browser tests check:
+  - a capture with its thumbnail and structure list;
+  - the cell difference between jersey and reverse-jersey fills;
+  - a different size not compared cell by cell;
+  - restore of the knit settings;
+  - a shape program captured without a network;
+  - an outdated shape preview that cannot be captured.
+- Not claimed: captured programs are derived and are not saved in project files. A difference count compares operation meanings, not physical results.

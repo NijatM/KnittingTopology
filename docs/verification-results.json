@@ -7,22 +7,22 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 509,
+    "passed": 512,
     "core": 104,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 189
+    "knit_program": 192
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 581.44,
+    "initial_js_kb": 585.42,
     "lazy_viewer_js_kb": 582.93,
-    "initial_js_gzip_kb": 186.21,
+    "initial_js_gzip_kb": 187.5,
     "lazy_viewer_js_gzip_kb": 147.17,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 96.03,
@@ -30,17 +30,16 @@
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5a-development",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5b-development",
     "result": "pass",
-    "passed": 29,
+    "passed": 31,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.0,
-    "note": "The colour-key test was then changed to upload the downloaded JSON by path (typing fix) and rerun alone against development: 1/1 passed (tmp/qa/m5a-development-keys)."
+    "duration_minutes_reported": 3.3
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5a-production",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5b-production",
     "result": "pass",
-    "passed": 29,
+    "passed": 31,
     "page_or_console_errors": 0,
     "duration_minutes_reported": 2.9
   },
@@ -52,7 +51,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Two-guide and custom colour keys (M5a)",
+  "milestone": "Knit variants in Compare (M5b)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -305,5 +304,18 @@
       "browser: two-guide key switch, custom copy, recolour to exact BMP RGB, guarded removal, Knit Grammar JSON key read without duplication, undo"
     ],
     "not_claimed": "custom colours are the user's; lab script, importer and two-yarn short-row handling remain unconfirmed; no machine-ready output"
+  },
+  "knit_compare": {
+    "available": "Compare tab captures (session only, at most 4) keep the current knit program: mode, key, needles x passes, loops per structure with measurement status, transfers, skipped transfers, check findings, export blockers, unresolved shaping, thumbnail in key RGB",
+    "difference": "cells whose operations differ in meaning from variant 1 (steps per yarn guide and transfer); different needles x passes not compared cell by cell; note when surface, network or measurements differ",
+    "checks": [
+      "snapshot copies cells and key and records metrics",
+      "identical and recoloured custom-key programs: 0 differing cells",
+      "reverse jersey fill: every knitted cell differs",
+      "different swatch size: not compared, inputs differ note",
+      "browser: capture, thumbnail, cell difference, size difference, restore of knit settings",
+      "browser: shape capture without a network; outdated shape preview not capturable"
+    ],
+    "not_claimed": "captured programs are derived and not saved in project files; a difference count is not a physical or knittability comparison"
   }
 }

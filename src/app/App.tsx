@@ -73,6 +73,8 @@ import { knitAvailable, knitSupported } from '../knit/mapping';
 import { useCutPlan } from './knit/useCutPlan';
 import CutControls from './knit/CutControls';
 import CutPanel from './knit/CutPanel';
+import { KnitVariant, knitCompareNote } from './knit/KnitVariant';
+import { knitSnapshot, type KnitSnapshot } from '../knit/compare';
 
 const SurfaceViewer = lazy(() => import('../viewer/SurfaceViewer'));
 const SURFACES: { key: AnalyticSurfaceKind; name: string; caption: string }[] = [
@@ -334,9 +336,17 @@ export default function App() {
   const [knitHover, setKnitHover] = useState<number | null>(null);
   const [knitMarks, setKnitMarks] = useState<number[] | null>(null);
   const [split, setSplit] = useState(0.5);
-  const [variants, setVariants] = useState<{ id: number; name: string; project: ProjectState }[]>(
-    []
-  );
+  const [variants, setVariants] = useState<
+    {
+      id: number;
+      name: string;
+      project: ProjectState;
+      /** False when captured for its knit program without a current network. */
+      networkCurrent: boolean;
+      /** The knit program at capture, why none was captured, or null when knit settings were never used. */
+      knit: KnitSnapshot | string | null;
+    }[]
+  >([]);
   const [status, setStatus] = useState('Preparing your surface…');
   const [busy, setBusy] = useState<{ fraction: number; stage: string } | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
@@ -677,6 +687,8 @@ export default function App() {
   );
   const knitBuild = knitJob.build;
   const knitProgram = knitBuild.ok ? knitBuild.program : null;
+  // A program that matches the current settings and network, so a capture can keep it.
+  const knitCurrent = !!knitProgram && !knitJob.outdated && !knitProgram.staleNetwork;
   const knitShapeOverlay = useMemo(
     () => (knitOpen && knitProgram ? shapeOverlay(knitProgram) : null),
     [knitOpen, knitProgram]
@@ -1974,15 +1986,27 @@ export default function App() {
               </div>
               <button
                 className="generate-button"
-                disabled={!project.graph || stale || !!busy}
+                disabled={(!(project.graph && !stale) && !knitCurrent) || !!busy}
                 onClick={() => {
+                  const networkCurrent = !!project.graph && !stale;
+                  const knit: KnitSnapshot | string | null = knitCurrent
+                    ? knitSnapshot(knitProgram!, project)
+                    : !project.knit
+                      ? null
+                      : knitProgram
+                        ? 'Knit program not captured: generate it first.'
+                        : `Knit program not captured: ${knitBuild.ok ? '' : knitBuild.reason}`;
                   setVariants((current) =>
                     [
                       ...current,
                       {
                         id: Date.now(),
-                        name: `${activeFamily.name} / ${PRESETS.find((p) => p.key === project.parameters.preset)?.name}`,
+                        name: networkCurrent
+                          ? `${activeFamily.name} / ${PRESETS.find((p) => p.key === project.parameters.preset)?.name}`
+                          : `${project.surface.kind} / knit ${project.knit?.mode ?? ''}`,
                         project,
+                        networkCurrent,
+                        knit,
                       },
                     ].slice(-4)
                   );
@@ -2021,7 +2045,8 @@ export default function App() {
                       {Math.round(variant.project.surface.size * 1000)} mm · target{' '}
                       {formatLength(variant.project.parameters.spacing)} mm
                     </p>
-                    {variant.project.statistics && (
+                    {!variant.networkCurrent && <p>No network</p>}
+                    {variant.networkCurrent && variant.project.statistics && (
                       <>
                         <Metric
                           label="Cells"
@@ -2043,6 +2068,9 @@ export default function App() {
                           unit="m"
                         />
                       </>
+                    )}
+                    {variant.knit && (
+                      <KnitVariant knit={variant.knit} index={index} base={variants[0]?.knit} />
                     )}
                     <div className="inline-actions">
                       <button
@@ -2082,6 +2110,11 @@ export default function App() {
                   )
                     ? 'These variants use different support geometry or mapping records. Their metrics do not isolate the effect of topology.'
                     : 'These variants share support geometry. Check total edge length and cell counts: equal target spacing does not imply equal material or feature budgets.'}
+                </div>
+              )}
+              {knitCompareNote(variants.map((v) => v.knit)) && (
+                <div className="method-boundary">
+                  {knitCompareNote(variants.map((v) => v.knit))}
                 </div>
               )}
             </>

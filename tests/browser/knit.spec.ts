@@ -485,3 +485,75 @@ test('colour keys: two-guide key, custom copy, recolour, guarded removal, Knit G
   ).toBeVisible();
   await page.screenshot({ path: 'tmp/qa/knit-keys.png', fullPage: true });
 });
+
+test('compare tab keeps knit programs: metrics, thumbnail, cell difference and restore', async ({
+  page,
+}) => {
+  await planeNetwork(page);
+  await page.getByRole('combobox', { name: 'Program size' }).selectOption('typed');
+  await page.getByRole('spinbutton', { name: 'Needles' }).fill('30');
+  await page.getByRole('spinbutton', { name: 'Passes' }).fill('20');
+  await page.getByRole('tab', { name: 'Compare', exact: true }).click();
+  const capture = page.getByRole('button', { name: /Capture current variant/ });
+  const cards = page.locator('.variant-card');
+
+  // variant 1: single jersey fill
+  await capture.click();
+  await expect(cards.nth(0)).toContainText('Network only · 4.S52 basic key');
+  await expect(
+    cards.nth(0).getByRole('img', { name: 'Variant 1 knit program, 30 needles by 20 passes' })
+  ).toBeVisible();
+  await expect(cards.nth(0)).toContainText(/single jersey: \d+ loops · not measured/);
+
+  // variant 2: reverse jersey fill on the same network and size
+  await page.getByRole('combobox', { name: 'Cell fill' }).selectOption({ label: 'reverse jersey' });
+  await capture.click();
+  await expect(cards.nth(1)).toContainText(
+    /[1-9]\d* of 600 cells differ in operation meaning from variant 1/
+  );
+  await expect(page.locator('.method-boundary').last()).toContainText(
+    'These knit programs share surface, network and measurements.'
+  );
+
+  // variant 3: another size is not compared cell by cell
+  await page.getByRole('spinbutton', { name: 'Needles' }).fill('31');
+  await capture.click();
+  await expect(cards.nth(2)).toContainText(
+    'Different needles × passes from variant 1, not compared cell by cell.'
+  );
+  await page.screenshot({ path: 'tmp/qa/knit-compare.png', fullPage: true });
+
+  // restoring variant 1 brings back its knit settings
+  await cards.nth(0).getByRole('button', { name: 'Restore', exact: true }).click();
+  await expect(
+    page.getByRole('combobox', { name: 'Cell fill' }).locator('option:checked')
+  ).toHaveText('single jersey');
+  await expect(page.getByRole('spinbutton', { name: 'Needles' })).toHaveValue('30');
+});
+
+test('compare tab captures a shape program without a network, and not an outdated one', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Plane / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Compare', exact: true }).click();
+  const capture = page.getByRole('button', { name: /Capture current variant/ });
+  await capture.click();
+  const card = page.locator('.variant-card').nth(0);
+  await expect(card).toContainText('No network');
+  await expect(card).toContainText('Shape only · 4.S52 basic key');
+  await expect(card).toContainText(/single jersey: \d+ loops · measured/);
+
+  // a changed setting leaves the shape preview outdated until it is generated again
+  await page.getByRole('combobox', { name: 'Start edge' }).selectOption('u0');
+  await expect(capture).toBeDisabled();
+});

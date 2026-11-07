@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-07T03:50:39.757Z",
+  "generated_at_utc": "2026-11-07T04:05:02.723Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-06",
@@ -10,22 +10,22 @@
     "unit_tests": {
       "command": "npm test",
       "result": "pass",
-      "passed": 509,
+      "passed": 512,
       "core": 104,
       "project_and_persistence": 32,
       "learning_and_citations": 33,
       "import_parsing_and_projects": 84,
       "mapping_kernel_generation_and_projects": 67,
-      "knit_program": 189
+      "knit_program": 192
     },
     "production_build": {
       "command": "npm run build",
       "result": "pass",
       "base": "/KnittingTopology/",
       "worker": "separate ES module",
-      "initial_js_kb": 581.44,
+      "initial_js_kb": 585.42,
       "lazy_viewer_js_kb": 582.93,
-      "initial_js_gzip_kb": 186.21,
+      "initial_js_gzip_kb": 187.5,
       "lazy_viewer_js_gzip_kb": 147.17,
       "import_worker_js_kb": 27.85,
       "generation_worker_js_kb": 96.03,
@@ -33,17 +33,16 @@
       "cut_worker_js_kb": 28.28
     },
     "development_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5a-development",
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5b-development",
       "result": "pass",
-      "passed": 29,
+      "passed": 31,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 3,
-      "note": "The colour-key test was then changed to upload the downloaded JSON by path (typing fix) and rerun alone against development: 1/1 passed (tmp/qa/m5a-development-keys)."
+      "duration_minutes_reported": 3.3
     },
     "production_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5a-production",
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5b-production",
       "result": "pass",
-      "passed": 29,
+      "passed": 31,
       "page_or_console_errors": 0,
       "duration_minutes_reported": 2.9
     },
@@ -55,7 +54,7 @@
     },
     "physical_or_manufacturing_validation": false,
     "remote_deployment_tested": false,
-    "milestone": "Two-guide and custom colour keys (M5a)",
+    "milestone": "Knit variants in Compare (M5b)",
     "prior_baseline_only": {
       "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
       "production_network": {
@@ -308,6 +307,19 @@
         "browser: two-guide key switch, custom copy, recolour to exact BMP RGB, guarded removal, Knit Grammar JSON key read without duplication, undo"
       ],
       "not_claimed": "custom colours are the user's; lab script, importer and two-yarn short-row handling remain unconfirmed; no machine-ready output"
+    },
+    "knit_compare": {
+      "available": "Compare tab captures (session only, at most 4) keep the current knit program: mode, key, needles x passes, loops per structure with measurement status, transfers, skipped transfers, check findings, export blockers, unresolved shaping, thumbnail in key RGB",
+      "difference": "cells whose operations differ in meaning from variant 1 (steps per yarn guide and transfer); different needles x passes not compared cell by cell; note when surface, network or measurements differ",
+      "checks": [
+        "snapshot copies cells and key and records metrics",
+        "identical and recoloured custom-key programs: 0 differing cells",
+        "reverse jersey fill: every knitted cell differs",
+        "different swatch size: not compared, inputs differ note",
+        "browser: capture, thumbnail, cell difference, size difference, restore of knit settings",
+        "browser: shape capture without a network; outdated shape preview not capturable"
+      ],
+      "not_claimed": "captured programs are derived and not saved in project files; a difference count is not a physical or knittability comparison"
     }
   },
   "source_sha256": {
@@ -321,13 +333,15 @@
     "scripts/snapshot-verification.mjs": "245dabcec4e2bbf900d474ce67bfcf7992c390df9d2210c81af0069d0db09967",
     "src/adapters/citations.ts": "c6fe9f4ba64d0ec0d7e746d77283cf5904bff16c0991669ffb3b62ce19811027",
     "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
-    "src/app/App.tsx": "b45485f155cd3e41ebd37fae9ab42c31d86b653a6fdfc1bbb9548bae5424996c",
+    "src/app/App.tsx": "d91545ecbd78dee009ec2f30ca362964cfc23600a0137495c725329dff143e15",
     "src/app/knit/CutControls.tsx": "04bc33fea5f1fb0c00d809a55f64f52030e66aa396ad51b2ebebcef5e85e2968",
     "src/app/knit/CutPanel.tsx": "ab9ae7eeb56117cb1391af3052ccf84ca7433d34e453bf2df185d4789d0b9676",
     "src/app/knit/KeyEditor.tsx": "c671f8dfe88bc8d3e2f82bbf6d54da0e6dc5e4ef1b3563b5d8ed911306675771",
     "src/app/knit/KnitBitmap.tsx": "dee68b6c51763f648306c745f197af42f56f0a3885ef51924e236d2547ccae46",
     "src/app/knit/KnitControls.tsx": "4de64d6b1b6755ca0b8790c442651b2c11fca94f1678c33e0ae16a4d72ee0594",
     "src/app/knit/KnitPanel.tsx": "604076b37a46b70dd7c40e4f6546d5e618effef43429c7c8ce3ba57fa352df1e",
+    "src/app/knit/KnitThumb.tsx": "76c02d2c29bdf0ac742fe63c564f12c2b3ffdd15fe20e9a4e450d3de43d76e82",
+    "src/app/knit/KnitVariant.tsx": "6b856d304ef9be340d988caf9913e787166e6019d12605cef01785e2cfb79c29",
     "src/app/knit/TileEditor.tsx": "7395652482d87dc0e9a0c79820e54618eb2702deb715897a77ed6480617c5656",
     "src/app/knit/provenance.ts": "d90ff35293399ea0a980244e76dab6a4dfd76f28a72a76a1f910ded22632bd7d",
     "src/app/knit/useCutPlan.ts": "c1f59295388ed2edef936b67ec4eb66ba596cc1c5eee1b059d17a9ed7205cda8",
@@ -352,6 +366,7 @@
     "src/import/uv-mapping.ts": "3dba2402226a5a87e5edf4aff9504aa086ae44da2202d93ae29dc0e31b7e99cf",
     "src/knit/checks.ts": "8fa59ea4b7490f7fefcd3d7787ac46099d7c6544968e8c4e06a2523cb80c67d3",
     "src/knit/client.ts": "bff509071d756a27874769af4dfc708c1b21a646190f62f00975e5ffea840bf1",
+    "src/knit/compare.ts": "3a501d729d5d807ffd45bdebfb7dd7d769d6acc4e4b465801d7fb378255e5103",
     "src/knit/cube-net.ts": "0cf9383cb8f0af0776fb1be29bb515ca5b9004ca465ed174775f1c370ec616b7",
     "src/knit/custom-keys.ts": "f86690ba66aeacd12b84a72be0915b1f46642e5e6054db322496f93cdd985124",
     "src/knit/cut-client.ts": "2d0fab1e4cbc3020d26a7d6808d6e6da5a8453e1c4c919946dc021212945c382",
@@ -387,7 +402,7 @@
     "src/learning/references.ts": "9b5e91e5bc0b021378f6d93beb1f2ae546e46f929242e3039493691b599b56ce",
     "src/learning/types.ts": "23eaf238e00ddcef0cffe75ae16c78a33bc55228adcab0d13ef448c00064770f",
     "src/main.tsx": "2e321c8d93adfc7e6c1616ebd55e6d2f35d7a114d701bb010172aaeb3e2cab19",
-    "src/styles.css": "bc2308808717fb899de68a81c464b530b8c84aa0e181455b25da4b976fc5615c",
+    "src/styles.css": "7595199ccce46d1f42ad394c0763f5a46d7730256b25e9b2591a1b72c6262f3b",
     "src/viewer/README.md": "24a91c5a7e8fae02d9081cfcdd202befbbdf09c23a65c0ca1e227904ada87fa4",
     "src/viewer/SurfaceViewer.tsx": "d6c40b1958a3a292633f4d274275a8e9fd3bacaa98b062b4f85fdcd80ca30b81",
     "src/viewer/types.ts": "b8f0c83772bd990975b0884bf31e3dc75c312c5ea7a519d3410f5a1af0d865f1",
@@ -403,7 +418,7 @@
     "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
     "tests/browser/cuts.spec.ts": "42beb15ff4544122f02a3c19c4c215726e6268d2e3f7dc5ce86308744e808fee",
     "tests/browser/import.spec.ts": "e4bf91ed8f0fc8fe47e5a15e3aca78fa9860daaeaed3b801267f2efb17d424bd",
-    "tests/browser/knit.spec.ts": "8de2dcf319daa57f52a452699c49c6747fa2a0b3c92e3df5ba8d9aa132ed8a8d",
+    "tests/browser/knit.spec.ts": "87fd78e9d16f3108339b46939043acd580acf8c0452db8238333348779b327e9",
     "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/mapping.spec.ts": "1230fb5074444fad69cb40aa83361e8f5c8cce49d5e49dda23a15cf7e02eea84",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
@@ -431,6 +446,7 @@
     "tests/import/mesh.test.ts": "c29fe4fec88059a954f3c3029bd7b3c1ec58eaaec5ff927ed1e02fdc5cc1f5c2",
     "tests/import/project-import.test.ts": "89fffae2c7ddb6446c601acb8b7fabedd0fa2e31f7802c2d0790155a008753b8",
     "tests/knit/client.test.ts": "b02217827defb39cd783fb6627d08d94c65054de7d1ec7b41198112d01057c7f",
+    "tests/knit/compare.test.ts": "6292fabd4958b338f53451e97ddb935829dfdc7233c6bcef000cc5480852bb01",
     "tests/knit/cube-net.test.ts": "c23c33aab2e1b0b0266bca909f20d5d9c61964e1e80394c3948dd0c9de0bafb6",
     "tests/knit/custom-keys.test.ts": "a3360d578a9181ea42d45c5bc12e4d08e90f5c20e4f3e79c250d78406da9abc1",
     "tests/knit/cuts.test.ts": "0304207655a064be4f36790afc0edb10c64c17405a610ccb1866a5829af7652e",
