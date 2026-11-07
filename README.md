@@ -76,7 +76,7 @@ src/workers/    revision-tagged background generation and progress protocol
 src/adapters/   explicit geometry/projection/project exports
 src/learning/   method lessons, construction diagrams and citation registry
 src/import/     bounded mesh parsing, local diagnostics and import interface
-src/knit/       knit program: Knit Grammar keys, structures, checks and files; plane mapping, rasterization, transfers
+src/knit/       knit program: keys, structures, shaping, surface mapping, cuts, comparison and file exports
 tests/         numerical, project and isolated browser verification
 research/      primary-source register and scientific references
 ```

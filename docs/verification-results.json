@@ -30,18 +30,18 @@
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5b-development",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-development",
     "result": "pass",
-    "passed": 31,
+    "passed": 32,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.3
+    "duration_minutes_reported": 3.4
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5b-production",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-production",
     "result": "pass",
-    "passed": 31,
+    "passed": 32,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 2.9
+    "duration_minutes_reported": 3.2
   },
   "mobile": {
     "viewport_width": 375,
@@ -51,7 +51,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Knit variants in Compare (M5b)",
+  "milestone": "Final knit workflow integration (M5c)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -118,7 +118,7 @@
       "bmp": "4.S52 basic key: 7200 exact, 0 snapped, 0 unknown",
       "page_or_console_errors": 0
     },
-    "available": "shape, network and combined modes on plane, saddle and eligible supplied rectangular OBJ charts, and on a cube opened by a validated whole-crease cut; 4.S52 basic key",
+    "available": "shape, network and combined modes on plane, saddle and eligible supplied rectangular OBJ charts; measured modes on cubes with validated whole-crease cuts and spheres with validated descending pole-to-pole cuts; basic, two-guide and custom keys, with unavailable required operations blocking export",
     "physical_validation": false,
     "lab_rules_confirmed": false,
     "shaping": {
@@ -176,7 +176,7 @@
     "seam_export": "knitting-topology-seam-map JSON v1; meters; revalidated before export",
     "project_schema": "optional knit.cut; derived cut complexes not persisted",
     "flat_layout_generated": "cube whole-crease cuts only",
-    "closed_surface_knit_bitmap_generated": "cube whole-crease cuts only; sphere not supported",
+    "closed_surface_knit_bitmap_generated": "cube whole-crease cuts and sphere descending pole-to-pole cuts only",
     "minimum_cut_guarantee": false,
     "physical_validation": false
   },
@@ -317,5 +317,20 @@
       "browser: shape capture without a network; outdated shape preview not capturable"
     ],
     "not_claimed": "captured programs are derived and not saved in project files; a difference count is not a physical or knittability comparison"
+  },
+  "workflow_integration": {
+    "fixture": "tests/fixtures/import/bent-rectangle-uv.obj; declared millimeters",
+    "mode": "network; typed 31 needles by 23 passes; custom one-guide key",
+    "measurement_note": "test values, not measured gauges; stored for persistence checks, not used to predict physical dimensions in typed mode",
+    "checks": [
+      "supplied OBJ import, accepted topology network and knit generation",
+      "all 713 downloaded BMP pixels match Knit Grammar JSON operation RGB",
+      "24-bit BGR decoding, bottom-up rows and four-byte row padding",
+      "project reload retains supplied mapping, graph, custom key and swatch measurements",
+      "regeneration after loading gives an identical BMP, JSON cells and key"
+    ],
+    "development_and_production": true,
+    "live_pages_deployment_tested": false,
+    "physical_or_machine_validation": false
   }
 }

@@ -47,7 +47,7 @@ Shape mode supports the plane, saddle and supplied rectangular OBJ charts, with 
 
 `ProjectState.knit` (optional) holds the knit settings: mode, key, assignments of network elements to structures, the automatic-transfer switch, check limits and lab-rule switches. `ProjectState.swatches` (optional) is the measurement table. It stores, per structure, stitch width and course height in meters (mm in the UI), with date, gauge, yarn, stitch length and note as entered.
 
-Neither field enters the scientific input signature, so changing them never makes the accepted graph stale. Schema v1 projects without them remain readable, and both fields are validated on load. The program itself is derived from the accepted graph and is not stored. It covers grid cells, provenance and checks.
+Neither field enters the scientific input signature, so changing them never makes the accepted graph stale. Schema v1 projects without them remain readable, and both fields are validated on load. The program itself is derived from the current surface, knit settings and measurements, together with the accepted graph and validated cut where the selected mode requires them; it is not stored. Shape mode on open surfaces does not require a network. The program covers grid cells, provenance and checks.
 
 Grid: needle j runs left to right, and pass 1 is the bottom row. Every program cell records its source (graph cell, edge, node, automatic transfer or background), so provenance works in both directions.
 

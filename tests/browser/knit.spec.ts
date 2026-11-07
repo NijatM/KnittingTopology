@@ -557,3 +557,77 @@ test('compare tab captures a shape program without a network, and not an outdate
   await page.getByRole('combobox', { name: 'Start edge' }).selectOption('u0');
   await expect(capture).toBeDisabled();
 });
+
+test('supplied OBJ topology exports every bitmap pixel faithfully and regenerates after project load', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.locator('.surface-import > summary').click();
+  await page
+    .getByLabel('Import surface file', { exact: true })
+    .setInputFiles('tests/fixtures/import/bent-rectangle-uv.obj');
+  await page.getByRole('button', { name: 'Import as mm', exact: true }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('SUPPLIED OBJ UV CHART');
+  await page.getByRole('button', { name: /^(Generate|Regenerate) network$/ }).click();
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await expect(page.locator('.progress-panel')).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Program size' }).selectOption('typed');
+  // An odd width exercises BMP row padding; these are pixel counts, not physical dimensions.
+  await page.getByRole('spinbutton', { name: 'Needles', exact: true }).fill('31');
+  await page.getByRole('spinbutton', { name: 'Passes', exact: true }).fill('23');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not measured gauges; retained to check project measurement persistence.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('6');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('4');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.locator('.knit-key-editor > summary').click();
+  await page.getByRole('button', { name: 'Make a custom copy', exact: true }).click();
+  await page.getByLabel('Colour of knit front', { exact: true }).fill('#123456');
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap, 31 needles by 23 passes/ });
+  await expect(bitmap).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+
+  const bmp = await downloadOf(page, 'Bitmap BMP');
+  const grammar = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Knit Grammar JSON')));
+  const cells = Uint8Array.from(atob(grammar.cells), (c) => c.charCodeAt(0));
+  expect([grammar.needles, grammar.passes, cells.length]).toEqual([31, 23, 31 * 23]);
+  expect(new Set(cells).size).toBeGreaterThan(1);
+  const header = new DataView(bmp.buffer, bmp.byteOffset, bmp.byteLength);
+  expect([header.getInt32(18, true), header.getInt32(22, true)]).toEqual([31, 23]);
+  expect(header.getUint16(28, true)).toBe(24);
+  const offset = header.getUint32(10, true);
+  const stride = Math.ceil((31 * 3) / 4) * 4;
+  expect(bmp.length).toBe(offset + stride * 23);
+  // Decode the downloaded BMP independently: BGR, bottom-up; JSON row 0 is the last pass.
+  for (let y = 0; y < 23; y++) {
+    for (let x = 0; x < 31; x++) {
+      const pixel = offset + (22 - y) * stride + x * 3;
+      const rgb = grammar.key.ops[cells[y * 31 + x]!].rgb;
+      expect([bmp[pixel + 2], bmp[pixel + 1], bmp[pixel]]).toEqual(rgb);
+    }
+  }
+
+  const pending = page.waitForEvent('download');
+  await page.getByTitle('Save project JSON (⌘/Ctrl S)', { exact: true }).click();
+  const saved = await pending;
+  const project = JSON.parse(new TextDecoder().decode(await bytes(saved))).project;
+  expect(project.surface.mapping).toBe('rectangular-obj-uv-v1');
+  expect(project.graph.cells.length).toBeGreaterThan(0);
+  expect(project.knit.keys[0].id).toBe(grammar.key.id);
+  expect(project.swatches[0]).toMatchObject({ stitchWidth: 0.006, courseHeight: 0.004 });
+  await page.getByRole('button', { name: /^Plane / }).click();
+  await page.getByLabel('Load project file').setInputFiles(await saved.path());
+  await expect(page.locator('.canvas-heading')).toContainText('Connected geometric network');
+  await expect(page.getByRole('combobox', { name: 'Knit key' })).toHaveValue(grammar.key.id);
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(bitmap).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(bmp);
+  const restored = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Knit Grammar JSON'))
+  );
+  expect(restored.cells).toBe(grammar.cells);
+  expect(restored.key).toEqual(grammar.key);
+});

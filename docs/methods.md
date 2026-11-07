@@ -1,6 +1,8 @@
 # Methods and source attribution
 
-Knitting Topology explores geometric cell networks on analytic surfaces. It separates the support surface, coarse connections, integer subdivision density, pattern transformation and geometric fitting. Its outputs do not define knitted loops, yarn paths, machine operations or validated structural behavior.
+Knitting Topology explores geometric cell networks on analytic surfaces and eligible supplied OBJ charts. It separates the support surface, coarse connections, integer subdivision density, pattern transformation and geometric fitting. These geometric networks are separate from the design-level loop layouts and operation bitmaps produced by the knit program. Neither representation establishes machine-ready output or validated structural behavior.
+
+For the knit construction, source relationships and limits, see [open-surface shaping](knit-shaping.md), [network mapping and colour keys](knit-network-mapping.md), [cut preparation](closed-surface-cuts.md) and [closed-surface knitting](closed-surface-knitting.md). These documents distinguish the stages adapted from Popescu's thesis from project constructions for distance fields, needle placement, cube nets and sphere courses.
 
 The learning panel explains the selected method, offers a manually loaded example and supplies citations. Loading an example changes the editable project; generation remains an explicit action. The diagrams are original illustrations generated from this implementation, not reproductions of paper figures.
 

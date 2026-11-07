@@ -197,3 +197,14 @@ See [closed-surface knitting](closed-surface-knitting.md). Pole openings are rep
   - a shape program captured without a network;
   - an outdated shape preview that cannot be captured.
 - Not claimed: captured programs are derived and are not saved in project files. A difference count compares operation meanings, not physical results.
+
+## Final knit workflow integration (M5c) — 6 November 2026
+
+- **512/512 unit tests passed** across 24 files (192 knit tests); the final unit run took 18.56 seconds. Type checking and the production build passed.
+- **32/32 browser tests passed against development** (3.4 minutes) and **32/32 against production** (3.2 minutes), with no page or console errors. Production ran at `/KnittingTopology/`. The added export test also passed individually on development before the full runs.
+- The added end-to-end test imports the supplied bent rectangular OBJ chart in millimeters, generates its geometric network and creates a 31-needle × 23-pass network bitmap with a custom key. It independently decodes the downloaded 24-bit BMP and compares all 713 pixels with the operation colours in the downloaded Knit Grammar JSON, including bottom-up row order and padded rows. The fixture uses more than one operation.
+- Saving, replacing the active surface, and loading the project restores the supplied chart, graph, custom key and swatch measurements. Regenerating produces an identical BMP and identical JSON operation cells and key. Measurements in this test are **test values, not measured gauges**; typed dimensions describe pixels.
+- The full browser suites also exercise cube and sphere cut/knit workflows, curved combined-mode generation, stale and unresolved export blocking, custom-key editing, comparison, undo and project restoration. Existing analytic and invalid-input tests remain part of the unit suite.
+- Documentation now distinguishes the geometric network from the derived knit program and explicitly states that open-surface Shape mode needs no network. Current machine-readable capability summaries include sphere support and custom/two-guide keys; earlier milestone entries remain historical records. Local documentation links were checked for missing targets.
+- The initial JavaScript bundle remains 585.42 kB (187.50 kB gzip); the lazy viewer is 582.93 kB (147.17 kB gzip). No runtime code or dependencies changed in this milestone.
+- This verifies local integration and file fidelity. A live Pages deployment, lab importer behaviour, machine execution and physical knitting were not tested.
