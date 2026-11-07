@@ -208,3 +208,11 @@ See [closed-surface knitting](closed-surface-knitting.md). Pole openings are rep
 - Documentation now distinguishes the geometric network from the derived knit program and explicitly states that open-surface Shape mode needs no network. Current machine-readable capability summaries include sphere support and custom/two-guide keys; earlier milestone entries remain historical records. Local documentation links were checked for missing targets.
 - The initial JavaScript bundle remains 585.42 kB (187.50 kB gzip); the lazy viewer is 582.93 kB (147.17 kB gzip). No runtime code or dependencies changed in this milestone.
 - This verifies local integration and file fidelity. A live Pages deployment, lab importer behaviour, machine execution and physical knitting were not tested.
+
+## CI sphere audit timing correction — 6 November 2026
+
+[Pages run 42338491659](https://github.com/NijatM/KnittingTopology/actions/runs/42338491659) on commit `72010a9` passed type checking and 511 unit tests, but the sphere seam audit exceeded its explicit 30-second timeout. No assertion failure was reported. The workflow stopped before the production build and Pages configuration.
+
+The regression checked sphere sizes `1e-6`, `0.12` and `1000` meters inside one test. These are now three independently timed cases, each retaining the same 30-second budget, 128/127/1 strip counts and all cell-count, boundary, Euler and vertex-count assertions. No scale or assertion was removed, and runtime code is unchanged.
+
+`npm run check` passed locally: type checking, **514/514 unit tests** across 24 files (106 core, 192 knit; 18.04 seconds), and the production build. The test count increased by two because one combined test became three cases. Formatting passed. The M5c browser results above are retained; browser tests were not rerun for this test-only change, and production asset names remain unchanged. A new workflow run on the corrected commit is still required to verify the GitHub runner and deploy.

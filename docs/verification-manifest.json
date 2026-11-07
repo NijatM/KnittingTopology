@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-07T04:20:57.007Z",
+  "generated_at_utc": "2026-11-07T04:29:30.996Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-06",
@@ -10,13 +10,14 @@
     "unit_tests": {
       "command": "npm test",
       "result": "pass",
-      "passed": 512,
-      "core": 104,
+      "passed": 514,
+      "core": 106,
       "project_and_persistence": 32,
       "learning_and_citations": 33,
       "import_parsing_and_projects": 84,
       "mapping_kernel_generation_and_projects": 67,
-      "knit_program": 192
+      "knit_program": 192,
+      "duration_seconds": 18.04
     },
     "production_build": {
       "command": "npm run build",
@@ -37,14 +38,16 @@
       "result": "pass",
       "passed": 32,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 3.4
+      "duration_minutes_reported": 3.4,
+      "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
     },
     "production_browser_tests": {
       "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-production",
       "result": "pass",
       "passed": 32,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 3.2
+      "duration_minutes_reported": 3.2,
+      "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
     },
     "mobile": {
       "viewport_width": 375,
@@ -54,7 +57,7 @@
     },
     "physical_or_manufacturing_validation": false,
     "remote_deployment_tested": false,
-    "milestone": "Final knit workflow integration (M5c)",
+    "milestone": "CI sphere seam audit timing correction after M5c",
     "prior_baseline_only": {
       "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
       "production_network": {
@@ -335,6 +338,19 @@
       "development_and_production": true,
       "live_pages_deployment_tested": false,
       "physical_or_machine_validation": false
+    },
+    "ci_verification": {
+      "run_url": "https://github.com/NijatM/KnittingTopology/actions/runs/42338491659",
+      "commit": "72010a9",
+      "result": "failed",
+      "failed_stage": "unit tests, before production build and Pages configuration",
+      "unit_tests_passed": 511,
+      "unit_tests_failed": 1,
+      "failure": "Combined three-scale sphere seam audit exceeded its explicit 30000 ms test timeout; no assertion failure was reported.",
+      "local_correction": "The same three scales and assertions run as independent parameterized cases, each with a 30000 ms timeout. No skipped coverage or runtime changes.",
+      "local_check_command": "npm run check",
+      "local_check_result": "pass",
+      "corrected_remote_run_verified": false
     }
   },
   "source_sha256": {
@@ -437,7 +453,7 @@
     "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/mapping.spec.ts": "1230fb5074444fad69cb40aa83361e8f5c8cce49d5e49dda23a15cf7e02eea84",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
-    "tests/core/audit.test.ts": "2766318b75fb01907bcd6433bc640a1a9ab06aacb2d2c11b504e3d69ccd1e3fb",
+    "tests/core/audit.test.ts": "7624919fdc001697e8053b40a5df3a5a351045cf53ba1334e296be29966f7cf7",
     "tests/core/generation.test.ts": "a6fef7bbdfdb061b08cd42b2067487c06d764040b8f02e389a273d60c072d3c1",
     "tests/fixtures/import/bent-rectangle-uv.obj": "fb60c86f2cd1ee101d8a0f83ad414eed16e942baf7173abc6338f58bd1f39fb9",
     "tests/fixtures/import/collapsed-tetra.obj": "319baeb3642c57134589e03541345d6accd34b4b650e224584d77d2e1e821ed3",

@@ -164,8 +164,10 @@ describe('bounded independent-audit regressions', () => {
     );
     expect(b.graph.coarseTopology!.strips.map((s) => s.subdivisions)).toEqual([2, 3, 5]);
   });
-  it('integer-keyed seam nodes survive 128/127/1 strips across sphere size scales', () => {
-    for (const size of [1e-6, 0.12, 1000]) {
+  // Each independent scale gets its own budget on slower CI runners.
+  it.each([1e-6, 0.12, 1000])(
+    'integer-keyed seam nodes survive 128/127/1 strips on a %s m sphere',
+    (size) => {
       const x = input('sphere');
       x.surface.size = size;
       x.parameters.spacing = size;
@@ -178,8 +180,9 @@ describe('bounded independent-audit regressions', () => {
       expect(r.statistics.boundaryEdges).toBe(0);
       expect(r.statistics.euler).toBe(2);
       expect(r.statistics.vertices).toBe(r.statistics.cells + 2);
-    }
-  }, 30000);
+    },
+    30000
+  );
   it('shared validators accept scientific negative saddle/seed and enforce project output caps', () => {
     const x = input('saddle');
     expect(() => validateGenerationInput(x)).not.toThrow();

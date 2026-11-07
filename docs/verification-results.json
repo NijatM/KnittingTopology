@@ -7,13 +7,14 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 512,
-    "core": 104,
+    "passed": 514,
+    "core": 106,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 192
+    "knit_program": 192,
+    "duration_seconds": 18.04
   },
   "production_build": {
     "command": "npm run build",
@@ -34,14 +35,16 @@
     "result": "pass",
     "passed": 32,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.4
+    "duration_minutes_reported": 3.4,
+    "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
   },
   "production_browser_tests": {
     "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5c-production",
     "result": "pass",
     "passed": 32,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.2
+    "duration_minutes_reported": 3.2,
+    "evidence_scope": "Retained M5c run; not rerun for this test-only timing correction. Runtime source and production asset names are unchanged."
   },
   "mobile": {
     "viewport_width": 375,
@@ -51,7 +54,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Final knit workflow integration (M5c)",
+  "milestone": "CI sphere seam audit timing correction after M5c",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -332,5 +335,18 @@
     "development_and_production": true,
     "live_pages_deployment_tested": false,
     "physical_or_machine_validation": false
+  },
+  "ci_verification": {
+    "run_url": "https://github.com/NijatM/KnittingTopology/actions/runs/42338491659",
+    "commit": "72010a9",
+    "result": "failed",
+    "failed_stage": "unit tests, before production build and Pages configuration",
+    "unit_tests_passed": 511,
+    "unit_tests_failed": 1,
+    "failure": "Combined three-scale sphere seam audit exceeded its explicit 30000 ms test timeout; no assertion failure was reported.",
+    "local_correction": "The same three scales and assertions run as independent parameterized cases, each with a 30000 ms timeout. No skipped coverage or runtime changes.",
+    "local_check_command": "npm run check",
+    "local_check_result": "pass",
+    "corrected_remote_run_verified": false
   }
 }
