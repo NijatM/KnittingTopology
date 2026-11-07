@@ -3,7 +3,7 @@ import { useState, type ChangeEvent } from 'react';
 import type { KnitSettings, PatternGraph, SwatchEntry } from '../../core/types';
 import type { ViewerSelection } from '../../viewer/types';
 import type { KnitBuild } from '../../knit/program';
-import { BASIC } from '../../knit/keys';
+import { BASIC, TWO, settingsKey } from '../../knit/keys';
 import { structuresForKey, type Structure } from '../../knit/structures';
 import { SOURCE } from '../../knit/rasterize';
 import { bmpBytes, grammarJson } from '../../knit/files';
@@ -12,6 +12,7 @@ import { parseSwatchFile, swatchFileText, validateSwatches } from '../../knit/ga
 import { download, projectFilename } from '../../adapters/export';
 import { loopText } from './provenance';
 import { referencesBibtex, referencesCSL } from '../../learning/citations';
+import KeyEditor from './KeyEditor';
 import TileEditor from './TileEditor';
 
 interface Props {
@@ -168,7 +169,12 @@ function SwatchForm({
 
 export default function KnitPanel(props: Props) {
   const { build, settings: s, swatches, graph } = props;
-  const STRUCTURES = structuresForKey(BASIC, s.tiles);
+  const key = settingsKey(s);
+  // Measurements are per structure id, whatever the key: list the structures of both yarn-guide modes.
+  const STRUCTURES = [
+    ...structuresForKey(BASIC, s.tiles, s.keys),
+    ...structuresForKey(TWO, s.tiles, s.keys),
+  ].filter((x, i, all) => all.findIndex((y) => y.id === x.id) === i);
   const nameOf = (id: string) => STRUCTURES.find((x) => x.id === id)?.name ?? id;
   const [importError, setImportError] = useState('');
   const program = build.ok ? build.program : null;
@@ -510,7 +516,8 @@ export default function KnitPanel(props: Props) {
         </div>
       )}
 
-      <TileEditor settings={s} swatches={swatches} onChange={props.onSettings} />
+      <KeyEditor settings={s} onChange={props.onSettings} />
+      <TileEditor key={key.id} settings={s} swatches={swatches} onChange={props.onSettings} />
       <h3 className="knit-heading">Measurement table</h3>
       <p className="hint">
         From your swatches; values are never filled in for you. Unmeasured structures use the jersey
@@ -659,7 +666,7 @@ export default function KnitPanel(props: Props) {
           </label>
         ))}
       </div>
-      <p className="hint">{BASIC.credit}</p>
+      <p className="hint">{key.credit ?? BASIC.credit}</p>
     </div>
   );
 }

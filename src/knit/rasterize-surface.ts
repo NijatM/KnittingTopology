@@ -80,7 +80,7 @@ export function rasterizeSurfaceNetwork(
 ): Raster {
   const { w, h, placements } = layout,
     issues: string[] = [];
-  const library = structuresForKey(key, settings.tiles),
+  const library = structuresForKey(key, settings.tiles, settings.keys),
     structures: Raster['structures'] = [],
     slots = new Map<string, number>(),
     unknown = new Set<string>();

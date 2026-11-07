@@ -1,7 +1,7 @@
 // Knit program from the accepted network: size -> mapping -> structures per loop -> operations -> automatic
 // transfers -> checks. Derived data; nothing here is stored in the project.
 import type { GenerationContext, KnitSettings, ProjectState, SwatchEntry } from '../core/types';
-import { defaultFill, keyById, BASIC, type Key } from './keys';
+import { defaultFill, settingsKey, type Key } from './keys';
 import { isTwoLayer, tileOp } from './structures';
 import { knitAvailable, planeMapping, programSize, type KnitMapping } from './mapping';
 import { rasterizeNetwork, type Raster } from './rasterize';
@@ -101,7 +101,7 @@ export function buildKnitProgram(
     return buildTypedSurfaceProgram(project, settings, swatches, staleNetwork, context);
   const size = programSize(project.surface, settings, swatches);
   if (!size.ok) return { ok: false, reason: size.reason };
-  const key = keyById(settings.keyId) ?? BASIC;
+  const key = settingsKey(settings);
   const mapping = planeMapping(project.surface, size.needles, size.passes);
   const raster = rasterizeNetwork(project.graph, project.surface, mapping, settings, key);
   const { w, h } = raster,

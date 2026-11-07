@@ -163,3 +163,23 @@ See [closed-surface knitting](closed-surface-knitting.md). Needle stops are repo
 - The browser test generates the sphere from the meridian preset in shape mode, on both start sides, and in combined mode. It reads the report and checks that BMP export is enabled. Local sphere screenshots were inspected.
 
 See [closed-surface knitting](closed-surface-knitting.md). Pole openings are reported, not drawn, because the colour key has no gather operation. Long holds near the poles can be flagged by Knit Grammar's held-loop check. Short-row turns add no wrap or tuck; the lab is still to confirm this. This milestone closes M4. Sewing order, face-interior cube cuts, other sphere cuts, the coarse-cell rule on closed surfaces, machine simulation and physical validation remain outside it.
+
+## Two-guide and custom colour keys (M5a) — 6 November 2026
+
+- **509/509 unit tests passed** across 23 files, including 189 knit tests. Type checking, formatting and the production build passed.
+- **29/29 browser tests passed against development** (3.0 minutes) and **29/29 against production** (2.9 minutes), with no page or console errors. After the development run, the new colour-key test was changed to upload its downloaded JSON by path (a typing fix) and passed again alone against development.
+- The 25 new unit tests check:
+  - operation lookup by meaning, translation between keys and names built from meanings;
+  - custom key validation and limits, and saving custom keys and their tiles in knit settings;
+  - built-in structures under a renamed and recoloured copy (same meaning in every cell), structures dropped when an operation is missing, and class-key tiles offered only in copies of the same mode;
+  - key switching (unavailable assignments move to the fill or are switched off) and the removal guards;
+  - reading a key from a Knit Grammar pattern JSON (class key refused, identical key not duplicated, taken id renamed, invalid files refused);
+  - programs: custom RGB in the BMP, the key in the Knit Grammar JSON, the custom marker in the report, and an automatic transfer skipped and listed when the key cannot express it.
+- Two-guide shaping is checked on the existing chart fixtures (test values, not measured gauges):
+  - a sector knits short rows with every loop k2f and every hold fl2, with no blocker;
+  - a narrowing trapezoid is blocked because its decreases need transfers;
+  - with the tuck rule, a widening trapezoid tucks new loops as t2f, and is blocked when the custom key lacks the tuck pair;
+  - a custom basic copy without sideways transfers blocks the narrowing trapezoid;
+  - combined mode with double knit and birdseye on a plane has no blocker. The symbolic parent check now follows every bed a yarn guide works; one-guide results are unchanged (all earlier tests pass).
+- The browser test switches to the two-guide key, makes a custom copy, recolours an operation and finds the exact RGB in the exported BMP. It also checks guarded removal, reading the exported Knit Grammar JSON back without a duplicate key, and undo.
+- Not claimed: custom colours are the user's choice; the lab's script, importer and handling of two yarns on short rows are unconfirmed. Output remains design-level and is not verified until knitted.

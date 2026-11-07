@@ -188,7 +188,7 @@ export function rasterizeNetwork(
   const w = mapping.needles,
     h = mapping.passes,
     issues: string[] = [];
-  const library = structuresForKey(key, settings.tiles);
+  const library = structuresForKey(key, settings.tiles, settings.keys);
   const byId = new Map(library.map((s) => [s.id, s]));
   const structures: Structure[] = [];
   const slot = new Map<string, number>();

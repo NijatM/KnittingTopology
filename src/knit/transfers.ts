@@ -5,7 +5,8 @@
 //   - placed by a plain knit (kf / kb): it becomes knit + transfer across (kfxb / kbxf);
 //   - placed by a transfer across from the new bed (kfxb / kbxf): the transfer is dropped (kf / kb).
 // Two-layer structures (tubular, double knit) are left alone: their bed changes are intended. One-guide keys only.
-import { otherBed, type Bed, type Key, type Op } from './keys';
+// Operations are found by meaning, so custom keys work; when the key lacks the needed one, the change is skipped.
+import { findOp, meaningName, otherBed, type Bed, type Key, type Move, type Op } from './keys';
 import { imageIndex, UNKNOWN } from './grid';
 
 export interface TransferChange {
@@ -23,8 +24,12 @@ export interface SkippedTransfer {
   reason: string;
 }
 
-const PLAIN: Record<Bed, string> = { front: 'kf', back: 'kb' };
-const ACROSS: Record<Bed, string> = { front: 'kfxb', back: 'kbxf' };
+const knitThen = (op: Op | null, bed: Bed, move: Move) =>
+  !!op &&
+  op.steps.length === 1 &&
+  op.steps[0]!.action === 'knit' &&
+  op.steps[0]!.bed === bed &&
+  op.move === move;
 
 /** Returns a new cell array; `twoLayer(i)` says whether the structure at image cell i is two-layer. */
 export function insertTransfers(
@@ -37,9 +42,7 @@ export function insertTransfers(
   const out = cells.slice(),
     changes: TransferChange[] = [],
     skipped: SkippedTransfer[] = [];
-  const index = new Map(key.ops.map((o, i) => [o.id, i]));
-  const ids = [...Object.values(PLAIN), ...Object.values(ACROSS)];
-  if (key.mode !== 1 || ids.some((id) => !index.has(id))) return { cells: out, changes, skipped };
+  if (key.mode !== 1) return { cells: out, changes, skipped };
   const opOf = (i: number): Op | null => (out[i]! < UNKNOWN ? (key.ops[out[i]!] ?? null) : null);
 
   // per needle and bed: whether a loop sits there, the pass that placed it (-2: it came from a neighbouring
@@ -66,23 +69,32 @@ export function insertTransfers(
         const p = placed[o][j]!,
           pi = p >= 0 ? imageIndex(w, h, j, p) : -1,
           prev = pi >= 0 ? opOf(pi) : null;
-        let to: string | null = null;
+        let to: [Bed, Move] | null = null;
         if (p < 0)
           skipped.push({ needle: j, pass: k, reason: 'the loop came from a neighbouring needle' });
         else if (twoLayer(pi)) to = null;
         else if (tucked[o][j])
           skipped.push({ needle: j, pass: p, reason: 'tucks on the old bed in between' });
-        else if (prev?.id === PLAIN[o]) to = ACROSS[o];
-        else if (prev?.id === ACROSS[b]) to = PLAIN[b];
+        else if (knitThen(prev, o, 'none')) to = [o, 'across'];
+        else if (knitThen(prev, b, 'across')) to = [b, 'none'];
         else
           skipped.push({
             needle: j,
             pass: p,
             reason: `the loop was placed by ${prev?.name ?? 'an unknown operation'}`,
           });
+        const toOp = to ? findOp(key, [{ action: 'knit', bed: to[0] }], to[1]) : -1;
+        if (to && toOp < 0) {
+          skipped.push({
+            needle: j,
+            pass: p,
+            reason: `the key has no ${meaningName([{ action: 'knit', bed: to[0] }], to[1])} operation`,
+          });
+          to = null;
+        }
         if (to) {
-          changes.push({ needle: j, pass: p, from: prev!.id, to, forPass: k });
-          out[pi] = index.get(to)!;
+          changes.push({ needle: j, pass: p, from: prev!.id, to: key.ops[toOp]!.id, forPass: k });
+          out[pi] = toOp;
           loop[o][j] = 0;
           loop[b][j] = 1;
         }

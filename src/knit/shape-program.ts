@@ -20,7 +20,7 @@ import {
 import type { NetworkChart } from './rasterize-surface';
 import { buildShapeGeometry } from './shape-geometry';
 import { placeShapeNeedles } from './shape-needles';
-import { BASIC, floatIndex, keyById } from './keys';
+import { findOp, floatIndex, meaningName, settingsKey, type Step } from './keys';
 import { structuresForKey, isTwoLayer, tileOp } from './structures';
 import { gaugeOf, GAUGE_REFERENCE, SPACING_RANGE } from './gauge';
 import { imageIndex } from './grid';
@@ -54,10 +54,10 @@ export function buildShapeProgram(
       ok: false,
       reason: 'Shape mode needs finite measured stitch dimensions in the measurement-table range.',
     };
-  const key = keyById(settings.keyId) ?? BASIC;
-  if (key.mode !== 1)
-    return { ok: false, reason: 'Shape mode currently supports the one-guide basic key.' };
-  const structure = structuresForKey(key, settings.tiles).find((s) => s.id === settings.cells.fill);
+  const key = settingsKey(settings);
+  const structure = structuresForKey(key, settings.tiles, settings.keys).find(
+    (s) => s.id === settings.cells.fill
+  );
   if (!structure)
     return { ok: false, reason: 'The shape fill structure is not available with this key.' };
   try {
@@ -165,7 +165,8 @@ export function buildShapeProgram(
             context,
             chart
           );
-    const placementAt = new Int32Array(w * h).fill(-1);
+    const placementAt = new Int32Array(w * h).fill(-1),
+      newLoopGaps: ShapeStep[] = [];
     let cells: Uint8Array = new Uint8Array(w * h).fill(floatIndex(key));
     const opIndex = new Map(key.ops.map((o, i) => [o.id, i]));
     if (!shaping)
@@ -182,10 +183,21 @@ export function buildShapeProgram(
       const op = opIndex.get(id);
       if (op === undefined) throw new Error(`The shape tile uses an unavailable operation: ${id}.`);
       cells[i] = op;
-      // The first course is the cast-on boundary, not a shaping increase.
+      // The first course is the cast-on boundary, not a shaping increase. A new loop is tucked with the same
+      // guides and beds as the stitch it replaces.
       if (shaping && x.course > 0 && !x.parents.length && settings.newLoop === 'tuck') {
-        const bed = key.ops[op]!.steps[0]!.bed;
-        cells[i] = opIndex.get(bed === 'front' ? 'tf' : 'tb')!;
+        const steps = key.ops[op]!.steps.map((s): Step =>
+          s.action === 'knit' ? { ...s, action: 'tuck' } : s
+        );
+        const tuck = findOp(key, steps);
+        if (tuck >= 0) cells[i] = tuck;
+        else
+          newLoopGaps.push({
+            pass: x.course + 1,
+            needle: x.needle,
+            role: 'increase',
+            reason: `The key has no ${meaningName(steps, 'none')} operation for the new loop.`,
+          });
       }
     }
     const transfers = settings.autoTransfers
@@ -194,7 +206,7 @@ export function buildShapeProgram(
         )
       : { cells, changes: [], skipped: [] };
     cells = transfers.cells;
-    const unresolved: ShapeStep[] = shaping ? [...needles.unresolved] : [];
+    const unresolved: ShapeStep[] = shaping ? [...needles.unresolved, ...newLoopGaps] : [];
     for (const move of shaping ? needles.moves : []) {
       // ShapeMove pass and forPass count from one; needle indices count from zero.
       const i = imageIndex(w, h, move.needle, move.pass - 1),
@@ -209,12 +221,13 @@ export function buildShapeProgram(
         targetOp = key.ops[cells[target]!]!;
       if (!reason && targetOp.steps[0]?.bed !== old.steps[0]?.bed)
         reason = 'Required sideways transfer and bed change cannot share one operation.';
+      const side = move.to < move.needle ? 'left' : 'right',
+        shift = reason ? -1 : findOp(key, old.steps, side);
+      if (!reason && shift < 0)
+        reason = `The key has no ${meaningName(old.steps, side)} operation.`;
       if (reason)
         unresolved.push({ pass: move.pass, needle: move.needle, role: 'transfer', reason });
-      else
-        cells[i] = opIndex.get(
-          `${old.steps[0]!.bed === 'front' ? 'kf' : 'kb'}x${move.to < move.needle ? 'l' : 'r'}`
-        )!;
+      else cells[i] = shift;
     }
     context?.progress?.(0.9, 'Checking shaping connectivity and operations');
     const shape: ShapeResult = {
@@ -261,6 +274,11 @@ export function buildShapeProgram(
             'Short-row turns add no wrap or tuck; confirm this convention with the lab.',
             'Transfer scheduling uses operations after the pass; lab timing and travel settings are recorded, not machine instructions.',
           ]),
+      ...(shaping && key.mode === 2
+        ? [
+            'Two yarn guides: short rows hold both yarns at the turns, and the key has no transfer; confirm this with the lab.',
+          ]
+        : []),
       ...(gauge.assumed
         ? ['Shape dimensions for the fill are assumed = jersey (not measured for this structure).']
         : []),

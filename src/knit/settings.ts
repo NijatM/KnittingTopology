@@ -1,7 +1,8 @@
 // Knit program settings: defaults and bounded validation for project files.
 import type { KnitCellRule, KnitSettings } from '../core/types';
 import { MAX_GRAPH_CELLS, MAX_GRAPH_EDGES } from '../core/limits';
-import { PRESET_KEYS } from './keys';
+import { PRESET_KEYS, settingsKey, validateKeys } from './keys';
+import { structuresForKey } from './structures';
 import { DEFAULT_LIMITS } from './checks';
 import { MAX_SIDE } from './grid';
 import { validateTiles } from './tiles';
@@ -70,11 +71,11 @@ function rule(v: unknown): KnitCellRule {
 /** Validated copy of knit settings; throws a descriptive Error. */
 export function validateKnitSettings(value: unknown): KnitSettings {
   const s = obj(value, 'knit settings');
-  const keyId = pick(
-    s.keyId,
-    'knit key',
-    PRESET_KEYS.map((k) => k.id)
-  );
+  const keys = s.keys === undefined ? undefined : validateKeys(s.keys);
+  const keyId = pick(s.keyId, 'knit key', [
+    ...PRESET_KEYS.map((k) => k.id),
+    ...(keys ?? []).map((k) => k.id),
+  ]);
   const size = obj(s.size, 'program size');
   const source = pick(size.source, 'program size source', ['gauge', 'typed'] as const);
   const cells = obj(s.cells, 'cell assignment');
@@ -128,7 +129,8 @@ export function validateKnitSettings(value: unknown): KnitSettings {
           },
         }
       : {}),
-    ...(s.tiles === undefined ? {} : { tiles: validateTiles(s.tiles) }),
+    ...(keys === undefined ? {} : { keys }),
+    ...(s.tiles === undefined ? {} : { tiles: validateTiles(s.tiles, keys) }),
     size:
       source === 'gauge'
         ? { source }
@@ -171,5 +173,50 @@ export function validateKnitSettings(value: unknown): KnitSettings {
       ] as const),
       travel: pick(lab.travel, 'yarn guide travel', ['same-stroke', 'two-strokes'] as const),
     },
+  };
+}
+
+/**
+ * Settings with another key. Cell assignments whose structure is unavailable with that key move to its fill
+ * (the current fill if available, otherwise its first structure); edge lines and node marks are switched off.
+ * `reset` counts the changed assignments.
+ */
+export function withKey(s: KnitSettings, keyId: string): { settings: KnitSettings; reset: number } {
+  const library = structuresForKey(settingsKey({ keyId, keys: s.keys }), s.tiles, s.keys),
+    has = (id: string) => library.some((x) => x.id === id),
+    fill = has(s.cells.fill) ? s.cells.fill : library[0]!.id;
+  let reset = 0;
+  const keep = (id: string) => (has(id) ? id : (reset++, fill));
+  const keepOrOff = (id: string | null) => (id === null || has(id) ? id : (reset++, null));
+  if (fill !== s.cells.fill) reset++;
+  const r = s.cells.rule;
+  const rule: KnitCellRule =
+    r.kind === 'sides'
+      ? {
+          kind: r.kind,
+          bySides: Object.fromEntries(Object.entries(r.bySides).map(([k, v]) => [k, keep(v)])),
+        }
+      : r.kind === 'uniform'
+        ? r
+        : { kind: r.kind, palette: r.palette.map(keep) };
+  return {
+    settings: {
+      ...s,
+      keyId,
+      cells: {
+        fill,
+        rule,
+        overrides: Object.fromEntries(
+          Object.entries(s.cells.overrides).map(([k, v]) => [k, keep(v)])
+        ),
+      },
+      edges: { ...s.edges, structure: keepOrOff(s.edges.structure) },
+      nodes: {
+        ...s.nodes,
+        structure: keepOrOff(s.nodes.structure),
+        extraordinary: keepOrOff(s.nodes.extraordinary),
+      },
+    },
+    reset,
   };
 }

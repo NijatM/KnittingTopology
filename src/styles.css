@@ -1671,7 +1671,8 @@ kbd {
   margin-top: 0;
 }
 .knit-pair input:not([type='number']),
-.swatch-form input {
+.swatch-form input,
+.knit-key-editor input:not([type='color']):not([type='file']) {
   width: 100%;
   min-width: 0;
   background: var(--field);
@@ -1807,6 +1808,39 @@ kbd {
   height: 32px;
   font-size: 8px;
   padding: 0;
+}
+.knit-key-ops {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.knit-key-ops li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0;
+}
+.knit-key-ops li > span {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.knit-key-ops input[type='color'],
+.knit-key-builder input[type='color'] {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+}
+.knit-key-swatch {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+}
+.knit-key-builder {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 8px;
 }
 .knit-tile-editor .inline-actions {
   justify-content: space-between;

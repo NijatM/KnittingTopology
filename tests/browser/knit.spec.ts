@@ -426,3 +426,62 @@ test('cube knit program from a validated crease cut: flat net, stops, seams and 
   await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
   await expect(sidebar).not.toContainText('Typed needles');
 });
+
+test('colour keys: two-guide key, custom copy, recolour, guarded removal, Knit Grammar key and undo', async ({
+  page,
+}) => {
+  await planeNetwork(page);
+  await page.getByRole('combobox', { name: 'Program size' }).selectOption('typed');
+  await page.getByRole('spinbutton', { name: 'Needles' }).fill('30');
+  await page.getByRole('spinbutton', { name: 'Passes' }).fill('20');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+
+  // the two-guide class key offers its own structures; the fill moves to double knit
+  const key = page.getByRole('combobox', { name: 'Knit key' });
+  await key.selectOption({ label: '4.S52 two yarn guides' });
+  const fill = page.getByRole('combobox', { name: 'Cell fill' });
+  await expect(fill.locator('option:checked')).toHaveText('double knit, YG1 face');
+  await expect(page.locator('.knit-controls')).toContainText('moved to the fill');
+
+  // a custom copy becomes the selected key; recolouring changes the exported RGB
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  const editor = page.locator('.knit-key-editor');
+  await editor.locator('summary').click();
+  await page.getByRole('button', { name: 'Make a custom copy', exact: true }).click();
+  await expect(key.locator('option:checked')).toHaveText(
+    'my key (from 4.S52 two yarn guides) (custom)'
+  );
+  const k2f = 'YG1 knit front · YG2 knit back';
+  await page.getByLabel(`Colour of ${k2f}`).fill('#123456');
+  await expect(
+    page.getByRole('img', { name: /Knit program bitmap, 30 needles by 20 passes/ })
+  ).toBeVisible();
+  const bmp = await downloadOf(page, 'Bitmap BMP');
+  expect([bmp[54], bmp[55], bmp[56]]).toEqual([0x56, 0x34, 0x12]);
+
+  // an operation in use cannot be removed; an unused one can
+  await page.getByRole('button', { name: `Remove operation ${k2f}`, exact: true }).click();
+  await expect(editor).toContainText('is used by assigned structure double knit, YG1 face');
+  await page
+    .getByRole('button', { name: 'Remove operation YG1 tuck back · YG2 tuck front', exact: true })
+    .click();
+  await expect(editor).toContainText('Removed YG1 tuck back · YG2 tuck front.');
+
+  // the exported Knit Grammar JSON carries the custom key; reading it back does not duplicate it
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Knit Grammar JSON', exact: true }).click();
+  const download = await pending;
+  expect(JSON.parse(new TextDecoder().decode(await bytes(download))).key.name).toBe(
+    'my key (from 4.S52 two yarn guides)'
+  );
+  await page.getByLabel('Read key from Knit Grammar JSON').setInputFiles(await download.path());
+  await expect(editor).toContainText('The project already has this key');
+  await expect(key.locator('option')).toHaveCount(3);
+
+  // undo restores the removed operation
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Remove operation YG1 tuck back · YG2 tuck front' })
+  ).toBeVisible();
+  await page.screenshot({ path: 'tmp/qa/knit-keys.png', fullPage: true });
+});

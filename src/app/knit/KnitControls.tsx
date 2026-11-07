@@ -1,9 +1,10 @@
 // Sidebar section 04: how the accepted network becomes a knit program. Only what works is offered.
-import type { KnitCellRule, KnitSettings, KnitTile } from '../../core/types';
-import { keyById, BASIC } from '../../knit/keys';
-import { structuresForKey } from '../../knit/structures';
+import { useState } from 'react';
+import type { KnitCellRule, KnitSettings } from '../../core/types';
+import { PRESET_KEYS, settingsKey } from '../../knit/keys';
+import { structuresForKey, type Structure } from '../../knit/structures';
 import { MAX_SIDE } from '../../knit/grid';
-import { MAX_LINE_LOOPS, SIDE_CLASSES } from '../../knit/settings';
+import { MAX_LINE_LOOPS, SIDE_CLASSES, withKey } from '../../knit/settings';
 
 interface Props {
   settings: KnitSettings;
@@ -30,15 +31,14 @@ function StructureSelect({
   value,
   onChange,
   none,
-  tiles,
+  options,
 }: {
   label: string;
   value: string | null;
   onChange: (id: string | null) => void;
   none?: string;
-  tiles?: KnitTile[];
+  options: readonly Structure[];
 }) {
-  const options = structuresForKey(BASIC, tiles);
   return (
     <label className="select-label">
       {label}
@@ -90,11 +90,16 @@ function NumberField({
   );
 }
 
-function ruleFor(kind: KnitCellRule['kind'], fill: string): KnitCellRule {
-  const second = fill === 'reverse' ? 'jersey' : 'reverse';
+/** A new rule's palette starts with the fill, then the key's other structures in library order. */
+function ruleFor(
+  kind: KnitCellRule['kind'],
+  fill: string,
+  library: readonly Structure[]
+): KnitCellRule {
+  const rest = library.map((x) => x.id).filter((id) => id !== fill);
   if (kind === 'sides') return { kind, bySides: {} };
-  if (kind === 'alternating') return { kind, palette: [fill, second] };
-  if (kind === 'coarse') return { kind, palette: [fill, second, 'seed'] };
+  if (kind === 'alternating') return { kind, palette: [fill, ...rest.slice(0, 1)] };
+  if (kind === 'coarse') return { kind, palette: [fill, ...rest.slice(0, 2)] };
   return { kind };
 }
 
@@ -109,7 +114,9 @@ export default function KnitControls({
   shapeJob,
   closed,
 }: Props) {
-  const key = keyById(s.keyId) ?? BASIC;
+  const key = settingsKey(s),
+    library = structuresForKey(key, s.tiles, s.keys);
+  const [keyNote, setKeyNote] = useState('');
   const rule = s.cells.rule;
   const set = (change: Partial<KnitSettings>, coalesceKey?: string) =>
     onChange({ ...s, ...change }, coalesceKey);
@@ -163,6 +170,30 @@ export default function KnitControls({
           <option value="both">Shape and network</option>
         </select>
       </label>
+      <label className="select-label">
+        Key
+        <select
+          aria-label="Knit key"
+          value={key.id}
+          onChange={(e) => {
+            const next = withKey(s, e.target.value);
+            onChange(next.settings);
+            setKeyNote(
+              next.reset
+                ? `${next.reset} assignment${next.reset === 1 ? '' : 's'} not available with this key moved to the fill or were switched off.`
+                : ''
+            );
+          }}
+        >
+          {[...PRESET_KEYS, ...(s.keys ?? [])].map((k) => (
+            <option key={k.id} value={k.id}>
+              {k.name}
+              {PRESET_KEYS.includes(k) ? '' : ' (custom)'}
+            </option>
+          ))}
+        </select>
+      </label>
+      {keyNote && <p className="hint">{keyNote}</p>}
       <>
         <label className="select-label">
           Start edge (pass 1)
@@ -265,10 +296,10 @@ export default function KnitControls({
       )}
 
       <StructureSelect
-        tiles={s.tiles}
+        options={library}
         label="Cell fill"
         value={s.cells.fill}
-        onChange={(id) => set({ cells: { ...s.cells, fill: id ?? 'jersey' } })}
+        onChange={(id) => set({ cells: { ...s.cells, fill: id ?? library[0]!.id } })}
       />
       {s.mode !== 'shape' && (
         <>
@@ -278,7 +309,7 @@ export default function KnitControls({
               aria-label="Cell rule"
               value={rule.kind}
               onChange={(e) =>
-                setRule(ruleFor(e.target.value as KnitCellRule['kind'], s.cells.fill))
+                setRule(ruleFor(e.target.value as KnitCellRule['kind'], s.cells.fill, library))
               }
             >
               {RULES.filter((r) => !closed || r.kind !== 'coarse' || rule.kind === 'coarse').map(
@@ -293,7 +324,7 @@ export default function KnitControls({
           {rule.kind === 'sides' &&
             SIDE_CLASSES.map((n) => (
               <StructureSelect
-                tiles={s.tiles}
+                options={library}
                 key={n}
                 label={`${n}-sided cells`}
                 value={rule.bySides[n] ?? null}
@@ -309,7 +340,7 @@ export default function KnitControls({
           {(rule.kind === 'alternating' || rule.kind === 'coarse') &&
             rule.palette.map((id, i) => (
               <StructureSelect
-                tiles={s.tiles}
+                options={library}
                 key={i}
                 label={`${rule.kind === 'coarse' ? 'Coarse colour' : 'Alternate'} ${i + 1}`}
                 value={id}
@@ -336,7 +367,7 @@ export default function KnitControls({
           )}
 
           <StructureSelect
-            tiles={s.tiles}
+            options={library}
             label="Edge lines"
             value={s.edges.structure}
             none="None"
@@ -359,14 +390,14 @@ export default function KnitControls({
             />
           </div>
           <StructureSelect
-            tiles={s.tiles}
+            options={library}
             label="Node marks"
             value={s.nodes.structure}
             none="None"
             onChange={(structure) => set({ nodes: { ...s.nodes, structure } })}
           />
           <StructureSelect
-            tiles={s.tiles}
+            options={library}
             label="Extraordinary nodes"
             value={s.nodes.extraordinary}
             none="As other nodes"

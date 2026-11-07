@@ -20,38 +20,46 @@ export function validateShapeOperations(shape: ShapeResult, cells: Uint8Array, k
       const i = imageIndex(w, h, j, k),
         n = shape.placementAt[i]!,
         p = n < 0 ? undefined : placements[n];
+      // Every bed that a yarn guide knits or tucks on carries the loop chain (both beds in double knit).
       const op = key.ops[cells[i]!],
-        step = op?.steps[0];
+        worked = (op?.steps ?? []).filter((s) => s.action !== 'float');
       if (!p) {
-        if (step?.action !== 'float')
+        if (!op || worked.length)
           fail(k, j, 'An operation is assigned outside the declared course.');
         continue;
       }
-      if (!step || step.action === 'float') {
+      if (!worked.length) {
         fail(k, j, 'The required surface loop has no knit operation.');
         continue;
       }
-      const current = bed[step.bed][j]!,
-        other = bed[otherBed(step.bed)][j]!;
+      const beds = [...new Set(worked.map((s) => s.bed))];
       const expected = new Set(p.parents);
       if (expected.size !== p.parents.length)
         fail(k, j, 'The shaping graph repeats a parent loop.');
-      if (current.size !== expected.size || [...current].some((id) => !expected.has(id)))
+      if (
+        beds.some((b) => {
+          const current = bed[b][j]!;
+          return current.size !== expected.size || [...current].some((id) => !expected.has(id));
+        })
+      )
         fail(k, j, 'Bitmap loop parents differ from the declared shaping graph.');
-      if (other.size) fail(k, j, 'A required parent remains on the opposite bed.');
-      if (step.action === 'tuck' && expected.size)
+      if ((['front', 'back'] as const).some((b) => !beds.includes(b) && bed[b][j]!.size))
+        fail(k, j, 'A required parent remains on the opposite bed.');
+      if (worked.some((s) => s.action === 'tuck') && expected.size)
         fail(k, j, 'A tuck does not realize the required parent-to-child knit.');
-      current.clear();
-      if (op.move === 'none') current.add(p.loop.id);
-      else {
-        const target = op.move === 'left' ? j - 1 : op.move === 'right' ? j + 1 : j;
-        if (target < 0 || target >= w) fail(k, j, 'A transfer leaves the needle span.');
-        else
-          arrivals.push({
-            needle: target,
-            bed: op.move === 'across' ? otherBed(step.bed) : step.bed,
-            id: p.loop.id,
-          });
+      for (const b of beds) {
+        bed[b][j]!.clear();
+        if (op!.move === 'none') bed[b][j]!.add(p.loop.id);
+        else {
+          const target = op!.move === 'left' ? j - 1 : op!.move === 'right' ? j + 1 : j;
+          if (target < 0 || target >= w) fail(k, j, 'A transfer leaves the needle span.');
+          else
+            arrivals.push({
+              needle: target,
+              bed: op!.move === 'across' ? otherBed(b) : b,
+              id: p.loop.id,
+            });
+        }
       }
     }
     // All stitches precede transfers; simultaneous shifts preserve neighbouring moving loops.

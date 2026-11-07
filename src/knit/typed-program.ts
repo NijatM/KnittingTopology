@@ -1,7 +1,7 @@
 import type { GenerationContext, KnitSettings, ProjectState, SwatchEntry } from '../core/types';
 import type { KnitBuild } from './program';
 import { chartMapping } from './mapping';
-import { BASIC, keyById } from './keys';
+import { settingsKey } from './keys';
 import { rasterizeSurfaceNetwork } from './rasterize-surface';
 import type { ShapePlacement } from './shape-types';
 import { originalShapeUV } from './shape-geometry';
@@ -41,7 +41,7 @@ export function buildTypedSurfaceProgram(
             across: 0,
           },
         });
-    const key = keyById(settings.keyId) ?? BASIC,
+    const key = settingsKey(settings),
       raster = rasterizeSurfaceNetwork(
         project.graph,
         project.surface,

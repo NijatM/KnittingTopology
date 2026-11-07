@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { KnitSettings, KnitTile, SwatchEntry } from '../../core/types';
-import { BASIC, keyById, hex } from '../../knit/keys';
+import { defaultFill, hex, settingsKey } from '../../knit/keys';
 import { structuresForKey, type Structure } from '../../knit/structures';
 import { MAX_TILE_SIDE, MAX_TILES, tileInUse, validateTiles } from '../../knit/tiles';
 
@@ -13,15 +13,16 @@ export default function TileEditor({
   swatches: SwatchEntry[];
   onChange: (s: KnitSettings) => void;
 }) {
-  const key = keyById(s.keyId) ?? BASIC,
-    library = structuresForKey(key, s.tiles);
+  const key = settingsKey(s),
+    library = structuresForKey(key, s.tiles, s.keys),
+    plain = key.ops[defaultFill(key)]!.id;
   const [source, setSource] = useState(library[0]!.id),
     [name, setName] = useState('My structure');
   const [draft, setDraft] = useState<Structure>(() => ({
     ...library[0]!,
     rows: library[0]!.rows.map((r) => [...r]),
   }));
-  const [brush, setBrush] = useState(key.ops.find((o) => o.id === 'kf')?.id ?? key.ops[0]!.id),
+  const [brush, setBrush] = useState(plain),
     [message, setMessage] = useState('');
   const load = (id: string) => {
     const t = library.find((x) => x.id === id)!;
@@ -34,13 +35,7 @@ export default function TileEditor({
     if (![w, h].every((x) => Number.isInteger(x) && x >= 1 && x <= MAX_TILE_SIDE)) return;
     // Preserve needle/pass anchoring when resizing the last-pass-first image array.
     const rows = Array.from({ length: h }, (_, r) =>
-      Array.from(
-        { length: w },
-        (_, j) =>
-          draft.rows[draft.h - h + r]?.[j] ??
-          key.ops.find((o) => o.id === 'kf')?.id ??
-          key.ops[0]!.id
-      )
+      Array.from({ length: w }, (_, j) => draft.rows[draft.h - h + r]?.[j] ?? plain)
     );
     setDraft({ ...draft, w, h, rows });
   };
@@ -54,7 +49,7 @@ export default function TileEditor({
         h: draft.h,
         rows: draft.rows.map((r) => [...r]),
       };
-      const tiles = validateTiles([...(s.tiles ?? []), tile]);
+      const tiles = validateTiles([...(s.tiles ?? []), tile], s.keys);
       onChange({ ...s, tiles });
       setMessage(`Saved ${tile.name}. Select it in a structure assignment or measurement table.`);
     } catch (error) {

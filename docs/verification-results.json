@@ -7,41 +7,42 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 484,
+    "passed": 509,
     "core": 104,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 164
+    "knit_program": 189
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 567.59,
+    "initial_js_kb": 581.44,
     "lazy_viewer_js_kb": 582.93,
-    "initial_js_gzip_kb": 182.28,
+    "initial_js_gzip_kb": 186.21,
     "lazy_viewer_js_gzip_kb": 147.17,
     "import_worker_js_kb": 27.85,
-    "generation_worker_js_kb": 94.22,
-    "knit_worker_js_kb": 101.35,
+    "generation_worker_js_kb": 96.03,
+    "knit_worker_js_kb": 103.05,
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4c-development",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5a-development",
     "result": "pass",
-    "passed": 28,
+    "passed": 29,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.1
+    "duration_minutes_reported": 3.0,
+    "note": "The colour-key test was then changed to upload the downloaded JSON by path (typing fix) and rerun alone against development: 1/1 passed (tmp/qa/m5a-development-keys)."
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m4c-production",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/m5a-production",
     "result": "pass",
-    "passed": 28,
+    "passed": 29,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 2.8
+    "duration_minutes_reported": 2.9
   },
   "mobile": {
     "viewport_width": 375,
@@ -51,7 +52,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Sphere knit programs from pole-to-pole cuts (M4c); closes M4",
+  "milestone": "Two-guide and custom colour keys (M5a)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -284,5 +285,25 @@
     "sewing_order": false,
     "machine_simulation": false,
     "physical_validation": false
+  },
+  "colour_keys": {
+    "available": "4.S52 basic and two-guide class keys and up to 8 custom keys (copies edited in the Knit tab or read from a Knit Grammar pattern JSON), saved as optional knit.keys",
+    "two_guide": "network, shape and combined modes; short rows hold both yarns (lab rule to confirm); shaping that needs a transfer is unresolved and blocks export",
+    "matching": "operations found by meaning (steps per yarn guide and transfer; float has no bed); structures, tiles, automatic transfers, shaping transfers and new-loop tucks; missing meaning -> structure unavailable, transfer skipped and listed, or export blocked",
+    "checks": [
+      "meaning lookup, translation and naming",
+      "custom key validation: class-key ids, duplicate colours, missing float, step counts, two-guide transfers, 32-operation and 60-character limits",
+      "settings round trip with custom keys and tiles; unknown key, more than 8 keys and duplicate ids refused",
+      "built-in structures rewritten to renamed and recoloured operations with the same meanings; structures needing a missing operation dropped; class-key tiles offered in same-mode copies only",
+      "key switch remaps unavailable assignments (6 on basic -> two-guide) and keeps all on a same-mode copy",
+      "operation and key removal guards (assigned structure, tile, float); duplicate-colour edit refused",
+      "Knit Grammar key import: class key refused, identical key not duplicated, taken id renamed, invalid files refused",
+      "custom-key programs: same meanings per cell as the class key, custom RGB in BMP, key in Knit Grammar JSON, custom marker in report",
+      "automatic transfer skipped and listed when the key lacks knit + transfer across",
+      "two-guide sector: short rows with k2f loops and fl2 holds, no blocker; narrowing trapezoid blocked (two-layer); custom key without sideways transfers blocked; widening trapezoid new loops tucked as t2f, or blocked when the tuck pair is missing",
+      "two-guide combined mode with double knit and birdseye on a plane: no blocker",
+      "browser: two-guide key switch, custom copy, recolour to exact BMP RGB, guarded removal, Knit Grammar JSON key read without duplication, undo"
+    ],
+    "not_claimed": "custom colours are the user's; lab script, importer and two-yarn short-row handling remain unconfirmed; no machine-ready output"
   }
 }

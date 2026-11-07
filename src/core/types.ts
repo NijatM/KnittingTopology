@@ -237,6 +237,25 @@ export interface KnitTile {
   rows: string[][];
   note?: string;
 }
+/** A custom colour key: a copy of a class key (operation vocabulary in src/knit/keys.ts). */
+export interface KnitKey {
+  id: string;
+  name: string;
+  mode: 1 | 2;
+  ops: {
+    id: string;
+    name: string;
+    colour: string;
+    rgb: [number, number, number];
+    steps: { action: 'knit' | 'tuck' | 'float'; bed: 'front' | 'back' }[];
+    move: 'none' | 'across' | 'left' | 'right';
+    provisional?: boolean;
+    note?: string;
+    letter?: string;
+  }[];
+  credit?: string;
+  notes?: string[];
+}
 export interface KnitCutSettings {
   surfaceRevision: string;
   /** Noncryptographic signature of the accepted source graph and surface. */
@@ -250,7 +269,10 @@ export interface KnitSettings {
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   /** Initial action on an opened needle; unconfirmed lab convention, default knit. */
   newLoop?: 'knit' | 'tuck';
+  /** A class key or one of `keys`. */
   keyId: string;
+  /** Custom keys saved with the project. */
+  keys?: KnitKey[];
   /** Immutable saved copies. New designs get new IDs and do not inherit measurements. */
   tiles?: KnitTile[];
   /** A draft closed-surface cut; derived cut complexes are not persisted. */

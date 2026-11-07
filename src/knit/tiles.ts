@@ -1,10 +1,10 @@
 import type { KnitSettings, KnitTile } from '../core/types';
-import { keyById } from './keys';
+import { resolveKey, type Key } from './keys';
 
 export const MAX_TILES = 24,
   MAX_TILE_SIDE = 16;
 /** User structures use known operations; they cannot replace built-ins. */
-export function validateTiles(value: unknown): KnitTile[] {
+export function validateTiles(value: unknown, keys: readonly Key[] = []): KnitTile[] {
   if (!Array.isArray(value) || value.length > MAX_TILES)
     throw new Error(`tiles must list at most ${MAX_TILES} structures.`);
   const ids = new Set<string>();
@@ -21,7 +21,7 @@ export function validateTiles(value: unknown): KnitTile[] {
     ids.add(s.id);
     if (typeof s.name !== 'string' || !s.name.trim() || s.name.length > 64)
       throw new Error('tile name must contain 1 to 64 characters.');
-    const key = typeof s.keyId === 'string' ? keyById(s.keyId) : undefined;
+    const key = typeof s.keyId === 'string' ? resolveKey(s.keyId, keys) : undefined;
     if (!key) throw new Error('tile key is unsupported.');
     const w = s.w as number,
       h = s.h as number;

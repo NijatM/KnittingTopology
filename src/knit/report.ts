@@ -1,7 +1,7 @@
 // Plain-text report that travels with the bitmap: conventions, key, assignment, gauge status, transfers, checks
 // and the lab rules still to confirm.
 import type { KnitProgram } from './program';
-import { rgbText } from './keys';
+import { keyById, meaningName, rgbText } from './keys';
 import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
 
@@ -134,10 +134,14 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
     `  transfer timing: ${s.lab.transferTiming}`,
     `  yarn guide travel: ${s.lab.travel}`,
     ...(p.shape
-      ? [`  new loop: ${s.newLoop ?? 'knit'} first`, '  short-row turns: no wrap or tuck added']
+      ? [
+          `  new loop: ${s.newLoop ?? 'knit'} first`,
+          '  short-row turns: no wrap or tuck added',
+          ...(k.mode === 2 ? ['  two yarn guides: both yarns held on short rows'] : []),
+        ]
       : []),
     '',
-    `Key: ${k.name}`,
+    `Key: ${k.name}${keyById(k.id) ? '' : ' (custom; operations matched by meaning)'}`,
     ...(k.credit ? [k.credit] : []),
     ...(k.notes ?? []).map((t) => `- ${t}`),
     '',
@@ -148,6 +152,7 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
         pad(rgbText(o.rgb), 18) +
         pad(String(usage.get(i) ?? 0), 8) +
         o.name +
+        (keyById(k.id) ? '' : ` [${meaningName(o.steps, o.move)}]`) +
         (o.provisional ? ' (provisional)' : '')
     ),
   ];

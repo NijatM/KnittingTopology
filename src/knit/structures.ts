@@ -1,7 +1,7 @@
 // Structures: small tiles of operations (op ids), repeated from needle 1 and pass 1 so that neighbouring regions
 // mesh. Ported as data from KnittingPixelArtEditor `src/grammar/structures.ts` (MIT License, (c) 2026 Nijat
 // Mahamaliyev); ids, names, rows and notes are unchanged.
-import type { Key } from './keys';
+import { BASIC, TWO, resolveKey, translateOp, type Key } from './keys';
 import type { KnitTile } from '../core/types';
 
 /** Rows are stored top (last pass) first, like the image. */
@@ -77,13 +77,29 @@ export const STRUCTURES_2: readonly Structure[] = [
   S('hold2', 'hold (both float)', ['fl2'], 'nothing knits here'),
 ];
 
-export const structuresForKey = (
+/**
+ * Structures available with `key`: the built-ins of its mode and saved tiles. A structure made for another key
+ * of the same mode is available when the key has an operation with the meaning of each of its operations; its
+ * rows are rewritten to this key's op ids. Otherwise it is unavailable.
+ */
+export function structuresForKey(
   key: Key,
-  tiles: readonly KnitTile[] = []
-): readonly Structure[] => [
-  ...(key.mode === 2 ? STRUCTURES_2 : STRUCTURES_1),
-  ...tiles.filter((s) => s.keyId === key.id),
-];
+  tiles: readonly KnitTile[] = [],
+  keys: readonly Key[] = []
+): readonly Structure[] {
+  const out: Structure[] = [];
+  const add = (s: Structure, from: Key | undefined) => {
+    if (!from || from.mode !== key.mode) return;
+    const ids = new Map([...new Set(s.rows.flat())].map((id) => [id, translateOp(from, id, key)]));
+    if (from.id === key.id) out.push(s);
+    else if ([...ids.values()].every((id) => id !== undefined))
+      out.push({ ...s, rows: s.rows.map((r) => r.map((id) => ids.get(id)!)) });
+  };
+  for (const s of key.mode === 2 ? STRUCTURES_2 : STRUCTURES_1)
+    add(s, key.mode === 2 ? TWO : BASIC);
+  for (const t of tiles) add(t, resolveKey(t.keyId, keys));
+  return out;
+}
 
 /** Op id at 0-based needle j and 0-based pass k (pass 1 = k 0); tiles repeat from needle 1 and pass 1. */
 export function tileOp(s: Structure, j: number, k: number): string {
