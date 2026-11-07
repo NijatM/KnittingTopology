@@ -118,6 +118,26 @@ describe('surface to shape bitmap integration', () => {
     expect(p.shape!.needles.moves.every((x) => Math.abs(x.to - x.needle) === 1)).toBe(true);
     expect(knitReport(p, 'saddle', 0.1)).toContain('Not machine-ready');
   });
+  it('keeps the strong-saddle placement failure explicit and both operation writers blocked', () => {
+    // Reduced analytic reproduction of the supplied example; test values, not measured gauges.
+    const r = buildKnitProgram({
+      ...input({ startEdge: 'v1' }, { ...plane, kind: 'saddle', size: 0.18, curvature: 1.5 }),
+      swatches: [{ structure: 'jersey', stitchWidth: 0.005, courseHeight: 0.005 }],
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const p = r.program;
+    expect(p.exportBlockers.some((s) => s.includes('39 loops from 35 live parents'))).toBe(true);
+    expect(p.shape!.geometry.method).toContain('triangle-distance');
+    expect(p.shape!.needles.placements.every((s) => s.loop.position.every(Number.isFinite))).toBe(
+      true
+    );
+    expect(() => bmpBytes(p)).toThrow(/export blocked/);
+    expect(() => grammarJson({ ...p, name: 'saddle regression', note: '' })).toThrow(
+      /export blocked/
+    );
+    expect(knitReport(p, 'saddle regression', 0.18)).toContain('at most 38');
+  });
   it.each([false, true])(
     'realizes widening/narrowing trapezoid loop graphs (reverse=%s)',
     (reverse) => {

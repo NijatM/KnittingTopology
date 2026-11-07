@@ -2,6 +2,27 @@ import type { ReferenceId, ScientificReference } from './types';
 
 /** Bibliography for the implemented methods, not a claim of full paper reproduction. */
 export const REFERENCES: Record<ReferenceId, ScientificReference> = {
+  sethian2000eikonal: {
+    id: 'sethian2000eikonal',
+    type: 'article-journal',
+    title:
+      'Fast methods for the Eikonal and related Hamilton–Jacobi equations on unstructured meshes',
+    authors: [
+      { given: 'J. A.', family: 'Sethian' },
+      { given: 'A.', family: 'Vladimirsky' },
+    ],
+    year: 2000,
+    containerTitle: 'Proceedings of the National Academy of Sciences',
+    volume: '97',
+    issue: '11',
+    pages: '5699–5703',
+    doi: '10.1073/pnas.090060097',
+    url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC18495/',
+    accessed: '2026-11-07',
+    note: 'Eikonal and obtuse-triangle causality background only; the project uses iterative triangle-edge Bellman relaxation, not the paper’s fast-marching algorithm',
+    verificationNote:
+      'Primary full-text metadata, Fast Marching Methods, and Unstructured Mesh Methods through Extension to obtuse meshes read. The project revisits vertices with continuous triangle-edge interpolation. No reproduction of the paper’s virtual-simplex or higher-order methods, or general error bound, is claimed.',
+  },
   erickson2004cut: {
     id: 'erickson2004cut',
     type: 'article-journal',

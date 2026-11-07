@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-07T05:58:52.634Z",
+  "generated_at_utc": "2026-11-07T22:56:31.487Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-07",
@@ -10,51 +10,44 @@
     "unit_tests": {
       "command": "npm test",
       "result": "pass",
-      "passed": 527,
+      "passed": 537,
       "core": 106,
       "project_and_persistence": 32,
       "learning_and_citations": 33,
       "import_parsing_and_projects": 84,
       "mapping_kernel_generation_and_projects": 67,
-      "knit_program": 205,
-      "duration_seconds": 18.43
+      "knit_program": 215,
+      "duration_seconds": 24.5
     },
     "production_build": {
       "command": "npm run build",
       "result": "pass",
       "base": "/KnittingTopology/",
       "worker": "separate ES module",
-      "initial_js_kb": 598.07,
+      "initial_js_kb": 601.16,
       "lazy_viewer_js_kb": 583.4,
-      "initial_js_gzip_kb": 191.5,
-      "lazy_viewer_js_gzip_kb": 147.36,
+      "initial_js_gzip_kb": 192.7,
+      "lazy_viewer_js_gzip_kb": 147.35,
       "import_worker_js_kb": 27.85,
-      "generation_worker_js_kb": 96.03,
-      "knit_worker_js_kb": 103.05,
+      "generation_worker_js_kb": 96.99,
+      "knit_worker_js_kb": 104.6,
       "cut_worker_js_kb": 28.28
     },
     "development_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-inspection-development",
-      "result": "pass with focused final resize follow-up",
-      "passed": 37,
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/triangle-distance-development",
+      "result": "pass",
+      "passed": 38,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 3.6,
-      "source_scope": "Full 37-case run predates the canvas scheduling correction. The affected inspection/resize cases were rerun afterwards.",
-      "resize_followup": {
-        "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'knit inspection layers|measured network inspection' --output=tmp/qa/knit-inspection-resize-development",
-        "passed": 2,
-        "result": "pass",
-        "duration_seconds_reported": 18.2,
-        "captured_resize_observer_warnings": 0
-      }
+      "duration_minutes_reported": 4.6,
+      "source_scope": "Current runtime including the distance correction, analytic plane path, capacity diagnostic and two-source citation downloads. Final skew-grid unit extension is test-only."
     },
     "production_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-inspection-production-final",
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/triangle-distance-production",
       "result": "pass",
-      "passed": 37,
+      "passed": 38,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 3.5,
-      "source_scope": "Full final run includes canvas scheduling and direct resize-error checks. A subsequent classification-only distinction between stale previews and actual unresolved shaping was covered by the final unit/typecheck/build run."
+      "duration_minutes_reported": 4.1,
+      "source_scope": "Current runtime with distance correction, analytic plane field, capacity diagnostic, citations and all integration cases. No runtime changes after this run."
     },
     "mobile": {
       "viewport_width": 375,
@@ -64,7 +57,7 @@
     },
     "physical_or_manufacturing_validation": false,
     "remote_deployment_tested": false,
-    "milestone": "Course-first knit inspection and qualified interpretation",
+    "milestone": "Open-chart triangle-distance correction; course construction remains open",
     "prior_baseline_only": {
       "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
       "production_network": {
@@ -419,10 +412,11 @@
       "physical_shape_validated": false,
       "exact_external_project_audit_completed": false,
       "remote_workflow_verified_for_this_source": false,
-      "resize_scheduling": "Both canvas observers coalesce size writes into the next animation frame and cancel queued callbacks on unmount; repeated desktop/mobile transitions have a direct window ResizeObserver-error assertion."
+      "resize_scheduling": "Both canvas observers coalesce size writes into the next animation frame and cancel queued callbacks on unmount; repeated desktop/mobile transitions have a direct window ResizeObserver-error assertion.",
+      "checkpoint": "Historical display milestone75edf22; numerical corrections are recorded separately below."
     },
     "saddle_diagnostic_probe": {
-      "note": "Diagnostic probe only: test values, not measured gauges. Not the user project, not physical validation, and not a spatial-stencil convergence study.",
+      "note": "Historical distance-stencil v1 probe: test values, not measured gauges. Not the user project, not physical validation, and not a spatial-stencil convergence study. See one_guide_distance_correction for the subsequent audit.",
       "surface": {
         "kind": "saddle",
         "size_m": 0.18,
@@ -492,6 +486,365 @@
       ],
       "interpretation": "All four test cases returned constant loop count per course and no discrete shaping. Open numerical/modelling question; this neither establishes a specific algorithm defect nor validates a saddle-shaped fabric.",
       "rounding_note": "Course-length rounding residuals are not bounds on surface-distance or physical-shape error."
+    },
+    "prior_knit_inspection_browser_verification": {
+      "checkpoint": "75edf22",
+      "development": {
+        "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-inspection-development",
+        "result": "pass with focused final resize follow-up",
+        "passed": 37,
+        "page_or_console_errors": 0,
+        "duration_minutes_reported": 3.6,
+        "source_scope": "Full 37-case run predates the canvas scheduling correction. The affected inspection/resize cases were rerun afterwards.",
+        "resize_followup": {
+          "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'knit inspection layers|measured network inspection' --output=tmp/qa/knit-inspection-resize-development",
+          "passed": 2,
+          "result": "pass",
+          "duration_seconds_reported": 18.2,
+          "captured_resize_observer_warnings": 0
+        }
+      },
+      "production": {
+        "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/knit-inspection-production-final",
+        "result": "pass",
+        "passed": 37,
+        "page_or_console_errors": 0,
+        "duration_minutes_reported": 3.5,
+        "source_scope": "Full final run includes canvas scheduling and direct resize-error checks. A subsequent classification-only distinction between stale previews and actual unresolved shaping was covered by the final unit/typecheck/build run."
+      }
+    },
+    "one_guide_distance_correction": {
+      "status": "Partial numerical correction. The supplied strong saddle remains blocked; course construction and physical validation remain open.",
+      "method": "Project triangle-edge Bellman relaxation v2 on alternating grid diagonals, four-direction revisiting, cap of 128 cycles; analytic distance on a plane. Not a paper fast-marching reproduction.",
+      "tolerance": "1e-10 * maximum sampled triangle-edge length * resolution; algebraic stopping criterion, not a geometric error bound",
+      "default_resolution": {
+        "plane": 16,
+        "other_open_charts": 128
+      },
+      "source_role": "Sethian and Vladimirsky (2000), DOI 10.1073/pnas.090060097: Eikonal and obtuse-triangle background; primary method sections read; project iteration differs.",
+      "tests": [
+        "analytic rectangle and finite skew-plane source segments; 16/32/64/128 refinements at shear 0.2 and 3",
+        "cylinder arc convergence; 16/32/64",
+        "analytic-metric saddle Eikonal residual; 32/64/128",
+        "independently integrated feasible saddle path comparator",
+        "translation/scale behavior, invalid and degenerate grids, in-sweep cancellation",
+        "necessary one-pass capacity bound; 35 parents to 39 children at left-boundary/right-turn",
+        "strong-saddle integration preserves preview/report and blocks both file writers",
+        "browser strong-saddle worker case and updated citation downloads"
+      ],
+      "exact_supplied_input_sha256": "6fdec8ff73e85f29647d00963cfc4581cfe63a7aa76a2d5aafee6e50f748fa9b",
+      "measurement_provenance": "User-entered 5 x 5 mm jersey entry retained; whether it is a measured gauge is unknown. Synthetic numerical fixture dimensions are test values, not measured gauges.",
+      "reproductions": [
+        {
+          "label": "supplied two-guide combined",
+          "w": 50,
+          "h": 48,
+          "active": 2224,
+          "moves": 187,
+          "turnEndpoints": 5,
+          "blockerCount": 427,
+          "blockers": {
+            "This pass requests 39 loops from 35 live parents; the current one-needle grammar permits at most 38 here. Split the piece into patches or use a different operation schedule; geometric preview only.": 39,
+            "Required shaping transfer conflicts with a two-layer structure.": 187,
+            "Bitmap loop parents differ from the declared shaping graph.": 201
+          },
+          "writers": {
+            "BMP": "blocked",
+            "Knit Grammar JSON": "blocked"
+          },
+          "histogram": {
+            "fl2": 176,
+            "k2b": 1512,
+            "k2f": 712
+          },
+          "initialCourses": [
+            {
+              "loops": 33,
+              "left": true,
+              "right": false,
+              "length": 0.16140415577667805
+            },
+            {
+              "loops": 35,
+              "left": true,
+              "right": false,
+              "length": 0.1743845998501259
+            },
+            {
+              "loops": 39,
+              "left": true,
+              "right": false,
+              "length": 0.19373847949670317
+            },
+            {
+              "loops": 42,
+              "left": true,
+              "right": false,
+              "length": 0.20572986081438122
+            },
+            {
+              "loops": 46,
+              "left": true,
+              "right": true,
+              "length": 0.2298209281476955
+            },
+            {
+              "loops": 47,
+              "left": true,
+              "right": true,
+              "length": 0.23013049381816614
+            }
+          ],
+          "method": "Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and monotone-alignment adaptation v2"
+        },
+        {
+          "label": "one-guide shape",
+          "w": 50,
+          "h": 48,
+          "active": 2224,
+          "moves": 187,
+          "turnEndpoints": 5,
+          "blockerCount": 44,
+          "blockers": {
+            "This pass requests 39 loops from 35 live parents; the current one-needle grammar permits at most 38 here. Split the piece into patches or use a different operation schedule; geometric preview only.": 39,
+            "Bitmap loop parents differ from the declared shaping graph.": 5
+          },
+          "writers": {
+            "BMP": "blocked",
+            "Knit Grammar JSON": "blocked"
+          },
+          "histogram": {
+            "fl": 176,
+            "kf": 2037,
+            "kfxl": 156,
+            "kfxr": 31
+          },
+          "initialCourses": [
+            {
+              "loops": 33,
+              "left": true,
+              "right": false,
+              "length": 0.16140415577667805
+            },
+            {
+              "loops": 35,
+              "left": true,
+              "right": false,
+              "length": 0.1743845998501259
+            },
+            {
+              "loops": 39,
+              "left": true,
+              "right": false,
+              "length": 0.19373847949670317
+            },
+            {
+              "loops": 42,
+              "left": true,
+              "right": false,
+              "length": 0.20572986081438122
+            },
+            {
+              "loops": 46,
+              "left": true,
+              "right": true,
+              "length": 0.2298209281476955
+            },
+            {
+              "loops": 47,
+              "left": true,
+              "right": true,
+              "length": 0.23013049381816614
+            }
+          ],
+          "method": "Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and monotone-alignment adaptation v2"
+        },
+        {
+          "label": "mild saddle test values, not measured gauges",
+          "w": 38,
+          "h": 46,
+          "active": 1748,
+          "moves": 0,
+          "turnEndpoints": 0,
+          "blockerCount": 0,
+          "blockers": {},
+          "writers": {
+            "BMP": "allowed",
+            "Knit Grammar JSON": "allowed"
+          },
+          "histogram": {
+            "kf": 1748
+          },
+          "initialCourses": [
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589910715782787
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589902049163648
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589939338325395
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18589986859373653
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18590027056227748
+            },
+            {
+              "loops": 38,
+              "left": true,
+              "right": true,
+              "length": 0.18590057399407547
+            }
+          ],
+          "method": "Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and monotone-alignment adaptation v2"
+        }
+      ],
+      "saddle_field_refinement": [
+        {
+          "n": 32,
+          "cycles": 3,
+          "maxChange": 0,
+          "tolerance": 2.9642202284074636e-11,
+          "rmsEikonal": 0.00014531892705929068,
+          "maxEikonal": 0.00048332369515824425,
+          "pathComparisonDistanceM": 0.15085060844271472
+        },
+        {
+          "n": 64,
+          "cycles": 3,
+          "maxChange": 0,
+          "tolerance": 2.9904745259949987e-11,
+          "rmsEikonal": 0.000060079909422818144,
+          "maxEikonal": 0.00019153769937307885,
+          "pathComparisonDistanceM": 0.15085721553704434
+        },
+        {
+          "n": 128,
+          "cycles": 3,
+          "maxChange": 0,
+          "tolerance": 3.003835585157122e-11,
+          "rmsEikonal": 0.000028459810614360863,
+          "maxEikonal": 0.0000990938244519457,
+          "pathComparisonDistanceM": 0.15086146685727334
+        },
+        {
+          "n": 256,
+          "cycles": 3,
+          "maxChange": 0,
+          "tolerance": 3.010573687964479e-11,
+          "rmsEikonal": 0.000014040752893779462,
+          "maxEikonal": 0.00005081268216855506,
+          "pathComparisonDistanceM": 0.15086400853168783
+        }
+      ],
+      "strong_saddle_course_refinement": [
+        {
+          "n": 32,
+          "w": 50,
+          "h": 49,
+          "contourSamples": [
+            47, 47, 47, 47, 47, 46, 46, 46, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 48, 48, 48,
+            48, 48, 48, 48, 48, 48, 48, 48, 48, 47, 47, 46, 46, 46, 45, 45, 44, 44, 44, 39, 28, 20,
+            13, 4
+          ],
+          "maxLinkOffset": 1.0727083857639488,
+          "firstLoops": [36, 40, 47, 47, 38, 47],
+          "blockers": 45,
+          "turnEndpoints": 7,
+          "moves": 135,
+          "firstUnresolved": {
+            "pass": 2,
+            "needle": 1,
+            "role": "loop",
+            "reason": "No certified placement with one-needle transfers and held-loop constraints; geometric preview only."
+          }
+        },
+        {
+          "n": 64,
+          "w": 49,
+          "h": 48,
+          "contourSamples": [
+            47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 48, 48, 48, 48,
+            48, 48, 48, 48, 48, 48, 48, 48, 47, 47, 47, 46, 46, 45, 45, 44, 44, 44, 43, 36, 27, 20,
+            13, 4
+          ],
+          "maxLinkOffset": 1.381661431283943,
+          "firstLoops": [39, 47, 47, 47, 48, 48],
+          "blockers": 0,
+          "turnEndpoints": 6,
+          "moves": 144
+        },
+        {
+          "n": 128,
+          "w": 50,
+          "h": 48,
+          "contourSamples": [
+            47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 48, 48, 48, 48, 48,
+            48, 48, 48, 48, 48, 48, 48, 48, 47, 47, 46, 46, 46, 45, 45, 44, 44, 44, 43, 34, 26, 19,
+            13, 4
+          ],
+          "maxLinkOffset": 0.9380316233709213,
+          "firstLoops": [33, 35, 39, 42, 46, 47],
+          "blockers": 44,
+          "turnEndpoints": 5,
+          "moves": 187,
+          "firstUnresolved": {
+            "pass": 3,
+            "needle": 5,
+            "role": "loop",
+            "reason": "This pass requests 39 loops from 35 live parents; the current one-needle grammar permits at most 38 here. Split the piece into patches or use a different operation schedule; geometric preview only."
+          }
+        },
+        {
+          "n": 256,
+          "w": 49,
+          "h": 48,
+          "contourSamples": [
+            47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 48, 48, 48, 48, 48,
+            48, 48, 48, 48, 48, 48, 48, 47, 47, 47, 46, 46, 45, 45, 45, 44, 44, 43, 43, 34, 26, 19,
+            13, 4
+          ],
+          "maxLinkOffset": 1.1400551237879524,
+          "firstLoops": [32, 42, 45, 47, 47, 47],
+          "blockers": 56,
+          "turnEndpoints": 6,
+          "moves": 121,
+          "firstUnresolved": {
+            "pass": 2,
+            "needle": 3,
+            "role": "loop",
+            "reason": "This pass requests 42 loops from 32 live parents; the current one-needle grammar permits at most 35 here. Split the piece into patches or use a different operation schedule; geometric preview only."
+          }
+        }
+      ],
+      "course_refinement_conclusion": "Distance-field improvement does not establish a stable discrete course graph. A 64 grid happens to pass symbolic checks while 128 and 256 fail; no default change or resolution-selection workaround was made.",
+      "scope_limits": [
+        "No full distance-field error bound",
+        "Highly skew planar fixture still has approximately 6.32 mm maximum distance error at 128 intervals",
+        "Mild saddle with 5 x 4 mm test values still has no discrete shaping",
+        "Current pass grammar requires patching or a different schedule for the supplied strong saddle",
+        "Two-guide shaping still lacks transfer semantics",
+        "No physical simulation, material model, importer or knitting validation"
+      ],
+      "public_record": "docs/surface-distance-audit.md",
+      "remote_deployment_tested": false
     }
   },
   "source_sha256": {
@@ -501,7 +854,7 @@
     "playwright.config.ts": "371a037b42004cbe6e28d97e8efa0f0ada9cd6e0b46411f7bd87dcc59e6113dc",
     "public/examples/bent-rectangle-uv.obj": "fb60c86f2cd1ee101d8a0f83ad414eed16e942baf7173abc6338f58bd1f39fb9",
     "public/favicon.svg": "2c74fd69b769adfb4e007383fbbb51116f528783adbc72a98c66c130b72a4c43",
-    "research/references.bib": "80fc1f82e13a607d182e7a443f64f593af41a2bf1da1d6dfbe0f3ae821c81f0f",
+    "research/references.bib": "2e55c0b3eacd4a731280257558a65db9097658cd2ae3e99fa89179bfb1df7029",
     "scripts/snapshot-verification.mjs": "245dabcec4e2bbf900d474ce67bfcf7992c390df9d2210c81af0069d0db09967",
     "src/adapters/citations.ts": "c6fe9f4ba64d0ec0d7e746d77283cf5904bff16c0991669ffb3b62ce19811027",
     "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
@@ -514,7 +867,7 @@
     "src/app/knit/KnitControls.tsx": "87bf3dea3ac13496cac3633e6e13b4da988bc4e75b7e4e7184fe07bc084f9218",
     "src/app/knit/KnitFeedback.tsx": "8cd49c9cb95c2d6ca271ff315304526815f94ac93b06a65ff958116784f01ab5",
     "src/app/knit/KnitInspection.tsx": "ca2acdc8b3c99ca1c61a6b3950265cd5c23fb790f156aa9dc5f596b6fe83b905",
-    "src/app/knit/KnitPanel.tsx": "6bfbdcefc0ec7ae5dbce896a7669a8350e7e5fb2c80f18dad01d59a224b82dcd",
+    "src/app/knit/KnitPanel.tsx": "2c7f6fe7a0ced4bd90388ba844af19f008896b82f2c3f8df7de9a15a9834b304",
     "src/app/knit/KnitThumb.tsx": "76c02d2c29bdf0ac742fe63c564f12c2b3ffdd15fe20e9a4e450d3de43d76e82",
     "src/app/knit/KnitVariant.tsx": "6b856d304ef9be340d988caf9913e787166e6019d12605cef01785e2cfb79c29",
     "src/app/knit/TileEditor.tsx": "7395652482d87dc0e9a0c79820e54618eb2702deb715897a77ed6480617c5656",
@@ -557,16 +910,17 @@
     "src/knit/program.ts": "7cb9ac87ce616f2dc35cf27e685ee54dabdab9a452aa9990c1efc5f74e4f6754",
     "src/knit/rasterize-surface.ts": "1fdc3f180492d04993506fc067bc23a44f2720c5b4cad9e435d091c622afd9e0",
     "src/knit/rasterize.ts": "88e913a679c887f266e076ec7bdcb5dc33ccea9fb40d2b116d3a9afb2f22c799",
-    "src/knit/report.ts": "52a10b9e5632cddc071fc7d1b3ded6baa75cdac60419375ed9632f9444ecb7a2",
+    "src/knit/report.ts": "924c5d74e4b4fb7b4046af7183fe353ad76cd19ceadef531bdcb497ee5e233f0",
     "src/knit/requirements.ts": "aa8f6bc1ab4f6a95bde2f942f2543e473b76aca960f2e467a6c8374d926a93d5",
     "src/knit/settings.ts": "bb0151c606da93b5f62fdd57de769631dd9ffd5eb5ac822b9af790556d378e72",
-    "src/knit/shape-geometry.ts": "72188488da50fe03d18088620f98fac6e72c1846c64133bd940a2cd7d10fb59c",
-    "src/knit/shape-needles.ts": "916fdf8f0989381a95ef897da11108eb70e18ddc99d26f0253959963bfa9b022",
+    "src/knit/shape-geometry.ts": "84b072892a911bd12ec12ac3e4b560bf956f11f35cb3423ce6457569f41cae8f",
+    "src/knit/shape-needles.ts": "f8d22c35b66e330010ea61afa21e70443a5f869a31f50677ae5c0c77fd965156",
     "src/knit/shape-program.ts": "998aeb24e4e484a1c67cd5d7a1da67208629a5d9bc61b047f4a642d3e13dbeef",
     "src/knit/shape-types.ts": "f6dea2606f78087f17a6589342ddf52ccb3d1021d2cc1e49a3296427c5a3140e",
     "src/knit/shape-validate.ts": "eb1e9ed2b0b54132b86cd5f549e485fbc87c144f1833b942b1b1c5c44f4f32e3",
     "src/knit/sphere-knit.ts": "2b93ee9e2286d1ed31b3ba5b8ac71c4f6ec7cc1a2ff9f094120c7a72690b0d26",
     "src/knit/structures.ts": "3f4c5eaf62a700262d450b2b866ed6b9d114979c3e4273e9fc544178e88d7aa1",
+    "src/knit/surface-distance.ts": "41a1d0c6a82fdbe9920a00e56bb3ccfb09c907d1f28f7b53609192aefcffcbb9",
     "src/knit/tiles.ts": "7ac052501854e5d405fae34dbe15433c3147612dc8809f74bb48851177c0009e",
     "src/knit/transfers.ts": "92552650fe5ef919847c6cb33104e470d755d1a8f254f93caaf3f7d0aa23a17a",
     "src/knit/typed-program.ts": "8feed79f21362112e877b26f72f3f635b40fcc81ec32fa6a7fb5dec65493c27e",
@@ -576,8 +930,8 @@
     "src/learning/catalog.ts": "e783e2f889147d4834487a5967aa511a5549eb880da3c3571730ba3baa8b4319",
     "src/learning/citations.ts": "637d3301aad2bf9b1b5df146be999a00c1f209de9b8898ae66dc3e3a3d6369ac",
     "src/learning/learning.css": "413f54a2d5e805808d2391361712dc4ad27d0bf1a0da9eddfaa0d7f3839053d6",
-    "src/learning/references.ts": "9b5e91e5bc0b021378f6d93beb1f2ae546e46f929242e3039493691b599b56ce",
-    "src/learning/types.ts": "23eaf238e00ddcef0cffe75ae16c78a33bc55228adcab0d13ef448c00064770f",
+    "src/learning/references.ts": "25fb6c43ed0d28717beed9e864f45126f260d416ae75fb416091fda1e706fa68",
+    "src/learning/types.ts": "40f18d9c78d00882ca3df2ce74f509e3267d5b0904ca6350de801a6459657730",
     "src/main.tsx": "2e321c8d93adfc7e6c1616ebd55e6d2f35d7a114d701bb010172aaeb3e2cab19",
     "src/styles.css": "f2bdc1a99637086fb1a577659919e13fa5318edd8e1684e90e6a4900fabc6b51",
     "src/viewer/README.md": "24a91c5a7e8fae02d9081cfcdd202befbbdf09c23a65c0ca1e227904ada87fa4",
@@ -595,7 +949,7 @@
     "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
     "tests/browser/cuts.spec.ts": "42beb15ff4544122f02a3c19c4c215726e6268d2e3f7dc5ce86308744e808fee",
     "tests/browser/import.spec.ts": "e4bf91ed8f0fc8fe47e5a15e3aca78fa9860daaeaed3b801267f2efb17d424bd",
-    "tests/browser/knit.spec.ts": "4349af1a08315701a6c77389cf98803d90d1d89bb0bbeb49b27a0e45000d3c53",
+    "tests/browser/knit.spec.ts": "169d98708db6225e4168d6314df34c104b12c84aee4b5208e1c33546d5fc473a",
     "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/mapping.spec.ts": "1230fb5074444fad69cb40aa83361e8f5c8cce49d5e49dda23a15cf7e02eea84",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
@@ -634,11 +988,12 @@
     "tests/knit/settings.test.ts": "6659a352ab974e6be73ea3f50858922859ee1f16454077cab4ee16d66fc1ce77",
     "tests/knit/shape-fixtures.ts": "f58f6b6df6aa10c39d92fd869b73d7ba230c2931fb2fb3b3d1752f20d6aac2dc",
     "tests/knit/shape-geometry.test.ts": "a8219310ae040a1081af090f25d529fecfab67daa78153ef4d418b281f5e7cd1",
-    "tests/knit/shape-needles.test.ts": "0a9a0bf2c0cc86c9757e43329745f3eda536d6dc715ef748eafc2efe0bf62d0f",
-    "tests/knit/shape-program.test.ts": "c6412048c23e55c3319ecbe9473620ef63fb7cd680fbfab493dcbf7b18d2c82c",
+    "tests/knit/shape-needles.test.ts": "c3d1be64d66f574c4d3972f0211f5feb36cf176821acb20b5f94fbb5f3806d07",
+    "tests/knit/shape-program.test.ts": "ba98032aa727e89d403f92d480ca2711650eacc790f05b37e477e97d3bdb8309",
     "tests/knit/sphere-knit.test.ts": "a3d55f6f37ef4398af6b35971aad28e1d44e70e5083991231dfabb614fa7a0f2",
+    "tests/knit/surface-distance.test.ts": "025d8ce14c89e1f8736a15a0cfbcf9649f26e7a715f49b42780c2327471e572a",
     "tests/knit/surface-network.test.ts": "6b441efe3a477d294c9ee778976c96dfd8f1bc1e79ff54d7775df38b5204bb76",
-    "tests/learning/learning.test.ts": "5bfc5813358cf00dc898d94745c3983275f045df0090eed7470157ca47460fd6",
+    "tests/learning/learning.test.ts": "6b44d8469c12a753a0883c22425c56f873626d7951bb9c5c0814f27cdfeeb9f6",
     "tests/learning/project-citations.test.ts": "729c52ef36db3a6c1a3b907c91590521a5b841264fa1be21a66ac7b104e7bb61",
     "tests/mapping/generation.test.ts": "7dc6ac9ae392ab56f31a39563aaa0414523a4a10ac85bd8f4c7611ceec413beb",
     "tests/mapping/project.test.ts": "e10683efcbfb00853ec5a3efced9cfbccfdd7eeebec4a94d7c20d073b7c2c73f",

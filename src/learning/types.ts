@@ -7,7 +7,8 @@ export type ReferenceId =
   | 'lipman2014'
   | 'popescu2019knitcrete'
   | 'popescu2018automated'
-  | 'erickson2004cut';
+  | 'erickson2004cut'
+  | 'sethian2000eikonal';
 export interface ScientificReference {
   id: ReferenceId;
   type: 'article-journal' | 'paper-conference' | 'webpage' | 'thesis' | 'chapter';

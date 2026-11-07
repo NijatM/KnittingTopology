@@ -210,6 +210,9 @@ test('shape program: saddle measurement, explicit generation, start-edge undo an
   const citation = new TextDecoder().decode(await downloadOf(page, 'Citation BibTeX'));
   expect(citation).toContain('@phdthesis{popescu2019knitcrete');
   expect(citation).toContain('10.3929/ethz-b-000408640');
+  expect(citation).toContain('@article{sethian2000eikonal');
+  expect(citation).toContain('10.1073/pnas.090060097');
+  expect(citation).toContain('not the paper’s fast-marching algorithm');
   const box = (await bitmap.boundingBox())!;
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await expect(page.locator('.knit-loop')).toContainText(/course|held/);
@@ -276,6 +279,44 @@ test('shape program: saddle measurement, explicit generation, start-edge undo an
   ).toHaveCount(0);
   await expect(bitmap).toHaveAttribute('aria-label', oldLabel!);
   await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+});
+
+test('strong saddle explains its pass capacity and blocks operation exports', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  const side = page.getByRole('slider', { name: 'Side length', exact: true });
+  await side.focus();
+  await side.press('Home');
+  for (let i = 0; i < 28; i++) await side.press('ArrowRight');
+  await expect(side).toHaveValue('180');
+  const rise = page.getByRole('slider', { name: 'Saddle rise', exact: true });
+  await rise.focus();
+  await rise.press('End');
+  await expect(rise).toHaveValue('1.5');
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('combobox', { name: 'Start edge', exact: true }).selectOption('v1');
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not measured gauges.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('5');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('5');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Knit interpretation' })).toContainText(
+    'unresolved'
+  );
+  await expect(page.locator('.knit-export-blockers')).toContainText(
+    '39 loops from 35 live parents'
+  );
+  await expect(page.locator('.knit-export-blockers')).toContainText('at most 38');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeDisabled();
+  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(report).toContain('Operation-file export BLOCKED');
+  expect(report).toContain('39 loops from 35 live parents');
+  expect(report).toContain('iterative triangle-edge');
+  await page.screenshot({ path: 'tmp/qa/strong-saddle-capacity.png', fullPage: true });
 });
 
 test('shape start-edge overlay does not survive into an unmapped inspection surface', async ({

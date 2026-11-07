@@ -90,6 +90,28 @@ describe('needle placement', () => {
     );
     expect(r.unresolved.length).toBeGreaterThan(0);
   });
+  it('explains excessive growth at a turn without inventing boundary starts', () => {
+    // Regression reduced from the supplied 180 mm saddle: test values, not measured gauges.
+    const g = geometry(
+      [
+        Array.from({ length: 35 }, (_, i) => 0.5 + i),
+        Array.from({ length: 39 }, (_, i) => 0.51 + (34 * i) / 38),
+      ],
+      false
+    );
+    g.courses.forEach((c) => {
+      c.leftBoundary = true;
+      c.turnStart = false;
+    });
+    const r = placeShapeNeedles(g);
+    expect(r.unresolved).toHaveLength(39);
+    expect(r.unresolved.every((s) => s.reason?.includes('39 loops from 35 live parents'))).toBe(
+      true
+    );
+    expect(r.unresolved.every((s) => s.reason?.includes('at most 38'))).toBe(true);
+    expect(r.moves).toEqual([]);
+    expect(r.placements.filter((p) => p.course === 1)).toHaveLength(39);
+  });
   it('keeps transfers unit length and parent ownership explicit', () => {
     const r = placeShapeNeedles(
       geometry(

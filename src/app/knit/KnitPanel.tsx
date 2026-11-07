@@ -456,7 +456,12 @@ export default function KnitPanel(props: Props) {
                     Mariana A. Popescu (2019), KnitCrete, §§5.2 and 6.2
                   </a>
                   . The distance field, alignment and needle operations are project adaptations;
-                  this is not an exact reproduction.
+                  this is not an exact reproduction. Numerical background:{' '}
+                  <a href="https://doi.org/10.1073/pnas.090060097" target="_blank" rel="noreferrer">
+                    Sethian and Vladimirsky (2000)
+                  </a>
+                  . This project uses iterative triangle updates, rather than their fast-marching
+                  algorithm.
                 </p>
               )}
               {program.rectification && (
@@ -488,7 +493,7 @@ export default function KnitPanel(props: Props) {
                     type="button"
                     onClick={() =>
                       download(
-                        referencesBibtex(['popescu2019knitcrete']),
+                        referencesBibtex(['popescu2019knitcrete', 'sethian2000eikonal']),
                         'knit-shaping.bib',
                         'application/x-bibtex'
                       )
@@ -500,7 +505,11 @@ export default function KnitPanel(props: Props) {
                     type="button"
                     onClick={() =>
                       download(
-                        JSON.stringify(referencesCSL(['popescu2019knitcrete']), null, 2),
+                        JSON.stringify(
+                          referencesCSL(['popescu2019knitcrete', 'sethian2000eikonal']),
+                          null,
+                          2
+                        ),
                         'knit-shaping-citation.json',
                         'application/json'
                       )

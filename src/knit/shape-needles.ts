@@ -75,6 +75,19 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
     const contiguous = parents.every((p, i) => !i || p.needle === parents[i - 1].needle + 1);
     const n = parents.length,
       m = c.loops.length;
+    const boundaryStarts =
+      n > 0 &&
+      c.loops.some(
+        (p) =>
+          (c.leftBoundary && p.across < parents[0].loop.across) ||
+          (c.rightBoundary && p.across > parents[n - 1].loop.across)
+      );
+    // With no 0:1 boundary-start block, the first/last parent must each reach
+    // one of the first/last two children. Each end can add one unparented child
+    // and, at a piece boundary only, one outward unit move. This is a necessary
+    // bound for this pass grammar, not an impossibility proof for other schedules.
+    const capacity = n + 2 + Number(c.leftBoundary) + Number(c.rightBoundary);
+    const capacityFailure = contiguous && n > 0 && !boundaryStarts && m > capacity;
     const base = n ? parents[0].needle : Math.round(c.loops[0].across / geometry.stitchWidth);
     const align = (start: number, constrained: boolean): Plan | undefined => {
       const cols = m + 1,
@@ -241,7 +254,7 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
         })),
       };
     }
-    if (!chosen && contiguous && (n || c.index === 0))
+    if (!chosen && !capacityFailure && contiguous && (n || c.index === 0))
       for (let offset = -2; offset <= 2; offset++) {
         const p = align(base + offset, true);
         if (
@@ -282,8 +295,9 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
           pass: c.index + 1,
           needle: p.needle,
           role: p.role,
-          reason:
-            'No certified placement with one-needle transfers and held-loop constraints; geometric preview only.',
+          reason: capacityFailure
+            ? `This pass requests ${m} loops from ${n} live parents; the current one-needle grammar permits at most ${capacity} here. Split the piece into patches or use a different operation schedule; geometric preview only.`
+            : 'No certified placement with one-needle transfers and held-loop constraints; geometric preview only.',
         });
       chosen.moves = [];
     }

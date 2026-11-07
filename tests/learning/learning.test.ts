@@ -232,6 +232,7 @@ describe('method-appropriate references and citation export', () => {
       'popescu2019knitcrete',
       'popescu2018automated',
       'erickson2004cut',
+      'sethian2000eikonal',
     ];
     expect(bibliography.trim()).toBe(referencesBibtex(ids).trim());
   });

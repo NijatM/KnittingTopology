@@ -47,6 +47,7 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
       ? [
           'Source: Mariana Adriana Popescu (2019), KnitCrete, sections 5.2 and 6.2. https://doi.org/10.3929/ethz-b-000408640',
           'Course and loop stages adapted from the thesis. Distance source, monotone alignment, needle placement and operation checks are independent project methods; not a full reproduction.',
+          'Distance method: iterative triangle-edge Bellman relaxation on a sampled grid. Eikonal/obtuse-mesh background: Sethian and Vladimirsky (2000), https://doi.org/10.1073/pnas.090060097 . Their fast-marching algorithm is not reproduced; convergence tolerance is not a geometric error bound.',
           'Symbolic parent-loop checks are not a machine simulation or physical validation.',
           `Start edge: ${s.startEdge ?? 'v0'}; chart grid: ${p.shape.geometry.resolution} intervals per side.`,
           `Courses: ${p.shape.geometry.courses.length}; contour rounding max abs: ${mm(Math.max(0, ...p.shape.geometry.contourRounding.map(Math.abs)))}; course rounding max abs: ${mm(Math.max(0, ...p.shape.geometry.courseRounding.map(Math.abs)))}.`,

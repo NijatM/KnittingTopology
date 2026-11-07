@@ -1,9 +1,10 @@
 /** Popescu (2019), §§6.2.2–6.2.3: contour/sample/course stages.
- * Distance source, stencil and monotone alignment are project adaptations.
+ * Distance source, triangle relaxation and monotone alignment are project adaptations.
  * Supported subset: a single contour, monotone across chart rows. */
 import type { GenerationContext, SurfaceSpec, Vec2, Vec3 } from '../core/types';
 import { evaluateSurface, validateSurface } from '../core/surfaces';
 import type { ShapeCourse, ShapeGeometry, ShapePoint, StartEdge } from './shape-types';
+import { surfaceDistance } from './surface-distance';
 
 export function originalShapeUV(u: number, v: number, edge: StartEdge): Vec2 {
   switch (edge) {
@@ -49,8 +50,7 @@ export function buildShapeGeometry(
   };
   check();
   const n = surface.kind === 'plane' ? 16 : 128,
-    side = n + 1,
-    total = side * side;
+    side = n + 1;
   const at = (u: number, v: number, across: number): ShapePoint => {
     const uv = originalShapeUV(u, v, startEdge),
       position = evaluateSurface(surface, 0, ...uv);
@@ -62,61 +62,16 @@ export function buildShapeGeometry(
     check();
     for (let x = 0; x <= n; x++) grid.push(at(x / n, y / n, 0));
   }
-  // Multi-source Dijkstra, radius-two integer stencil; no certified curved-surface error bound.
-  const d = new Float64Array(total).fill(Infinity),
-    heap: { i: number; d: number }[] = [];
-  const push = (i: number, value: number) => {
-    let k = heap.length;
-    heap.push({ i, d: value });
-    while (k) {
-      const p = (k - 1) >> 1;
-      if (heap[p].d <= value) break;
-      heap[k] = heap[p];
-      k = p;
-    }
-    heap[k] = { i, d: value };
-  };
-  const pop = () => {
-    const first = heap[0],
-      last = heap.pop()!;
-    if (heap.length) {
-      let k = 0;
-      while (2 * k + 1 < heap.length) {
-        let j = 2 * k + 1;
-        if (j + 1 < heap.length && heap[j + 1].d < heap[j].d) j++;
-        if (heap[j].d >= last.d) break;
-        heap[k] = heap[j];
-        k = j;
-      }
-      heap[k] = last;
-    }
-    return first;
-  };
-  for (let y = 0; y <= n; y++) {
-    d[y * side] = 0;
-    push(y * side, 0);
-  }
-  let iterations = 0;
-  while (heap.length) {
-    if ((iterations++ & 1023) === 0) check();
-    const q = pop();
-    if (q.d !== d[q.i]) continue;
-    const x = q.i % side,
-      y = Math.floor(q.i / side);
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        if (!dx && !dy) continue;
-        const a = x + dx,
-          b = y + dy;
-        if (a < 0 || a > n || b < 0 || b > n) continue;
-        const j = b * side + a,
-          value = q.d + distance(grid[q.i].position, grid[j].position);
-        if (value < d[j]) {
-          d[j] = value;
-          push(j, value);
-        }
-      }
-  }
+  // Continuous interpolation on incident triangle edges avoids a fixed angular stencil.
+  // The field remains a sampled first-order approximation, not an exact geodesic.
+  const d =
+    surface.kind === 'plane'
+      ? Float64Array.from(grid, (_, i) => ((i % side) * surface.size) / n)
+      : surfaceDistance(
+          grid.map((p) => p.position),
+          n,
+          check
+        ).values;
   const max = Math.max(...Array.from({ length: side }, (_, y) => d[y * side + n]));
   const width = Math.max(1, countCeil(max / stitchWidth));
   if (width > 600) throw new Error('Shaping exceeds the 600 needle limit.');
@@ -454,12 +409,12 @@ export function buildShapeGeometry(
     maxLinkOffset,
     resolution: n,
     method:
-      'Popescu 2019 §§6.2.2–6.2.3 stages; project distance-stencil and monotone-alignment adaptation v1',
+      'Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and monotone-alignment adaptation v2',
     issues: [
-      'Distance-stencil and chart interpolation errors are not bounded on curved surfaces.',
+      'Sampled triangle-distance and chart interpolation errors are not bounded on curved surfaces.',
       'Single monotone contour per level is supported; complex charts require patching.',
       'Boundary-trimmed contour pairs use terminal gaps, without interior triangle blocks; mixed boundary trimming and interior short rows require separate patches.',
-      'Stencil edge chords can shortcut curved surfaces; distance, arc interpolation and turn positions are numerical approximations.',
+      'Sampled triangle faces can shortcut curved surfaces; distance, arc interpolation and turn positions are numerical approximations.',
     ],
   };
 }
