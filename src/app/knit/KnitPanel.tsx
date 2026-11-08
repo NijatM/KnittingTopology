@@ -31,6 +31,7 @@ import type { ChartWindow } from '../../knit/shape-types';
 import { patchLabel, type PatchBuild } from '../../knit/patches';
 import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
 import KnitZones from './KnitZones';
+import KnitSequence from './KnitSequence';
 import type { ZoneLayoutState } from './zone-layout';
 import type { ZoneMarks } from '../../knit/zones';
 
@@ -474,6 +475,12 @@ export default function KnitPanel(props: Props) {
               {program.skippedTransfers.length} bed changes were left as they are (see the report).
             </p>
           )}
+          <KnitSequence
+            program={program}
+            file={pieceFile}
+            piece={shownPiece ? shownPiece.label : null}
+            onMark={props.onMark}
+          />
           <details className="knit-model-notes">
             <summary>Method notes and limits ({program.issues.length})</summary>
             {program.issues.map((t) => (

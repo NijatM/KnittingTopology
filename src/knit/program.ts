@@ -20,6 +20,7 @@ import type { ShapeResult } from './shape-types';
 import { buildShapeProgram } from './shape-program';
 import { buildTypedSurfaceProgram } from './typed-program';
 import { buildPatchedProgram, type PatchBuild } from './patches';
+import { runProgramSequence, type SequenceRun } from './sequence';
 
 export interface StructureUse {
   id: string;
@@ -53,6 +54,8 @@ export interface KnitProgram {
   shape?: ShapeResult;
   /** Computational patches: every piece's build and the seams; this program is piece `patches.piece`. */
   patches?: PatchBuild;
+  /** The operation sequence, executed symbolically; its blocking steps are in `exportBlockers`. */
+  sequence?: SequenceRun;
   /** Network-only fills cells without reference-surface loops. */
   rectification?: { addedCells: number; maxAddedPasses: number; maxAddedCourseLengthM: number };
 }
@@ -153,6 +156,8 @@ export function buildKnitProgram(
     .map((s, i) => ({ id: s.id, name: s.name, loops: counts[i]!, gauge: gaugeOf(s.id, swatches) }))
     .filter((s) => s.loops > 0);
 
+  const firstDir = settings.lab.firstPass === 'left-to-right' ? 1 : -1,
+    sequence = runProgramSequence({ w, h, cells, key, firstDir });
   return {
     ok: true,
     program: {
@@ -160,7 +165,7 @@ export function buildKnitProgram(
       h,
       key,
       cells,
-      firstDir: settings.lab.firstPass === 'left-to-right' ? 1 : -1,
+      firstDir,
       settings,
       sizeSource: size.source,
       sizeGauge: size.gauge,
@@ -172,7 +177,8 @@ export function buildKnitProgram(
       structures,
       issues,
       staleNetwork,
-      exportBlockers: [],
+      exportBlockers: sequence.blockers,
+      sequence,
     },
   };
 }

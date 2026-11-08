@@ -1453,3 +1453,70 @@ test('feature zones: draw a region and a stroke on the surface, marked bitmap an
   await expect(list.getByRole('listitem')).toHaveCount(2);
   await page.screenshot({ path: 'tmp/qa/3a-feature-zones.png', fullPage: true });
 });
+
+test('operation sequence: counts, findings, sequence JSON while blocked; a transfer off the last needle blocks export', async ({
+  page,
+}) => {
+  await planeNetwork(page);
+  // Test values: 62 needles put the eyelet's transfer on the last needle; 60 passes leave rows between the
+  // network edge markings.
+  await page.getByRole('combobox', { name: 'Cell fill', exact: true }).selectOption('eyelet');
+  await page.getByRole('combobox', { name: 'Program size' }).selectOption('typed');
+  await page.getByRole('spinbutton', { name: 'Needles' }).fill('62');
+  await page.getByRole('spinbutton', { name: 'Passes' }).fill('60');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+
+  const sequence = page.getByRole('region', { name: 'Operation sequence' });
+  await expect(sequence.getByLabel('Sequence counts')).toContainText(
+    /^60 passes · \d+ symbols in use · \d+ knits · 0 tucks · \d+ transfers · [1-9]\d* same-bed moves · 0 drops · racking 0 in every pass$/
+  );
+  const off = sequence.locator('details', { hasText: "transfers off the program's needles" });
+  await expect(off.locator('summary')).toContainText(
+    "Blocks export: transfers off the program's needles"
+  );
+  await off.locator('summary').click();
+  await off.getByRole('button', { name: 'Show in the program' }).click();
+  await expect(sequence.locator('details', { hasText: 'loops left on the needles' })).toHaveCount(
+    1
+  );
+  await expect(page.locator('.knit-export-blockers')).toContainText(
+    /Pass \d+, needle 62: a transfer moves the loop to needle 63, outside the program's needles\./
+  );
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeDisabled();
+
+  // the sequence JSON is available while export is blocked and carries the blockers
+  const blocked = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Operation sequence JSON'))
+  );
+  expect(blocked).toMatchObject({
+    format: 'knit-sequence',
+    version: 1,
+    needles: 62,
+    passCount: 60,
+  });
+  expect(blocked.passes).toHaveLength(60);
+  expect(blocked.blockers.length).toBeGreaterThan(0);
+  expect(blocked.findings.find((f: { id: string }) => f.id === 'off-needles').blocking).toBe(true);
+  await page.screenshot({ path: 'tmp/qa/3b-operation-sequence.png', fullPage: true });
+
+  // 60 needles: the transfer stays inside, export is open again, the sequence has no blockers
+  await page.getByRole('spinbutton', { name: 'Needles' }).fill('60');
+  await expect(
+    sequence.locator('details', { hasText: "transfers off the program's needles" })
+  ).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  const open = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Operation sequence JSON'))
+  );
+  expect(open.needles).toBe(60);
+  expect(open.blockers).toEqual([]);
+  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(report).toContain(
+    'Operation sequence (machine-neutral; Popescu 2019, §6.4.1, pp. 113–114'
+  );
+  expect(report).toContain(
+    'Converted from the class-key bitmap; converting back gives the same cells.'
+  );
+});

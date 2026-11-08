@@ -37,15 +37,15 @@ export const KNIT_WORKFLOW = [
     title: 'Expand operation symbols',
     source:
       'In the thesis machine software, zones identify guides and symbols specify operations. Symbols may combine yarn-fed knitting with yarn-free transfers; clusters span several positions. Colour is a design aid and can have different meanings in different regions.',
-    here: 'The class-key bitmap uses fixed exact RGB meanings. One-guide moves and two-guide knit/tuck/float actions are a smaller language. Two-guide shaping transfers remain unsupported and block operation export.',
-    gap: 'Diagonal opposite-bed transfers, drops, multiple bed actions per guide and compound two-guide transfer sequences need a richer representation. Neither native symbols nor their RGB codes can be inferred from source diagrams.',
+    here: 'The class-key bitmap uses fixed exact RGB meanings. Every program is also written as a machine-neutral operation sequence: symbols of ordered yarn-fed and yarn-free steps (knit, tuck, transfers straight or diagonal, same-bed moves, drops), clusters repeated over cells, and racking per pass. The class key converts to it without loss; symbols the key cannot say are refused and block export.',
+    gap: 'Nothing produces drops, diagonal transfers or compound two-guide symbols yet: verified recipes are needed. Two-guide shaping transfers remain unsupported. Neither native symbols nor their RGB codes can be inferred from source diagrams.',
     locator: '§6.4.1, pp. 113–115, footnotes 8–12; Fig. 6.18; Fig. 7.34g–k, p. 152',
   },
   {
     title: 'Check, knit and measure',
     source:
       'Generate operations in the native software, simulate carriage/guide movement, correct the design, and export the machine file. Knit and measure specimens in the intended supported and loaded state.',
-    here: 'Design-level BMP/Knit Grammar export is gated by unresolved required operations. Symbolic checks and the input surface with computed placement are inspectable; neither is a fabric simulation.',
+    here: 'Design-level BMP/Knit Grammar export is gated by unresolved required operations. A symbolic executor follows live loops and yarn-guide positions through the operation sequence; transfers off the needles and conflicting rackings block export. Symbolic checks and the input surface with computed placement are inspectable; none is a machine or fabric simulation.',
     gap: 'The lab machine, needle allocation, usable width, software and symbol library are unconfirmed. The thesis Libra/Model 9 setup is a historical example. Native compilation and physical validation remain downstream.',
     locator: '§6.4, pp. 112–115; §6.5, pp. 116–117; Chapters 7–8',
   },
@@ -87,14 +87,14 @@ export const THESIS_FEATURES = [
   },
   {
     name: 'Compound and diagonal transfers',
-    status: 'Missing',
-    text: 'A diagonal opposite-bed transfer is not a same-bed lateral shift. Multiple actions on both beds by one guide, and yarn-free transfer sequences, exceed the current key language.',
+    status: 'Represented',
+    text: 'A diagonal opposite-bed transfer is not a same-bed lateral shift. The operation sequence represents diagonal transfers, multiple actions on both beds by one guide and yarn-free transfer sequences; the class key cannot write them, and no recipe produces them yet.',
     locator: '§6.4.1, pp. 113–114; Fig. 6.18',
   },
   {
     name: 'Two-layer features and dropped stitches',
     status: 'Missing recipes',
-    text: 'Basic two-guide bed assignments exist. Knit-both-then-transfer and knit-both-then-drop-front are distinct compound symbols, absent from the current two-guide key. Float is not drop.',
+    text: 'Basic two-guide bed assignments exist. Knit-both-then-transfer and knit-both-then-drop-front are distinct compound symbols: the operation sequence can hold them and the executor follows the dropped loop, but the two-guide key cannot write them and no recipe produces them yet. Float is not drop.',
     locator: 'Fig. 7.34g–k, p. 152; §7.3.4, pp. 153–154',
   },
   {

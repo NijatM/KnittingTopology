@@ -3,6 +3,7 @@
 import type { KnitProgram } from './program';
 import type { KnitZone } from '../core/types';
 import { zoneLines, type ZoneMarks } from './zones';
+import { sequenceLines } from './sequence';
 import { keyById, meaningName, rgbText } from './keys';
 import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
@@ -150,6 +151,7 @@ export function knitReport(
     '',
     `Checks (warnings; limits float ${s.limits.float}, held ${s.limits.held}, tucks ${s.limits.tucks}). They do not certify knittability.`,
     ...(p.findings.length ? p.findings.map((f) => `  - ${f.title}: ${f.text}`) : ['  none']),
+    ...(p.sequence ? ['', ...sequenceLines(p.sequence, p.h)] : []),
     ...(p.issues.length ? ['', 'Notes', ...p.issues.map((t) => `  - ${t}`)] : []),
     '',
     'Measurement context (user-reported; not machine settings or physical validation)',

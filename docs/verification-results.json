@@ -1292,5 +1292,43 @@
       "feature recipes that expand a zone into operations (audit item 4)",
       "the machine-neutral operation sequence and symbolic run (milestone 3b)"
     ]
+  },
+  "operation_sequences": {
+    "status": "Local verification complete: 620 unit tests (35 files, 298 knit), production browser 45/45. The executor is symbolic, not a machine simulation; no physical knitting result is claimed.",
+    "source": "Popescu (2019), section 6.4.1, pp. 113-114 (symbols placed on a needles x passes grid become operations and selections, then carriage direction and yarn-guide movement are simulated to detect errors before the machine file is written; footnote 8: zone = yarn guide, symbol = operation; footnote 9: knitting with yarn and transfer without yarn, both possible in one symbol; footnote 12: a colour is not a fixed symbol); Fig. 6.18 (symbols and clusters); Fig. 7.34g-k, p. 152 (knit front and back; float front, knit back; knit front and back then transfer front to back; knit front and back then drop the front stitch); section 7.3.4, p. 153 (two yarn guides, one per bed).",
+    "available": [
+      "knit-sequence: every program as passes in knitting order, each with a direction, a racking and one symbol per needle; symbols of ordered yarn-fed (knit, tuck by guide and bed) and yarn-free steps (transfer with a needle offset, the class key's same-bed move, drop); clusters repeated over cells from an anchor",
+      "lossless conversion from the class-key bitmap (each cell keeps its key operation); conversion back refused, naming pass and needle, when the key has no operation for a symbol",
+      "symbolic executor in every mode: live loops per needle on both beds, each loop's parents, yarn-guide positions",
+      "panel section 'Operation sequence' (counts, findings with Show in the program), report section, Operation sequence JSON download"
+    ],
+    "project_rules": [
+      "in each pass, every yarn-fed step in carriage order, then every yarn-free step; moved loops land together after the pass's departures",
+      "a transfer from front needle n with offset o lands on back needle n + o and needs racking o; from back needle n it lands on front needle n + o and needs racking -o (sign convention, not a machine value)",
+      "one racking per pass; a symbol has yarn-fed steps before yarn-free steps and at most one yarn-fed step per bed",
+      "a yarn guide sits where its last stitch was; a pass without its stitches leaves it there; a jump is a first stitch more than one needle from where it stopped; the wrong side is a pass in the same direction as its previous pass with stitches"
+    ],
+    "blocking": [
+      "a transfer or move to a needle outside the program blocks the BMP and Knit Grammar JSON (the class key's 'transfer off the edge', a warning before, now also blocks)",
+      "transfers in one pass that need different rackings block export",
+      "a refused conversion blocks export",
+      "stitches on empty needles, stacked loops, transfers from empty needles, drops, loops left at the end, yarn-guide jumps and the wrong side are reported only; the shaping check still blocks shape mode as before",
+      "the sequence JSON is always downloadable and carries the findings and blockers"
+    ],
+    "evidence": [
+      "tests/knit/sequence.test.ts (12 cases): round trip to identical cells and BMP bytes in network, typed, shape and two-guide programs; same-meaning colours; refusal messages (Fig. 7.34j in the two-guide key, drop, diagonal transfer, lone move, one guide on both beds); loop parents through a transfer; racking 1 / -1 and the conflict blocker; off-needle blocker; stacked, empty-transfer and empty-drop findings; Fig. 7.34k drop; guide jumps and wrong side; cluster fill and invalid symbols; agreement of loop parents with validateShapeOperations on four shape programs; the eyelet edge transfer becoming a blocker; JSON and report",
+      "tests/browser/knit.spec.ts 'operation sequence' case on dev and on the production build",
+      "test values (6 x 4 mm unit swatch; typed 62 / 60 x 60 or 12 browser and unit layouts) are not lab measurements"
+    ],
+    "known_limits": [
+      "symbolic execution, not a machine simulation; pass order and racking sign are project conventions",
+      "guide positions from stitch positions only",
+      "a custom-key operation with both yarn guides on one bed converts as it is and counts as one stitch",
+      "nothing knitted"
+    ],
+    "not_implemented": [
+      "feature recipes that produce drops, diagonal transfers or clusters from feature zones (audit item 4)",
+      "native machine symbols, bindings and machine files"
+    ]
   }
 }

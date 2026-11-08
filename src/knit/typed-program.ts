@@ -9,6 +9,7 @@ import { isTwoLayer, tileOp } from './structures';
 import { insertTransfers } from './transfers';
 import { runChecks } from './checks';
 import { gaugeOf } from './gauge';
+import { runProgramSequence } from './sequence';
 
 /** Unmeasured network layout on a rectangular chart. Surface coordinates are registration only. */
 export function buildTypedSurfaceProgram(
@@ -66,6 +67,8 @@ export function buildTypedSurfaceProgram(
         )
       : { cells, changes: [], skipped: [] };
     cells = transfers.cells;
+    const firstDir = settings.lab.firstPass === 'left-to-right' ? 1 : -1,
+      sequence = runProgramSequence({ w, h, cells, key, firstDir });
     return {
       ok: true,
       program: {
@@ -74,7 +77,7 @@ export function buildTypedSurfaceProgram(
         cells,
         key,
         settings,
-        firstDir: settings.lab.firstPass === 'left-to-right' ? 1 : -1,
+        firstDir,
         sizeSource: 'typed',
         sizeGauge: null,
         mapping,
@@ -95,7 +98,8 @@ export function buildTypedSurfaceProgram(
           'Typed rectangular UV layout: surface registration only; no measured physical size or shape prediction.',
         ],
         staleNetwork,
-        exportBlockers: [],
+        exportBlockers: sequence.blockers,
+        sequence,
       },
     };
   } catch (cause) {

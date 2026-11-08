@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-08T16:08:41.789Z",
+  "generated_at_utc": "2026-11-08T16:49:44.454Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-08",
@@ -1295,6 +1295,44 @@
         "feature recipes that expand a zone into operations (audit item 4)",
         "the machine-neutral operation sequence and symbolic run (milestone 3b)"
       ]
+    },
+    "operation_sequences": {
+      "status": "Local verification complete: 620 unit tests (35 files, 298 knit), production browser 45/45. The executor is symbolic, not a machine simulation; no physical knitting result is claimed.",
+      "source": "Popescu (2019), section 6.4.1, pp. 113-114 (symbols placed on a needles x passes grid become operations and selections, then carriage direction and yarn-guide movement are simulated to detect errors before the machine file is written; footnote 8: zone = yarn guide, symbol = operation; footnote 9: knitting with yarn and transfer without yarn, both possible in one symbol; footnote 12: a colour is not a fixed symbol); Fig. 6.18 (symbols and clusters); Fig. 7.34g-k, p. 152 (knit front and back; float front, knit back; knit front and back then transfer front to back; knit front and back then drop the front stitch); section 7.3.4, p. 153 (two yarn guides, one per bed).",
+      "available": [
+        "knit-sequence: every program as passes in knitting order, each with a direction, a racking and one symbol per needle; symbols of ordered yarn-fed (knit, tuck by guide and bed) and yarn-free steps (transfer with a needle offset, the class key's same-bed move, drop); clusters repeated over cells from an anchor",
+        "lossless conversion from the class-key bitmap (each cell keeps its key operation); conversion back refused, naming pass and needle, when the key has no operation for a symbol",
+        "symbolic executor in every mode: live loops per needle on both beds, each loop's parents, yarn-guide positions",
+        "panel section 'Operation sequence' (counts, findings with Show in the program), report section, Operation sequence JSON download"
+      ],
+      "project_rules": [
+        "in each pass, every yarn-fed step in carriage order, then every yarn-free step; moved loops land together after the pass's departures",
+        "a transfer from front needle n with offset o lands on back needle n + o and needs racking o; from back needle n it lands on front needle n + o and needs racking -o (sign convention, not a machine value)",
+        "one racking per pass; a symbol has yarn-fed steps before yarn-free steps and at most one yarn-fed step per bed",
+        "a yarn guide sits where its last stitch was; a pass without its stitches leaves it there; a jump is a first stitch more than one needle from where it stopped; the wrong side is a pass in the same direction as its previous pass with stitches"
+      ],
+      "blocking": [
+        "a transfer or move to a needle outside the program blocks the BMP and Knit Grammar JSON (the class key's 'transfer off the edge', a warning before, now also blocks)",
+        "transfers in one pass that need different rackings block export",
+        "a refused conversion blocks export",
+        "stitches on empty needles, stacked loops, transfers from empty needles, drops, loops left at the end, yarn-guide jumps and the wrong side are reported only; the shaping check still blocks shape mode as before",
+        "the sequence JSON is always downloadable and carries the findings and blockers"
+      ],
+      "evidence": [
+        "tests/knit/sequence.test.ts (12 cases): round trip to identical cells and BMP bytes in network, typed, shape and two-guide programs; same-meaning colours; refusal messages (Fig. 7.34j in the two-guide key, drop, diagonal transfer, lone move, one guide on both beds); loop parents through a transfer; racking 1 / -1 and the conflict blocker; off-needle blocker; stacked, empty-transfer and empty-drop findings; Fig. 7.34k drop; guide jumps and wrong side; cluster fill and invalid symbols; agreement of loop parents with validateShapeOperations on four shape programs; the eyelet edge transfer becoming a blocker; JSON and report",
+        "tests/browser/knit.spec.ts 'operation sequence' case on dev and on the production build",
+        "test values (6 x 4 mm unit swatch; typed 62 / 60 x 60 or 12 browser and unit layouts) are not lab measurements"
+      ],
+      "known_limits": [
+        "symbolic execution, not a machine simulation; pass order and racking sign are project conventions",
+        "guide positions from stitch positions only",
+        "a custom-key operation with both yarn guides on one bed converts as it is and counts as one stitch",
+        "nothing knitted"
+      ],
+      "not_implemented": [
+        "feature recipes that produce drops, diagonal transfers or clusters from feature zones (audit item 4)",
+        "native machine symbols, bindings and machine files"
+      ]
     }
   },
   "source_sha256": {
@@ -1306,8 +1344,10 @@
     "public/favicon.svg": "2c74fd69b769adfb4e007383fbbb51116f528783adbc72a98c66c130b72a4c43",
     "research/references.bib": "d3fa11548d12dff2dfd110b47912cf71cb7ab7a2d003edf98a82ffc85987e943",
     "scripts/snapshot-verification.mjs": "245dabcec4e2bbf900d474ce67bfcf7992c390df9d2210c81af0069d0db09967",
+    "src/.DS_Store": "3816c2829dea11255e6cf9e0d123be8cd124e02a78516d641f2f557208971d53",
     "src/adapters/citations.ts": "c6fe9f4ba64d0ec0d7e746d77283cf5904bff16c0991669ffb3b62ce19811027",
     "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
+    "src/app/.DS_Store": "b653c30886f9c45f1a0aa0d7c952c45deeae44f52a59fdb6904f51a76265058b",
     "src/app/App.tsx": "d76505fd89bd0f0fc8797ae355aa801b41b5d3ab553d57bb5eec8c3bec690b12",
     "src/app/knit/CutControls.tsx": "75bf461eef5fcc580c41adffe6fe73109b98c9fbb1944012bb4215d0b86ad32b",
     "src/app/knit/CutPanel.tsx": "ab9ae7eeb56117cb1391af3052ccf84ca7433d34e453bf2df185d4789d0b9676",
@@ -1318,8 +1358,9 @@
     "src/app/knit/KnitFeedback.tsx": "8cd49c9cb95c2d6ca271ff315304526815f94ac93b06a65ff958116784f01ab5",
     "src/app/knit/KnitGraphStages.tsx": "5df6dccdda5f49387155d3d52400c065266db632434148d103639793bb908d10",
     "src/app/knit/KnitInspection.tsx": "26e275ebeb59c2a8c6d7fc6ff79114cef9ae2c24a75e35cc78b7ed8fe144309b",
-    "src/app/knit/KnitPanel.tsx": "1772ba33fd628f23fded6f2d2f8592b926990abf2018fced977331f9cc08c4b4",
+    "src/app/knit/KnitPanel.tsx": "1fbe6c2ed64c8ca9d1de57475af1126c472a203f64333a6b2e9face698473e62",
     "src/app/knit/KnitPatches.tsx": "7e3bc18a6592bd5d4c07d158eb9be1876ccd04d57eb5b03d04e5239576f933c4",
+    "src/app/knit/KnitSequence.tsx": "7a2ddc42e4816d6e7ad629e44ba9a2c6d8eb0993221622bbf092278da0046e77",
     "src/app/knit/KnitThumb.tsx": "76c02d2c29bdf0ac742fe63c564f12c2b3ffdd15fe20e9a4e450d3de43d76e82",
     "src/app/knit/KnitVariant.tsx": "6b856d304ef9be340d988caf9913e787166e6019d12605cef01785e2cfb79c29",
     "src/app/knit/KnitZones.tsx": "f88329419d13384a644e540a14d09195a0a0caa5db41d2971321cb321112e347",
@@ -1368,15 +1409,16 @@
     "src/knit/patch-join.ts": "31fbecaea5b48fc6ef4ae5e28edae08747a171c557425db972264ce473c41619",
     "src/knit/patches.ts": "52028fad5d4a6af506cd71c1e7f485d29b247539d472ba137897a1e65b46f5b4",
     "src/knit/popescu-rules.ts": "4e3154bdf2485d37704de0fc772781fc4fff27eedfefd721ec5cd7e5750bd39d",
-    "src/knit/program.ts": "b830ce07c6d686a4462a6295728fbeca2154660d40339c0a69ae4d2687488d7f",
+    "src/knit/program.ts": "0e9704db334a05d3fad05a09efd983f3a50674da64d1d4c19c875991260239bd",
     "src/knit/rasterize-surface.ts": "1fdc3f180492d04993506fc067bc23a44f2720c5b4cad9e435d091c622afd9e0",
     "src/knit/rasterize.ts": "88e913a679c887f266e076ec7bdcb5dc33ccea9fb40d2b116d3a9afb2f22c799",
-    "src/knit/report.ts": "8a0e7e4003454edcfea6ab78614ae34b8fb82cea32f8526860fb21a2e923bf81",
+    "src/knit/report.ts": "3b674f8e4c04f128d1f815d1ddc22b48152296dd495d90425af1a310e5969c93",
     "src/knit/requirements.ts": "aa8f6bc1ab4f6a95bde2f942f2543e473b76aca960f2e467a6c8374d926a93d5",
+    "src/knit/sequence.ts": "8c2e859b176e1b61fbfd7d7ca7be7b815a8b5f18a3c3f1c3e6cddae3e4d5b826",
     "src/knit/settings.ts": "d7489a4f81441e5455e69bac5c54af0cf441dbfe08e4d3a205b8a0e8e9e51902",
     "src/knit/shape-geometry.ts": "c4bc7454e65720ea6a97f54b69333f14a31e473d76965e064e1ab51f95cdd4cc",
     "src/knit/shape-needles.ts": "e71835ee54439c0946c424c0d03f152f8730af101e392ace0e79d7926847a861",
-    "src/knit/shape-program.ts": "6bf022387644a4f272d5a86bf72c2c15b98966f2097cf10f16b43b4b8189b19c",
+    "src/knit/shape-program.ts": "197ed27ec970f47f7e7df460e9843d8597cdfda9d02f1eeaf2320ec8766702e3",
     "src/knit/shape-types.ts": "0d6352cec7ea45d4164bfddfb0068a067c3751f6a1c240460f726059b70ed350",
     "src/knit/shape-validate.ts": "eb1e9ed2b0b54132b86cd5f549e485fbc87c144f1833b942b1b1c5c44f4f32e3",
     "src/knit/sphere-knit.ts": "2b93ee9e2286d1ed31b3ba5b8ac71c4f6ec7cc1a2ff9f094120c7a72690b0d26",
@@ -1385,7 +1427,7 @@
     "src/knit/tiles.ts": "7ac052501854e5d405fae34dbe15433c3147612dc8809f74bb48851177c0009e",
     "src/knit/transfers.ts": "92552650fe5ef919847c6cb33104e470d755d1a8f254f93caaf3f7d0aa23a17a",
     "src/knit/turn-pairing.ts": "130594e5bf52045ddf5449094fda9d75aeb319ae34e3f1eef0db517525e1c25b",
-    "src/knit/typed-program.ts": "8feed79f21362112e877b26f72f3f635b40fcc81ec32fa6a7fb5dec65493c27e",
+    "src/knit/typed-program.ts": "955addd7dc71a6777d1e40677fea29c3a1d6b00f6d0ae2a94faf60457504a344",
     "src/knit/zones.ts": "3e3f8dd70c35c15b7d3c8a5c309b3b1abcd4b0eeecc55523ba8db28ff94aec75",
     "src/learning/KnitWorkflowLesson.tsx": "b7b8fbda5d40b1ee1e64562ec1296dd231c194a84a605174b85e462da28a1686",
     "src/learning/LearningPanel.tsx": "f0e5699e5435aa53ef0995186586a4edf44e1b4fa5d102b04a856753a7ff77bb",
@@ -1393,7 +1435,7 @@
     "src/learning/MethodDiagram.tsx": "804db46da9ec66f499aba1e60eea9e025f5a47503620129f04207b3e77ef5250",
     "src/learning/catalog.ts": "e783e2f889147d4834487a5967aa511a5549eb880da3c3571730ba3baa8b4319",
     "src/learning/citations.ts": "637d3301aad2bf9b1b5df146be999a00c1f209de9b8898ae66dc3e3a3d6369ac",
-    "src/learning/knit-workflow.ts": "08d9c51753a42c915410c79ece40276e6abc3a7766eb8bab75218a38ee337d44",
+    "src/learning/knit-workflow.ts": "f33266002f8e5528d0301749989ea12e291e8e9f9ecbaaf7d0aa761a14b0990c",
     "src/learning/learning.css": "4c20b64c5f80e474992ff2d7aa3d71e0787ef02e7aed6b552eea6ab2d8966122",
     "src/learning/references.ts": "3fd1df9e97e9dc6f9da654dae826577483c25f3fc6e0bd5629d7a33fa2c87345",
     "src/learning/types.ts": "40f18d9c78d00882ca3df2ce74f509e3267d5b0904ca6350de801a6459657730",
@@ -1408,18 +1450,20 @@
     "src/workers/import.worker.ts": "0fce0b342820cf554b1ca9f7eed1ddc151a9a47687063bc4d5dc0155806d5872",
     "src/workers/knit.worker.ts": "5ab50fb2a7746a8a0c6fe0881a045092a92e99e7517364281c91db597a7c5bf4",
     "src/workers/protocol.ts": "ebd32a2d468b89aa61b3850c6a17936d71cda92cd37e6eeb09bcd75e1a1fe2eb",
+    "tests/.DS_Store": "438256cf4fb877f64300cfe158bd1d9312f68da4652cabcfca330a26f6a7819a",
     "tests/app/persistence.test.ts": "ad84df0f6b6080d9236f0277d2119a93da0ba2e6846b3867545d9abb2e992410",
     "tests/app/project.test.ts": "0509d29376cb7bc8d119bd0c9f4edd9495082830fea72e88144aece9a9c39bb6",
     "tests/browser/README.md": "710e688d4a4ac143b36deed05014f22b605b15b331fd517dc8237329b81a65b9",
     "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
     "tests/browser/cuts.spec.ts": "42beb15ff4544122f02a3c19c4c215726e6268d2e3f7dc5ce86308744e808fee",
     "tests/browser/import.spec.ts": "e4bf91ed8f0fc8fe47e5a15e3aca78fa9860daaeaed3b801267f2efb17d424bd",
-    "tests/browser/knit.spec.ts": "cfe5bea8286e8e06bb2a1a1f83c2da10eb1208ead9ee4f9f441a210a0599e762",
+    "tests/browser/knit.spec.ts": "4d4490be244cdc932e52db6ba58d0890e75098bc84d64b97819e3dea98fb3b1f",
     "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/mapping.spec.ts": "1230fb5074444fad69cb40aa83361e8f5c8cce49d5e49dda23a15cf7e02eea84",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
     "tests/core/audit.test.ts": "7624919fdc001697e8053b40a5df3a5a351045cf53ba1334e296be29966f7cf7",
     "tests/core/generation.test.ts": "a6fef7bbdfdb061b08cd42b2067487c06d764040b8f02e389a273d60c072d3c1",
+    "tests/fixtures/.DS_Store": "5bb036ab3bb098fece043404e5fa4375e234633329f3f158f4c392fe506cbd1b",
     "tests/fixtures/import/bent-rectangle-uv.obj": "fb60c86f2cd1ee101d8a0f83ad414eed16e942baf7173abc6338f58bd1f39fb9",
     "tests/fixtures/import/collapsed-tetra.obj": "319baeb3642c57134589e03541345d6accd34b4b650e224584d77d2e1e821ed3",
     "tests/fixtures/import/invalid.obj": "03cc3546e0f0b5caddeb20e347df660f3664ae879bbeae514e2d4c75d1bd2751",
@@ -1455,6 +1499,7 @@
     "tests/knit/patches.test.ts": "9c47a2f6d34a393d9b0d2dc01ddcb763950863125e0ab1af90a1a11c92b1336d",
     "tests/knit/program.test.ts": "74941a427867669fbf992f9748212a632b0538c30bd431fb313c71bdd9d4f135",
     "tests/knit/requirements.test.ts": "73a607c421e4cc45789c29af3cb734293379f0fab3f1dc7a70a5880c5bed095f",
+    "tests/knit/sequence.test.ts": "3278912ea0e68ff59ad4ea02574840b115749665eb9f83d8f20203b119223021",
     "tests/knit/settings.test.ts": "6659a352ab974e6be73ea3f50858922859ee1f16454077cab4ee16d66fc1ce77",
     "tests/knit/shape-fixtures.ts": "f58f6b6df6aa10c39d92fd869b73d7ba230c2931fb2fb3b3d1752f20d6aac2dc",
     "tests/knit/shape-geometry.test.ts": "0052400af3d30f038c8aa602297afc815db8a04d4402e9e9fbce0c35747fca36",
