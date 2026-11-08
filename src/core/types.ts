@@ -295,6 +295,24 @@ export interface KnitStageCourse {
   leftBoundary: boolean;
   rightBoundary: boolean;
 }
+/** Edits of a courses stage on the surface (Popescu 2019, §6.3.2, pp. 111–112). */
+export type KnitCourseEditOp =
+  | 'move-vertex'
+  | 'add-vertex'
+  | 'delete-vertex'
+  | 'add-link'
+  | 'delete-link'
+  | 'reattach-link'
+  | 'move-point'
+  | 'insert-point'
+  | 'delete-point'
+  | 'delete-course'
+  | 'add-course';
+export interface KnitStageEdit {
+  op: KnitCourseEditOp;
+  /** What was edited, e.g. "vertex 12" or "course 4, point 3". */
+  target: string;
+}
 export interface KnitCourseStage {
   stage: 'courses';
   /** Noncryptographic fingerprint of the stage inputs; not a security hash. */
@@ -311,6 +329,8 @@ export interface KnitCourseStage {
   maxLinkOffset: number;
   resolution: number;
   issues: string[];
+  /** Edits on the surface, in order; absent when the stage is as generated. */
+  edits?: KnitStageEdit[];
 }
 /** Thesis feature classes (§6.2.4, p. 103): short-row start/end, increase, decrease. */
 export type KnitLoopRole = 'loop' | 'short-row' | 'increase' | 'decrease';

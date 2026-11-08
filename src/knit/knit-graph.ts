@@ -2,6 +2,7 @@
 // measured course layout, saved in the project and as stage files. Fingerprints are noncryptographic
 // freshness checks of the stage inputs, not security hashes.
 import type {
+  KnitCourseEditOp,
   KnitCourseMethod,
   KnitCourseStage,
   KnitGraphStages,
@@ -40,6 +41,20 @@ const STAGE_VERSION: Record<KnitCourseMethod, string> = {
 };
 export const STAGE_FILE_FORMAT = 'knit-graph-stage';
 const MAX_STAGE_ITEMS = 400_000;
+export const MAX_STAGE_EDITS = 10_000;
+const EDIT_OPS: KnitCourseEditOp[] = [
+  'move-vertex',
+  'add-vertex',
+  'delete-vertex',
+  'add-link',
+  'delete-link',
+  'reattach-link',
+  'move-point',
+  'insert-point',
+  'delete-point',
+  'delete-course',
+  'add-course',
+];
 
 export const courseMethodOf = (settings: Pick<KnitSettings, 'courseMethod'>): KnitCourseMethod =>
   settings.courseMethod ?? 'project-alignment';
@@ -162,6 +177,23 @@ export function freshStages(
   return state.loops === 'fresh'
     ? graph
     : { courseMethod: graph.courseMethod, courses: graph.courses };
+}
+/** Export blocker for saved stages whose inputs changed. Generate replaces them, except an edited
+ * courses stage, which is kept until the user discards its edits. */
+export function staleStagesBlocker(
+  project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>
+): string | null {
+  const state = project.knit?.graph ? knitGraphFreshness(project) : null;
+  if (!state || (state.courses !== 'stale' && state.loops !== 'stale')) return null;
+  return state.courses === 'stale' && project.knit?.graph?.courses.edits?.length
+    ? 'Knit graph: the edited courses stage is stale (its inputs changed); download it or discard its edits.'
+    : 'Saved knit graph stages are stale: their inputs changed. Generate to replace them.';
+}
+/** Identity of the saved courses stage: method, inputs and content (edits change it). */
+export function courseStageKey(graph: KnitGraphStages | undefined): string {
+  return graph
+    ? `${graph.courseMethod}:${graph.courses.fingerprint}:${stageContentHash(graph.courses)}`
+    : '';
 }
 /** Signature of saved stages for preview freshness; content changes are included. */
 export function knitGraphSignature(graph: KnitGraphStages | undefined): string {
@@ -448,6 +480,13 @@ export function validateCourseStage(value: unknown): KnitCourseStage {
     issues: list(s.issues, 'issues', 40).map((x) => str(x, 'issue', 600)),
   };
   if (s.warp !== undefined) out.warp = pairs(s.warp, 'warp links', vertices.length);
+  if (s.edits !== undefined)
+    out.edits = list(s.edits, 'edits', MAX_STAGE_EDITS).map((e, i) => {
+      const r = record(e, `edit ${i + 1}`);
+      if (!EDIT_OPS.includes(r.op as KnitCourseEditOp))
+        fail(`edit ${i + 1} has an unknown operation.`);
+      return { op: r.op as KnitCourseEditOp, target: str(r.target, `edit ${i + 1} target`, 200) };
+    });
   return out;
 }
 const ROLES: KnitLoopRole[] = ['loop', 'short-row', 'increase', 'decrease'];
@@ -709,6 +748,12 @@ export function checkKnitGraph(stages: KnitGraphStages): KnitGraphCheck[] {
       [
         ...duplicates(courses.vertices, 'vertex'),
         ...repeated([...courses.links, ...(courses.warp ?? [])], 'link'),
+        // Edited course polylines (§6.3.2: duplicates are not allowed): no point repeats on a course.
+        ...(courses.edits?.length
+          ? courses.courses.flatMap((c, k) =>
+              c.points ? duplicates(c.points, `course ${k + 1} point`) : []
+            )
+          : []),
         ...(loops?.primal
           ? [
               ...duplicates(loops.primal.vertices, 'primal vertex'),

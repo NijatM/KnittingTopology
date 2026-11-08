@@ -1109,3 +1109,74 @@ test('knit graph stages: save, download, discard, load in order, colour by role 
   );
   await page.screenshot({ path: 'tmp/qa/2a-stage-panel.png', fullPage: true });
 });
+
+test('knit graph editing: edit the courses stage on the surface, undo, keep a stale edited stage', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not lab measurements.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  const panel = page.getByRole('region', { name: 'Knit graph stages' }),
+    status = panel.getByRole('list', { name: 'Stage status' });
+  await expect(status).toContainText('Loops: saved, matches the current inputs');
+  const bmp = await downloadOf(page, 'Bitmap BMP');
+
+  const toggle = panel.getByRole('button', { name: 'Edit on the surface', exact: true });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  const tool = panel.getByRole('combobox', { name: 'Edit tool' });
+  await expect(tool.locator('option')).toHaveText([
+    'Move point',
+    'Insert point',
+    'Delete point',
+    'Delete course',
+    'Add course',
+  ]);
+  await tool.selectOption('delete-course');
+  const canvas = page.getByTestId('surface-viewer').locator('canvas');
+  await expect(canvas).toHaveAttribute('aria-label', /Knit graph editor/);
+  // Courses lie a few millimetres apart: click down the middle of the view until one is hit.
+  const box = (await canvas.boundingBox())!;
+  for (let dy = -60; dy <= 60; dy += 2) {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2 + dy);
+    if ((await status.textContent())?.includes('edited')) break;
+  }
+  await expect(status).toContainText('edited (1 edit: 1 delete course)');
+  // The edit rebuilds the layout and its checks at once.
+  await expect(status).toContainText('Loops: saved, matches the current inputs');
+  await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
+
+  // Undo restores the generated stage and its bitmap.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(status).not.toContainText('edited');
+  await expect(status).toContainText('Loops: saved, matches the current inputs');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(bmp);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(status).toContainText('edited (1 edit: 1 delete course)');
+
+  // Changed inputs make the edited stage stale; Generate keeps it and export stays blocked.
+  await page.getByRole('combobox', { name: 'Course method' }).selectOption('popescu-2019-rules');
+  await expect(status).toContainText('saved, stale: its inputs changed; kept because it has edits');
+  await expect(toggle).toHaveCount(0);
+  await page.getByRole('button', { name: /^(Generate|Regenerate) shape$/ }).click();
+  await expect(page.getByText(/the edited courses stage is stale/).first()).toBeVisible();
+  await expect(status).toContainText('kept because it has edits');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  const pending = page.waitForEvent('download');
+  await panel.getByRole('button', { name: 'Download edited stage', exact: true }).click();
+  const file = JSON.parse(new TextDecoder().decode(await bytes(await pending)));
+  expect(file).toMatchObject({ stage: 'courses', data: { edits: [{ op: 'delete-course' }] } });
+  await panel.getByRole('button', { name: 'Discard edits and regenerate', exact: true }).click();
+  await expect(status).toContainText('Courses: saved, matches the current inputs');
+  await expect(status).not.toContainText('edited');
+  await expect(panel).toContainText('Popescu connection rules');
+  await page.screenshot({ path: 'tmp/qa/2b-stage-editing.png', fullPage: true });
+});

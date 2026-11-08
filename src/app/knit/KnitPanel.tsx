@@ -24,6 +24,7 @@ import KeyEditor from './KeyEditor';
 import TileEditor from './TileEditor';
 import KnitAssessment from './KnitAssessment';
 import KnitGraphStages from './KnitGraphStages';
+import type { GraphEditState } from './graph-edit';
 import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
 
 interface Props {
@@ -43,6 +44,7 @@ interface Props {
   onSettings: (next: KnitSettings, coalesceKey?: string) => void;
   onSwatches: (next: SwatchEntry[]) => void;
   onMark: (cells: number[] | null) => void;
+  graphEdit?: GraphEditState;
 }
 
 const mm = (m: number) => +(m * 1000).toFixed(4);
@@ -661,6 +663,7 @@ export default function KnitPanel(props: Props) {
         program={program}
         file={file}
         onSettings={(next) => props.onSettings(next)}
+        edit={props.graphEdit}
       />
 
       {selectedCell && s.mode !== 'shape' && (

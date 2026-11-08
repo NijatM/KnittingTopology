@@ -14,15 +14,15 @@ export const KNIT_WORKFLOW = [
     source:
       'Sample contours by course height, connect boundary endpoints first, and choose adjacent-contour connections using direction and continuity. Resample course segments by loop width, then form the primal knit graph and its loop dual.',
     here: 'The default course method uses distance contours, boundary anchoring and monotone alignment; needle placement and symbolic parent-loop checks are project adaptations. An opt-in second method reconstructs the written connection rules for open surfaces: candidate search, primal faces and their loop dual. Shaping includes short rows and increases/decreases within the supported grammar; short-row turns are paired so each pass starts where the yarn is (project rule).',
-    gap: 'The second method is reconstructed from the thesis text, not from compas_knit; where it leaves faces that are neither quads nor triangles, the thesis fixes them by editing, which is not available here. A passed symbolic check does not establish geometric convergence, native machine feasibility or achieved fabric shape.',
+    gap: 'The second method is reconstructed from the thesis text, not from compas_knit; where it leaves faces that are neither quads nor triangles, the thesis fixes them by editing; here a courses stage saved by a successful build can be edited, but a first build that leaves such faces stops with an error. A passed symbolic check does not establish geometric convergence, native machine feasibility or achieved fabric shape.',
     locator: '§§6.2.2–6.2.4, pp. 99–104; Figs. 6.4–6.12; shaping background §5.2, pp. 79–81',
   },
   {
     title: 'Edit and assemble patches',
     source:
       'Inspect and edit points and edges at intermediate stages, check connectivity and duplicates, save stages, and combine aligned patterns. Computational patches can outnumber fabricated pieces.',
-    here: 'The course and loop stages are saved with the project and as stage files, with input fingerprints and connectivity and duplicate checks; stale stages and failed checks block operation export. Project saving, selection and specific cube/sphere cut-and-seam workflows exist.',
-    gap: 'Knit graph editing, patch interfaces and assembly are absent. The thesis itself does not develop automatic subdivision; KnitCandela patch combination still required some manual alignment.',
+    here: 'The course and loop stages are saved with the project and as stage files, with input fingerprints and connectivity and duplicate checks; stale stages and failed checks block operation export. The courses stage can be edited on the surface: vertices and links (connection-rules method) or course polylines and turns (project method); each edit is recorded and the layout is rebuilt and rechecked. Project saving, selection and specific cube/sphere cut-and-seam workflows exist.',
+    gap: 'Loops-stage editing, patch interfaces and assembly are absent. The thesis itself does not develop automatic subdivision; KnitCandela patch combination still required some manual alignment.',
     locator: '§6.3, pp. 105–112; Figs. 6.13–6.17; §7.3.4, p. 153, footnote 9',
   },
   {

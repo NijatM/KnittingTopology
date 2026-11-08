@@ -7,45 +7,44 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 577,
+    "passed": 584,
     "core": 106,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 255,
-    "duration_seconds": 19.35
+    "knit_program": 262,
+    "duration_seconds": 19.63
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 660.87,
-    "lazy_viewer_js_kb": 583.82,
-    "initial_js_gzip_kb": 213.79,
-    "lazy_viewer_js_gzip_kb": 147.5,
+    "initial_js_kb": 675.14,
+    "lazy_viewer_js_kb": 585.37,
+    "initial_js_gzip_kb": 218.85,
+    "lazy_viewer_js_gzip_kb": 148.03,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 97.19,
-    "knit_worker_js_kb": 133.78,
+    "knit_worker_js_kb": 133.89,
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npx playwright test",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npx playwright test tests/browser/knit.spec.ts -g \"knit graph editing\"",
     "result": "pass",
-    "passed_in_main_run": 40,
+    "passed_in_main_run": 1,
     "failed_in_main_run": 0,
-    "duration_minutes_reported": 4.2,
     "page_or_console_errors": 0,
-    "source_scope": "Development server, full suite, after the last source change."
+    "source_scope": "Development server, the new editing case only (focused check); the full suite ran on the production build."
   },
   "production_browser_tests": {
     "command": "KNITTING_BASE_URL=http://127.0.0.1:5183/KnittingTopology/ npx playwright test",
     "result": "pass",
-    "passed": 40,
+    "passed": 41,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 4.1,
-    "source_scope": "Final built runtime (vite preview); source frozen throughout production verification."
+    "duration_minutes_reported": 4.6,
+    "source_scope": "Final built runtime (vite preview), full suite after the last source change."
   },
   "mobile": {
     "viewport_width": 375,
@@ -55,7 +54,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Saved knit graph stages, Popescu connection-rules course method and short-row turn pairing (thesis milestone 2a)",
+  "milestone": "Editing the knit graph courses stage on the surface (thesis milestone 2b)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -1149,5 +1148,33 @@
       "thesis patch editing, feature recipes, compound or diagonal transfers, drops"
     ],
     "remote_deployment_tested": false
+  },
+  "knit_graph_editing": {
+    "status": "Local verification complete: 584 unit tests, production browser 41/41. Symbolic rule checks only; no physical knitting result is claimed.",
+    "source": "Popescu (2019), section 6.3.2 'Editing patterns', pp. 111-112: add or delete objects, change the start and end of lines, move points; connectivity warnings at the update step (Fig. 6.17); duplicates not allowed.",
+    "available": [
+      "Courses-stage editing on the 3D surface (open surfaces): Popescu method vertices and weft/warp links (move, add, delete, move a link end); project method course points and courses (move, insert, delete point; delete, add course)",
+      "each edit is one undo step and is recorded in the stage (edits: operation and target); the loops stage is rebuilt and rechecked at once",
+      "an edited stale stage is kept by Generate and blocks export until downloaded and discarded"
+    ],
+    "project_rules": [
+      "edited points in chart coordinates, distance from the needle-1 side interpolated bilinearly from the distance field",
+      "points within 0.5% of the chart width of a side are put on it",
+      "new Popescu vertex joins the contour of the nearest vertex (3D)",
+      "contour positions, leaf and end attributes recomputed after each edit",
+      "first project-method edit stores courses as polylines and drops the contour vertices and links",
+      "course points kept in needle order; a moved end removes the points it passes",
+      "new course placed after the last course whose mean wale coordinate does not exceed its own",
+      "a repeated point on an edited course is a duplicate violation"
+    ],
+    "evidence": [
+      "plane: interpolated distance equals the analytic value; side snapping; start-edge rotation",
+      "plane project method: an edit to the same place stores polylines and rebuilds a byte-identical bitmap",
+      "saddle (test values 6 x 4 mm, right-to-left first pass): moving a short-row turn three points inward rebuilds 567 instead of 573 loops, a changed bitmap and no export blockers",
+      "plane Popescu method: a moved vertex stays blocker-free; an unlinked new vertex and a deleted link are reported as connection-rule violations that block export; a deleted vertex that leaves a face neither quad nor triangle stops the build with the editing hint",
+      "reducer: an edit is an undo step; a build never replaces an edited stage but may add its loops",
+      "browser: delete a course on the saddle by clicking the surface, automatic rebuild, Undo restores the byte-identical bitmap, Redo, stale edited stage kept by Generate with export blocked, download with its edits, discard and regenerate"
+    ],
+    "not_implemented": ["loops-stage editing", "editing cube and sphere stages"]
   }
 }

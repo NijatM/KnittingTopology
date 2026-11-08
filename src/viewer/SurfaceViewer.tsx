@@ -17,7 +17,7 @@ import type {
   Vec2,
   Vec3,
 } from '../core/types';
-import type { SurfaceViewerProps, ViewerHandle } from './types';
+import type { GraphEditTarget, SurfaceViewerProps, ViewerHandle } from './types';
 
 /** The viewer never writes scientific state: picked samples are returned to the app. */
 type Runtime = {
@@ -444,6 +444,46 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       if (bary) projected.attachment.barycentric = tuple(bary);
       return projected;
     };
+    // Courses-stage editing: the nearest visible handle by ray distance, else the nearest segment.
+    const editTarget = (event: PointerEvent): GraphEditTarget => {
+      const sample = pick(event),
+        handles = current.current.graphEdit,
+        size = current.current.surface.size,
+        ray = raycaster.ray;
+      const depth = sample ? ray.origin.distanceTo(v3(sample.position)) + size * 0.02 : Infinity,
+        visible = (p: THREE.Vector3) => p.clone().sub(ray.origin).dot(ray.direction) <= depth;
+      let point: string | undefined,
+        segment: string | undefined,
+        best = size * 0.025;
+      for (const h of handles?.points ?? []) {
+        const p = v3(h.position),
+          d = ray.distanceToPoint(p);
+        if (d < best && visible(p)) [best, point] = [d, h.id];
+      }
+      best = (size * 0.015) ** 2;
+      const a = new THREE.Vector3(),
+        b = new THREE.Vector3(),
+        on = new THREE.Vector3();
+      for (const s of handles?.segments ?? []) {
+        a.set(...s.a);
+        b.set(...s.b);
+        const d = ray.distanceSqToSegment(a, b, undefined, on);
+        if (d < best && visible(on)) [best, segment] = [d, s.id];
+      }
+      return {
+        ...(point ? { point } : {}),
+        ...(segment ? { segment } : {}),
+        uv: sample ? sample.attachment.uv : null,
+        position: sample ? sample.position : null,
+      };
+    };
+    let editPress: {
+      pointer: number;
+      x: number;
+      y: number;
+      target: GraphEditTarget;
+      dragging: boolean;
+    } | null = null;
     let activePointer: number | null = null;
     let stroke: GuideSample[] = [];
     let lastScreen: [number, number] | null = null;
@@ -611,6 +651,19 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     };
     const down = (event: PointerEvent) => {
       if (event.button !== 0) return;
+      if (current.current.graphEdit) {
+        if (editPress) return;
+        event.preventDefault();
+        editPress = {
+          pointer: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          target: editTarget(event),
+          dragging: false,
+        };
+        canvas.setPointerCapture(event.pointerId);
+        return;
+      }
       if (current.current.pickCutEdge) {
         const sample = pick(event);
         if (!sample) return;
@@ -686,6 +739,21 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       } else if (current.current.options.mode === 'select') select(event);
     };
     const move = (event: PointerEvent) => {
+      if (editPress?.pointer === event.pointerId) {
+        if (Math.hypot(event.clientX - editPress.x, event.clientY - editPress.y) > 4)
+          editPress.dragging = true;
+        if (editPress.dragging) {
+          const sample = pick(event),
+            from = editPress.target.position;
+          clear(draftGroup);
+          if (sample && from) {
+            lineSegments(draftGroup, [...from, ...sample.position], '#d09a4e');
+            pointsObject(draftGroup, [...sample.position], '#d09a4e', 9);
+          }
+          draw();
+        }
+        return;
+      }
       if (activePointer === event.pointerId) {
         addSample(event);
         return;
@@ -698,10 +766,24 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       );
     };
     const up = (event: PointerEvent) => {
+      if (editPress?.pointer === event.pointerId) {
+        const press = editPress;
+        editPress = null;
+        clear(draftGroup);
+        draw();
+        current.current.onGraphEdit?.(
+          press.dragging ? { ...press.target, drop: editTarget(event) } : press.target
+        );
+      }
       if (activePointer === event.pointerId) finishStroke();
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     };
     const cancel = (event: PointerEvent) => {
+      if (editPress?.pointer === event.pointerId) {
+        editPress = null;
+        clear(draftGroup);
+        draw();
+      }
       if (activePointer === event.pointerId) {
         stroke = [];
         activePointer = null;
@@ -1106,6 +1188,21 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       appendPath(segments, path);
       lineSegments(state.selectionGroup, segments, '#d09a4e');
     }
+    if (props.graphEdit) {
+      pointsObject(
+        state.selectionGroup,
+        props.graphEdit.points.flatMap((p) => p.position),
+        props.options.background === 'light' ? '#3a3a3a' : '#f2f2f2',
+        6
+      );
+      const draft = props.graphEdit.draft ?? [];
+      if (draft.length) {
+        const segments: number[] = [];
+        appendPath(segments, draft);
+        lineSegments(state.selectionGroup, segments, '#d09a4e');
+        pointsObject(state.selectionGroup, draft.flat(), '#d09a4e', 8);
+      }
+    }
     if (props.marker) pointsObject(state.selectionGroup, props.marker, '#f2f2f2', 8);
     // Draw selected entities after the translucent network lines, retaining
     // depth testing against the support geometry and unchanged coordinates.
@@ -1128,8 +1225,10 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     props.options.background,
     props.startEdge,
     props.cutEdgeIds,
+    props.graphEdit,
   ]);
 
+  const editing = !!props.graphEdit;
   useEffect(() => {
     const state = runtime.current;
     if (!state || !ready) return;
@@ -1154,24 +1253,28 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     const seams = state.surfaceGroup.getObjectByName('surface-seams');
     if (seams) seams.visible = props.options.showSeams;
     const meshDraw = !supportsGuides(props.surface) && props.options.mode === 'draw';
-    state.controls.enabled = (props.options.mode === 'orbit' || meshDraw) && !props.pickCutEdge;
+    state.controls.enabled =
+      (props.options.mode === 'orbit' || meshDraw) && !props.pickCutEdge && !editing;
     state.renderer.domElement.setAttribute(
       'aria-label',
-      props.pickCutEdge
-        ? 'Interactive cut editor. Click near a visible network edge to toggle it in the cut draft.'
-        : !supportsGuides(props.surface)
-          ? 'Interactive imported mesh. Orbit to rotate, pan and zoom; select mode to inspect triangles.'
-          : 'Interactive surface. Use orbit mode to rotate, pan and zoom; draw mode to draw a surface guide.'
+      editing
+        ? 'Knit graph editor. Click or drag the courses-stage handles on the surface; turn editing off to rotate.'
+        : props.pickCutEdge
+          ? 'Interactive cut editor. Click near a visible network edge to toggle it in the cut draft.'
+          : !supportsGuides(props.surface)
+            ? 'Interactive imported mesh. Orbit to rotate, pan and zoom; select mode to inspect triangles.'
+            : 'Interactive surface. Use orbit mode to rotate, pan and zoom; draw mode to draw a surface guide.'
     );
-    state.renderer.domElement.style.cursor = props.pickCutEdge
-      ? 'crosshair'
-      : props.options.mode === 'draw' && !meshDraw
+    state.renderer.domElement.style.cursor =
+      props.pickCutEdge || editing
         ? 'crosshair'
-        : props.options.mode === 'select'
-          ? 'pointer'
-          : 'grab';
+        : props.options.mode === 'draw' && !meshDraw
+          ? 'crosshair'
+          : props.options.mode === 'select'
+            ? 'pointer'
+            : 'grab';
     state.draw();
-  }, [ready, props.options, props.surface, props.pickCutEdge]);
+  }, [ready, props.options, props.surface, props.pickCutEdge, editing]);
 
   return (
     <div

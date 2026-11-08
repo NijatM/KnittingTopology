@@ -1,4 +1,11 @@
-import type { PatternGraph, SurfaceSpec, GuideStroke, GuideSample, Vec3 } from '../core/types';
+import type {
+  PatternGraph,
+  SurfaceSpec,
+  GuideStroke,
+  GuideSample,
+  Vec2,
+  Vec3,
+} from '../core/types';
 
 export type InteractionMode = 'orbit' | 'draw' | 'select';
 export type OverlayMode = 'plain' | 'valence' | 'spacing' | 'patches';
@@ -23,6 +30,24 @@ export interface ViewerHandle {
   view: (preset: 'perspective' | 'top' | 'front' | 'right') => void;
   screenshot: () => string;
 }
+/** Handles of the knit graph courses stage; the app applies edits, the viewer reports intents. */
+export interface GraphEditHandles {
+  points: { id: string; position: Vec3 }[];
+  segments: { id: string; a: Vec3; b: Vec3 }[];
+  /** Points of a course being drawn. */
+  draft?: Vec3[];
+}
+/** The handle and surface point under the pointer (`uv` null off the surface). */
+export interface GraphEditTarget {
+  point?: string;
+  segment?: string;
+  uv: Vec2 | null;
+  position: Vec3 | null;
+}
+/** A click (no `drop`) or a drag from the press to the drop. */
+export interface GraphEditIntent extends GraphEditTarget {
+  drop?: GraphEditTarget;
+}
 export interface SurfaceViewerProps {
   surface: SurfaceSpec;
   graph: PatternGraph | null;
@@ -44,6 +69,9 @@ export interface SurfaceViewerProps {
   pickStartEdge?: boolean;
   onStartEdge?: (edge: 'v0' | 'u1' | 'v1' | 'u0') => void;
   onShapePick?: (index: number) => void;
+  /** Courses-stage editing on the surface; orbit is off while it is set. */
+  graphEdit?: GraphEditHandles | null;
+  onGraphEdit?: (intent: GraphEditIntent) => void;
   cutEdgeIds?: readonly string[];
   pickCutEdge?: boolean;
   onCutEdgePick?: (edgeId: string) => void;

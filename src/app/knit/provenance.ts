@@ -1,5 +1,11 @@
 // Loop <-> network element links for the linked bitmap and 3D views.
-import type { KnitStagePoint, PatternGraph, SurfaceSpec, Vec3 } from '../../core/types';
+import type {
+  KnitGraphStages,
+  KnitStagePoint,
+  PatternGraph,
+  SurfaceSpec,
+  Vec3,
+} from '../../core/types';
 import { evaluateSurface } from '../../core/surfaces';
 import type { ViewerSelection } from '../../viewer/types';
 import type { KnitProgram } from '../../knit/program';
@@ -116,11 +122,10 @@ export function shapeOverlay(p: KnitProgram) {
 /** Render-only knit graph stage: course stage links, or the loop stage (primal edges, or loops joined
  * along their courses and to their parents) with loops coloured by role. */
 export function knitGraphOverlay(
-  p: KnitProgram,
+  graph: Pick<KnitGraphStages, 'courses' | 'loops'> | undefined,
   surface: SurfaceSpec,
   stage: 'courses' | 'loops'
 ): { weft: Vec3[][]; warp: Vec3[][]; loops: { position: Vec3; role: string }[] } | null {
-  const graph = p.shape?.knitGraph?.stages;
   if (!graph) return null;
   const at = (q: KnitStagePoint) => evaluateSurface(surface, q.patch ?? 0, q.uv[0], q.uv[1]);
   if (stage === 'courses') {

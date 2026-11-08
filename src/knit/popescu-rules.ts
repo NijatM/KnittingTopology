@@ -462,13 +462,17 @@ export function popescuLoopStage(
     end: p.end,
     ...(p.contour !== undefined ? { contour: p.contour } : {}),
   }));
+  // The thesis fixes such graphs by manual editing (§6.3.2); edits need a saved courses stage.
+  const fixHint = courses.edits?.length
+    ? 'The thesis fixes such graphs by manual editing: edit the courses stage further or undo the last edit.'
+    : 'The thesis fixes such graphs by manual editing, which needs a courses stage saved by a successful build; try another angle tolerance or result count, or the project alignment method.';
   const crossings = crossingPairs(
     primalVertices,
     edges.map((e) => [e.a, e.b])
   );
   if (crossings.length)
     throw new Error(
-      `The connection rules produced crossing edges (${crossings.length}${crossings.length >= 50 ? '+' : ''}); this graph cannot be read as loops. The thesis fixes such graphs by manual editing, which is not available yet; try another angle tolerance or result count, or the project alignment method.`
+      `The connection rules produced crossing edges (${crossings.length}${crossings.length >= 50 ? '+' : ''}); this graph cannot be read as loops. ${fixHint}`
     );
   // Faces of the plane graph in the rotated chart; the outer face has negative area.
   const around: number[][] = finals.map(() => []);
@@ -545,7 +549,7 @@ export function popescuLoopStage(
   const other = faces.filter((f) => f.kind === 'other').length;
   if (other)
     throw new Error(
-      `${other} face${other === 1 ? ' is' : 's are'} neither a loop quad nor a shaping triangle; this graph cannot be read as loops. The thesis fixes such faces by manual editing, which is not available yet; try another angle tolerance or result count, or the project alignment method.`
+      `${other} face${other === 1 ? ' is' : 's are'} neither a loop quad nor a shaping triangle; this graph cannot be read as loops. ${fixHint}`
     );
   // Loop dual: a parent shares the loop's bottom weft edge. A course is a weft chain, continued through
   // each vertex by the straightest arriving/leaving pair (project reading of Fig. 6.8); a loop belongs

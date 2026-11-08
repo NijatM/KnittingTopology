@@ -6,6 +6,7 @@ import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
 import { CALIBRATION_FIELDS, measurementStateLabel, type Gauge } from './gauge';
 import { COURSE_METHODS } from './knit-graph';
+import { editSummary } from './knit-graph-edit';
 import type { ShapeKnitGraph } from './shape-types';
 
 const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(n - s.length));
@@ -190,6 +191,11 @@ function graphLines(g: ShapeKnitGraph, notes: readonly string[]): string[] {
     'Knit graph stages (stage separation after Popescu 2019, §§6.2.2–6.2.4, pp. 99–104)',
     `  Course method: ${COURSE_METHODS[g.stages.courseMethod].label}. ${COURSE_METHODS[g.stages.courseMethod].note}`,
     `  Courses stage: ${from(g.saved.courses)}; fingerprint ${courses.fingerprint}; ${courses.method}. ${courses.vertices.length} vertices, ${courses.links.length} weft links${courses.warp ? `, ${courses.warp.length} warp links` : ''}, ${courses.courses.length} courses.`,
+    ...(courses.edits?.length
+      ? [
+          `  Courses stage edited on the surface (§6.3.2, pp. 111–112): ${courses.edits.length} edits (${editSummary(courses)}); the loops stage and the checks below are rebuilt from the edited courses.`,
+        ]
+      : []),
     loops
       ? `  Loops stage: ${from(g.saved.loops)}; fingerprint ${loops.fingerprint}; ${loops.method}. ${loops.loops.length} loops (${count(loops.loops.map((l) => l.role))})${loops.rows ? `, ${loops.rows.length} course rows` : ''}${loops.primal ? `; primal faces: ${count(loops.primal.faces.map((f) => f.kind))}` : ''}.`
       : '  Loops stage: none.',

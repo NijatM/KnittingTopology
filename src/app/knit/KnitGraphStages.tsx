@@ -11,6 +11,8 @@ import {
   type StageState,
 } from '../../knit/knit-graph';
 import { download } from '../../adapters/export';
+import { editSummary } from '../../knit/knit-graph-edit';
+import { TOOL_TEXT, type EditTool, type GraphEditState } from './graph-edit';
 
 interface Props {
   surface: SurfaceSpec;
@@ -19,6 +21,7 @@ interface Props {
   program: KnitProgram | null;
   file: string;
   onSettings: (next: KnitSettings) => void;
+  edit?: GraphEditState;
 }
 
 const STATE_TEXT: Record<StageState, string> = {
@@ -34,13 +37,16 @@ export default function KnitGraphStages({
   program,
   file,
   onSettings,
+  edit,
 }: Props) {
   const [error, setError] = useState('');
   const state = knitGraphFreshness({ surface, knit: settings, swatches });
   if (!state) return null;
   const graph = settings.graph;
   const courses = graph?.courses,
-    loops = graph?.loops;
+    loops = graph?.loops,
+    edits = courses?.edits?.length ?? 0,
+    staleEdited = state.courses === 'stale' && edits > 0;
   const faceKinds = loops?.primal
     ? Object.entries(
         loops.primal.faces.reduce<Record<string, number>>(
@@ -77,11 +83,16 @@ export default function KnitGraphStages({
       </p>
       <ul className="hint" aria-label="Stage status">
         <li>
-          Courses: {STATE_TEXT[state.courses]}
+          Courses:{' '}
+          {staleEdited
+            ? 'saved, stale: its inputs changed; kept because it has edits'
+            : STATE_TEXT[state.courses]}
           {courses &&
             ` · ${courses.vertices.length} vertices, ${courses.links.length} weft links${
               courses.warp ? `, ${courses.warp.length} warp links` : ''
             }, ${courses.courses.length} courses`}
+          {edits > 0 &&
+            ` · edited (${edits} edit${edits === 1 ? '' : 's'}: ${editSummary(courses!)})`}
         </li>
         <li>
           Loops: {STATE_TEXT[state.loops]}
@@ -102,6 +113,70 @@ export default function KnitGraphStages({
             </li>
           ))}
         </ul>
+      )}
+      {staleEdited && (
+        <div className="inline-actions" aria-label="Stale edited stage">
+          <button type="button" onClick={() => save('courses')}>
+            Download edited stage
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSettings({ ...settings, graph: undefined });
+              setError('');
+            }}
+          >
+            Discard edits and regenerate
+          </button>
+        </div>
+      )}
+      {edit?.available && (
+        <div aria-label="Edit the courses stage">
+          <div className="inline-actions">
+            <button type="button" aria-pressed={edit.on} onClick={() => edit.setOn(!edit.on)}>
+              Edit on the surface
+            </button>
+            {edit.active && (
+              <label className="select-label">
+                Edit tool
+                <select
+                  aria-label="Edit tool"
+                  value={edit.tool}
+                  onChange={(e) => edit.setTool(e.target.value as EditTool)}
+                >
+                  {edit.tools.map((t) => (
+                    <option key={t} value={t}>
+                      {TOOL_TEXT[t][0]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          {edit.active && (
+            <>
+              <p className="hint">
+                {TOOL_TEXT[edit.tool][1]} Orbit is off while editing. Each edit is one Undo step;
+                the layout is rebuilt and checked after it, and rule violations block export.
+              </p>
+              {edit.tool === 'add-course' && (
+                <div className="inline-actions">
+                  <button type="button" disabled={edit.draft.length < 2} onClick={edit.addCourse}>
+                    Add course ({edit.draft.length} points)
+                  </button>
+                  <button type="button" disabled={!edit.draft.length} onClick={edit.clearDraft}>
+                    Clear points
+                  </button>
+                </div>
+              )}
+              {edit.error && (
+                <p className="knit-error" role="alert">
+                  {edit.error}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       )}
       <div className="inline-actions">
         <button type="button" disabled={state.courses !== 'fresh'} onClick={() => save('courses')}>

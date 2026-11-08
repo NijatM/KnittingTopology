@@ -13,7 +13,7 @@ import { validateImportedMesh } from '../import/mesh';
 import { createCitationRecord } from '../adapters/citations';
 import { validateKnitSettings } from '../knit/settings';
 import { validateSwatches } from '../knit/gauge';
-import { knitGraphFreshness, knitGraphSignature } from '../knit/knit-graph';
+import { courseStageKey, knitGraphFreshness, knitGraphSignature } from '../knit/knit-graph';
 import {
   MAX_GRAPH_CELLS,
   MAX_GRAPH_EDGES,
@@ -483,6 +483,12 @@ export function historyReducer(history: HistoryState, action: HistoryAction): Hi
     // Only stages built from the present inputs are saved; anything else is left for the next Generate.
     const knit = history.present.knit;
     if (!knit || knitGraphSignature(knit.graph) === knitGraphSignature(action.graph))
+      return history;
+    // An edited courses stage is never replaced by a build; a build from it may add its loops.
+    if (
+      knit.graph?.courses.edits?.length &&
+      courseStageKey(knit.graph) !== courseStageKey(action.graph)
+    )
       return history;
     const next = { ...history.present, knit: { ...knit, graph: action.graph } };
     const state = knitGraphFreshness(next);

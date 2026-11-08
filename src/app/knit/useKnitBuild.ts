@@ -3,7 +3,13 @@ import type { KnitGraphStages, ProjectState } from '../../core/types';
 import { buildKnitProgram, type KnitBuild } from '../../knit/program';
 import { generateKnitInWorker } from '../../knit/client';
 import { knitRequirements } from '../../knit/requirements';
-import { freshStages, knitGraphFreshness, knitGraphSignature } from '../../knit/knit-graph';
+import {
+  courseStageKey,
+  freshStages,
+  knitGraphFreshness,
+  knitGraphSignature,
+  staleStagesBlocker,
+} from '../../knit/knit-graph';
 
 type Input = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
 /** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. */
@@ -32,10 +38,10 @@ export function useKnitBuild(
   const signatureWith = (graph: KnitGraphStages | undefined) =>
     `${surfaceSignature}:${settingsSignature}:${knitGraphSignature(graph)}:${graphFree ? '' : graphSignature}`;
   const signature = signatureWith(input.knit?.graph);
-  const staleStages = useMemo(() => {
-    const state = input.knit?.graph ? knitGraphFreshness(input) : null;
-    return !!state && (state.courses === 'stale' || state.loops === 'stale');
-  }, [input.surface, input.knit, input.swatches]);
+  const staleStages = useMemo(
+    () => staleStagesBlocker(input),
+    [input.surface, input.knit, input.swatches]
+  );
   const [accepted, setAccepted] = useState<{
     signature: string;
     surface: string;
@@ -94,10 +100,7 @@ export function useKnitBuild(
       ...build,
       program: {
         ...build.program,
-        exportBlockers: [
-          ...build.program.exportBlockers,
-          'Saved knit graph stages are stale: their inputs changed. Generate to replace them.',
-        ],
+        exportBlockers: [...build.program.exportBlockers, staleStages],
       },
     };
   const preflight = requirements[0]?.message ?? '';
@@ -142,6 +145,18 @@ export function useKnitBuild(
       if (controller.current === job) setProgress(null);
     }
   }
+  // An edit of the courses stage, undoing one or discarding edits rebuilds the layout and its checks.
+  const graph = input.knit?.graph,
+    coursesKey = courseStageKey(graph),
+    edited = !!graph?.courses.edits?.length,
+    lastCourses = useRef({ key: coursesKey, edited });
+  useEffect(() => {
+    const previous = lastCourses.current;
+    lastCourses.current = { key: coursesKey, edited };
+    if (coursesKey === previous.key || !(edited || previous.edited) || !usesWorker) return;
+    if (graph && knitGraphFreshness(input)?.courses !== 'fresh') return;
+    void generate();
+  }, [coursesKey]);
   return {
     build,
     outdated,

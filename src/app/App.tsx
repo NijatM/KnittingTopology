@@ -66,6 +66,7 @@ import MeshInspector from '../import/MeshInspector';
 import { seedMeshReport, useMeshReport } from '../import/useMeshReport';
 import KnitControls from './knit/KnitControls';
 import { useKnitBuild } from './knit/useKnitBuild';
+import { useGraphEdit } from './knit/graph-edit';
 import type { KnitRequirementId } from '../knit/requirements';
 import KnitBitmap from './knit/KnitBitmap';
 import KnitPanel from './knit/KnitPanel';
@@ -757,12 +758,23 @@ export default function App() {
     [knitProgram, project.graph, knitMarks, selection]
   );
   const inspectingKnit = showProgram && !!knitProgram;
+  const graphEdit = useGraphEdit(project.surface, knitSettings, swatches, (next) =>
+    changeKnit(next)
+  );
+  // While editing, the courses layer shows the saved (edited) stage before the rebuild finishes.
+  const graphLayerKind = graphEdit.active ? 'courses' : knitLayers.graph;
   const knitGraphLayer = useMemo(
     () =>
-      knitOpen && knitProgram && knitLayers.graph !== 'off'
-        ? knitGraphOverlay(knitProgram, project.surface, knitLayers.graph)
+      knitOpen && knitProgram && graphLayerKind !== 'off'
+        ? knitGraphOverlay(
+            graphEdit.active
+              ? { courses: knitSettings.graph!.courses }
+              : knitProgram.shape?.knitGraph?.stages,
+            project.surface,
+            graphLayerKind
+          )
         : null,
-    [knitOpen, knitProgram, project.surface, knitLayers.graph]
+    [knitOpen, knitProgram, project.surface, graphLayerKind, graphEdit.active, knitSettings.graph]
   );
   const knitShapeOverlay = useMemo(() => {
     const index = knitHover !== null ? knitProgram?.shape?.placementAt[knitHover] : undefined;
@@ -773,14 +785,22 @@ export default function App() {
       : undefined;
     return inspectShapeOverlay(
       baseKnitOverlay,
-      knitLayers,
+      { ...knitLayers, graph: graphLayerKind },
       knitProgram?.settings.mode !== 'network',
       knitMarkCells,
       knitHover,
       course,
       knitGraphLayer
     );
-  }, [baseKnitOverlay, knitLayers, knitProgram, knitMarkCells, knitHover, knitGraphLayer]);
+  }, [
+    baseKnitOverlay,
+    knitLayers,
+    graphLayerKind,
+    knitProgram,
+    knitMarkCells,
+    knitHover,
+    knitGraphLayer,
+  ]);
   const inspectionView = inspectingKnit
     ? { ...view, showGraph: knitLayers.topology, wireframe: knitLayers.mesh, showCoarse: false }
     : view;
@@ -1399,6 +1419,8 @@ export default function App() {
                   setPickingKnitEdge(false);
                 }}
                 shapeOverlay={knitShapeOverlay}
+                graphEdit={graphEdit.handles}
+                onGraphEdit={graphEdit.onIntent}
                 onShapePick={(index) => {
                   setKnitHover(index);
                   setKnitMarks([index]);
@@ -2271,6 +2293,13 @@ export default function App() {
                   hover={knitHover}
                   selection={selection}
                   onSettings={changeKnit}
+                  graphEdit={{
+                    ...graphEdit,
+                    setOn: (on) => {
+                      graphEdit.setOn(on);
+                      if (on) setKnitOpen(true);
+                    },
+                  }}
                   onSwatches={(next) => {
                     setKnitMarks(null);
                     commit({ ...projectRef.current, swatches: next });
