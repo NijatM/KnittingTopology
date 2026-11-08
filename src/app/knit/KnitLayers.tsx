@@ -5,6 +5,7 @@ import { layerGraphJson, type FabricLayer } from '../../knit/layer-graph';
 import { settingsKey } from '../../knit/keys';
 import { download } from '../../adapters/export';
 import { imageIndex } from '../../knit/grid';
+import KnitTransitionPlanner from './KnitTransitionPlanner';
 
 interface Props {
   settings: KnitSettings;
@@ -179,9 +180,19 @@ export default function KnitLayers({
       <p className="hint">
         The separate transfer-phase checker tests explicit candidates on a declared logical grid:
         whole stacks, one racking per phase, ordered phase arrivals and no source/destination
-        interference. Analytic examples are tested; there is no automatic search or phase editor. A
-        matching graph is not proof of native feasibility, knittability or achieved shape.
+        interference. The bounded planner below can search one selected transition; no phases are
+        applied. A matching graph is not proof of native feasibility, knittability or achieved
+        shape.
       </p>
+      {enabled && (
+        <KnitTransitionPlanner
+          program={program}
+          surface={surface}
+          outdated={outdated}
+          file={file}
+          onMark={onMark}
+        />
+      )}
     </details>
   );
 }

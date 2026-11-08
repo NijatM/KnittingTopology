@@ -45,6 +45,131 @@ async function planeNetwork(page: Page) {
   await expect(page.locator('.progress-panel')).toHaveCount(0);
 }
 
+test('selected-transition planner: verified plane target, local controls, stale artifacts and cancellation', async ({
+  page,
+}) => {
+  await planeNetwork(page);
+  await page.getByRole('combobox', { name: 'Knit key', exact: true }).selectOption('4s52-two');
+  await page.getByRole('combobox', { name: 'Knit mode', exact: true }).selectOption('shape');
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Synthetic test values, not measured gauges.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)', exact: true }).fill('6');
+  await page.getByRole('textbox', { name: 'Course height (mm)', exact: true }).fill('4');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  const layers = page.locator('.knit-layer-panel');
+  await layers.locator(':scope > summary').click();
+  await layers
+    .getByRole('checkbox', { name: 'Check shared two-layer reference', exact: true })
+    .check();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(layers.getByLabel('Layer check summary')).toContainText('0 model blockers');
+  const before = await downloadOf(page, 'Bitmap BMP');
+  const saving = page.waitForEvent('download');
+  await page.getByTitle('Save project JSON (⌘/Ctrl S)', { exact: true }).click();
+  const original = JSON.parse(new TextDecoder().decode(await bytes(await saving))).project;
+  const planner = page.getByLabel('Selected-transition transfer planner', { exact: true });
+  await planner.locator(':scope > summary').click();
+  const run = planner.getByRole('button', { name: 'Plan selected transition', exact: true });
+  await run.click();
+  const result = planner.getByLabel('Transfer plan result', { exact: true });
+  await expect(result).toContainText('Candidate verified');
+  await expect(result).toContainText('0 ordered phases');
+  await expect(result).toContainText('exact target matched');
+  const data = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Transfer plan JSON')));
+  expect(data).toMatchObject({
+    format: 'knit-transfer-plan',
+    version: 1,
+    status: 'found',
+    stale: false,
+    request: { beforePass: 2 },
+    source: { programBlockers: [] },
+    search: { phases: [], validation: { ok: true, targetMatches: true } },
+  });
+  for (const slot of [
+    ...data.request.initial,
+    ...data.request.expected,
+    ...data.search.validation.final,
+  ])
+    expect(slot.needle).toBeGreaterThanOrEqual(1);
+  await planner.locator('.knit-transfer-limits > summary').click();
+  await planner.getByRole('spinbutton', { name: 'Retained states', exact: true }).fill('0');
+  await expect(run).toBeDisabled();
+  await expect(
+    planner.getByRole('spinbutton', { name: 'Retained states', exact: true })
+  ).toHaveAttribute('aria-invalid', 'true');
+  await expect(result).toContainText('Previous analysis');
+  expect(
+    JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Transfer plan JSON'))).stale
+  ).toBe(true);
+  await planner.getByRole('spinbutton', { name: 'Retained states', exact: true }).fill('1');
+  await planner.getByRole('spinbutton', { name: 'Before knitting pass', exact: true }).fill('3');
+  await run.click();
+  await expect(result).toContainText('Before pass 3');
+  await expect(result).not.toContainText('Previous analysis');
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(before);
+  const savingAgain = page.waitForEvent('download');
+  await page.getByTitle('Save project JSON (⌘/Ctrl S)', { exact: true }).click();
+  expect(JSON.parse(new TextDecoder().decode(await bytes(await savingAgain))).project).toEqual(
+    original
+  );
+
+  // Hold the worker module request to make cancellation/supersession deterministic, without altering numerical code.
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/*transfer-plan.worker*', async (route) => {
+    await gate;
+    await route.continue().catch(() => {});
+  });
+  await run.click();
+  await planner.getByRole('button', { name: 'Cancel transfer planning', exact: true }).click();
+  release();
+  await page.unrouteAll({ behavior: 'wait' });
+  await expect(planner).toContainText('Analysis cancelled. The previous result is retained.');
+  await expect(result).toContainText('Before pass 3');
+  // An input change during a held worker request cancels it and keeps its old result visibly stale.
+  let releaseNext: () => void = () => {};
+  const nextGate = new Promise<void>((resolve) => {
+    releaseNext = resolve;
+  });
+  await page.route('**/*transfer-plan.worker*', async (route) => {
+    await nextGate;
+    await route.continue().catch(() => {});
+  });
+  await run.click();
+  await planner.getByRole('spinbutton', { name: 'Before knitting pass', exact: true }).fill('4');
+  releaseNext();
+  await page.unrouteAll({ behavior: 'wait' });
+  await expect(
+    planner.getByRole('button', { name: 'Cancel transfer planning', exact: true })
+  ).toHaveCount(0);
+  await expect(result).toContainText('Previous analysis');
+  expect(
+    JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Transfer plan JSON')))
+  ).toMatchObject({ stale: true, request: { beforePass: 3 } });
+  await page
+    .getByRole('combobox', { name: 'First pass direction', exact: true })
+    .selectOption('right-to-left');
+  await expect(run).toBeDisabled();
+  await expect(planner).toContainText(
+    'Generate the current settings if the preview is out of date'
+  );
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(run).toBeEnabled();
+  await run.click();
+  await expect(result).toContainText('Before pass 4');
+  await expect(result).not.toContainText('Previous analysis');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await page.setViewportSize({ width: 375, height: 900 });
+  await result.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(375);
+  await page.screenshot({ path: 'tmp/qa/4c-transfer-planner-mobile.png', fullPage: true });
+  await planner.screenshot({ path: 'tmp/qa/4c-transfer-planner-panel-mobile.png' });
+});
+
 test('knit program: size, split view, linked provenance, exports, swatches and undo', async ({
   page,
 }) => {
@@ -1803,6 +1928,46 @@ test('strong saddle layer model keeps two-guide transfers blocked and exports in
   expect(data.requests.length).toBeGreaterThan(0);
   expect(data.programBlockers.join(' ')).toContain('two-layer structure');
   expect(data.nodes.some((n: { matched: boolean }) => !n.matched)).toBe(true);
+  const planner = panel.getByLabel('Selected-transition transfer planner', { exact: true });
+  await planner.locator(':scope > summary').click();
+  const firstBad = Math.min(
+    ...data.nodes
+      .filter((n: { matched: boolean }) => !n.matched)
+      .map((n: { pass: number }) => n.pass)
+  );
+  expect(firstBad).toBeGreaterThanOrEqual(2);
+  await planner
+    .getByRole('spinbutton', { name: 'Before knitting pass', exact: true })
+    .fill(String(firstBad));
+  await planner.locator('.knit-transfer-limits > summary').click();
+  await planner.getByRole('spinbutton', { name: 'Retained states', exact: true }).fill('1');
+  await planner.getByRole('button', { name: 'Plan selected transition', exact: true }).click();
+  const planResult = planner.getByLabel('Transfer plan result', { exact: true });
+  await expect(planResult).toBeVisible();
+  const candidate = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Transfer plan JSON'))
+  );
+  expect(['unsupported', 'limit', 'unreachable']).toContain(candidate.status);
+  expect(candidate.source.programBlockers.length).toBeGreaterThan(0);
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await planner
+    .getByRole('spinbutton', { name: 'Before knitting pass', exact: true })
+    .fill(String(firstBad + 1));
+  await planner.getByRole('button', { name: 'Plan selected transition', exact: true }).click();
+  await expect(planResult).toContainText('The preceding layer histories are invalid');
+  const invalidPrefix = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Transfer plan JSON'))
+  );
+  expect(invalidPrefix).toMatchObject({
+    status: 'unsupported',
+    search: null,
+    request: { initial: null },
+  });
+  expect(invalidPrefix.request.prefixFindings.length).toBeGreaterThan(0);
+  await planner
+    .getByRole('button', { name: 'Show preceding history failures', exact: true })
+    .click();
+  await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeDisabled();
   await panel.getByLabel('Inspect logical layer', { exact: true }).selectOption('back-layer');
   await expect(panel.getByLabel('Inspected layer histories')).toContainText('back-layer');
   await expect(panel.getByLabel('Inspected layer histories')).not.toContainText(
@@ -1811,8 +1976,9 @@ test('strong saddle layer model keeps two-guide transfers blocked and exports in
   await expect(
     panel.locator('summary').filter({ hasText: 'terminal layer inventory differs' })
   ).toContainText('global check');
-  await page.getByRole('button', { name: 'Show program beside the surface', exact: true }).click();
+  // The preceding-history repair action already opens the bitmap for linked inspection.
   await expect(page.getByRole('img', { name: /^Knit program bitmap/ })).toBeVisible();
+  await planner.screenshot({ path: 'tmp/qa/4c-saddle-planner-panel.png' });
   await page.screenshot({ path: 'tmp/qa/4b-layer-graph-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 375, height: 900 });
   await panel.getByLabel('Inspect logical layer', { exact: true }).scrollIntoViewIfNeeded();

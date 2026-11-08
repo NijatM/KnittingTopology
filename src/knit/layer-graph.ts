@@ -1,5 +1,5 @@
 // Shared geometric reference, distinct logical sheet histories. This is a project model, not a textile simulation.
-import type { GenerationContext, SurfaceSpec, Vec2, Vec3 } from '../core/types';
+import type { GenerationContext, KnitSettings, SurfaceSpec, Vec2, Vec3 } from '../core/types';
 import type { KnitProgram } from './program';
 import { imageIndex } from './grid';
 import { otherBed, type Bed } from './keys';
@@ -54,7 +54,21 @@ export interface LayerGraphResult {
     transferRequests: number;
   };
   assumptions: string[];
+  /** Optional planner snapshot: beforePass is one-based; internal live needles remain zero-based. */
+  prefix?: { beforePass: number; live: LayerGraphResult['live']; findings: LayerFinding[] };
 }
+/** Numerical replay does not use render mappings or evaluate surface geometry. */
+export type LayerProgram = Pick<
+  KnitProgram,
+  'w' | 'h' | 'key' | 'cells' | 'operations' | 'firstDir'
+> & {
+  shape?: Pick<NonNullable<KnitProgram['shape']>, 'placementAt'> & {
+    needles: Pick<NonNullable<KnitProgram['shape']>['needles'], 'placements' | 'moves'>;
+  };
+  settings: Pick<KnitSettings, 'mode' | 'patches' | 'layerModel'>;
+  patches?: unknown;
+};
+export type LayerSurface = Pick<SurfaceSpec, 'kind' | 'mapping'>;
 const ASSUMPTIONS = [
   'shared-reference-v1: two logical sheets share the reference coordinates; no physical thickness or offset is inferred.',
   'Logical sheet identity belongs to each loop and survives a transfer to another physical bed.',
@@ -72,9 +86,10 @@ const cancelled = (context?: GenerationContext) => {
 
 /** Inspect actual canonical operations against both sheet-qualified copies of the shape graph. */
 export function inspectLayerGraph(
-  p: KnitProgram,
-  surface: SurfaceSpec,
-  context?: GenerationContext
+  p: LayerProgram,
+  surface: LayerSurface,
+  context?: GenerationContext,
+  captureBeforePass?: number
 ): LayerGraphResult {
   const result: LayerGraphResult = {
     supported: false,
@@ -211,6 +226,45 @@ export function inspectLayerGraph(
   const consumed = new Set<string>();
   for (let k = 0; k < p.h; k++) {
     cancelled(context);
+    if (k + 1 === captureBeforePass) {
+      // Missing earlier stitches must invalidate a prefix before the full replay's final sweep.
+      for (const node of result.nodes)
+        if (node.pass < k && node.actualParents === null)
+          add(
+            'missing',
+            'required layer stitch missing',
+            'No yarn-fed action created the target layer loop.',
+            imageIndex(p.w, p.h, node.needle, node.pass),
+            node.layer
+          );
+      const live: LayerGraphResult['live'] = [];
+      for (const bed of ['front', 'back'] as const)
+        for (let j = 0; j < p.w; j++) {
+          const loops = slots[slotOf(bed, j)]!;
+          if (loops.length) live.push({ bed, needle: j, loops: [...loops] });
+        }
+      const prior = result.nodes.filter((node) => node.pass < k);
+      const consumedBefore = new Set(prior.flatMap((node) => node.parents));
+      const expectedLive = new Set(
+        prior.filter((node) => !consumedBefore.has(node.id)).map((node) => node.id)
+      );
+      const actualLive = live.flatMap((slot) => slot.loops);
+      if (
+        actualLive.length !== expectedLive.size ||
+        new Set(actualLive).size !== actualLive.length ||
+        actualLive.some((id) => !expectedLive.has(id))
+      )
+        add(
+          'prefix-inventory',
+          'incoming layer inventory differs',
+          'The incoming held loops must match the reference loops not yet consumed before the selected pass. Dropped, duplicated or unexpected loops cannot be repaired by transfer planning.'
+        );
+      result.prefix = {
+        beforePass: k + 1,
+        live,
+        findings: [...groups.values()].map((f) => ({ ...f, cells: [...new Set(f.cells)] })),
+      };
+    }
     context?.progress?.(k / Math.max(1, p.h), 'Checking logical layer histories');
     const dir = passDir(seq.firstDir, k);
     const order = Array.from({ length: p.w }, (_, j) => (dir === 1 ? j : p.w - 1 - j));
@@ -402,6 +456,18 @@ export function layerGraphJson(
         ...f,
         cells: f.cells.map((i) => [(i % w) + 1, h - Math.floor(i / w)]),
       })),
+      ...(graph.prefix
+        ? {
+            prefix: {
+              ...graph.prefix,
+              live: graph.prefix.live.map((s) => ({ ...s, needle: s.needle + 1 })),
+              findings: graph.prefix.findings.map((f) => ({
+                ...f,
+                cells: f.cells.map((i) => [(i % w) + 1, h - Math.floor(i / w)]),
+              })),
+            },
+          }
+        : {}),
     },
     null,
     2

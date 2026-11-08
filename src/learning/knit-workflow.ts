@@ -45,7 +45,7 @@ export const KNIT_WORKFLOW = [
     title: 'Check, knit and measure',
     source:
       'Generate operations in the native software, simulate carriage/guide movement, correct the design, and export the machine file. Knit and measure specimens in the intended supported and loaded state.',
-    here: 'Design-level export is gated by unresolved operations. The symbolic executor follows live loops and guides. An opt-in shared-reference check gives the two logical layers distinct IDs and compares actual parents on supported open-surface Shape/combined programs. Its failures block operation export. A separate core checker tests explicit whole-stack transfer phases; no automatic schedule is inserted. None of these is a machine or fabric simulation.',
+    here: 'Design-level export is gated by unresolved operations. The symbolic executor follows live loops and guides. An opt-in shared-reference check gives the two logical layers distinct IDs and compares actual parents on supported open-surface Shape/combined programs. Its failures block operation export. A bounded planner analyzes one selected transition from a valid actual prefix, independently checking found whole-stack phases and restoring unused held loops. Search cutoffs are not no-plan proofs. Candidates remain separate; no schedule is inserted and no export blocker is removed. These are project checks, not a machine or fabric simulation.',
     gap: 'The lab machine, needle allocation, usable width, software and symbol library are unconfirmed. The thesis Libra/Model 9 setup is a historical example. Native compilation and physical validation remain downstream.',
     locator: '§6.4, pp. 112–115; §6.5, pp. 116–117; Chapters 7–8',
   },

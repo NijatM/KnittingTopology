@@ -2186,6 +2186,40 @@ details.knit-required-control,
   font-weight: 400;
   margin: 12px 0 6px;
 }
+.knit-transfer-planner {
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  padding-top: 14px;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+.knit-transfer-planner input[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+.knit-transfer-limits {
+  margin: 12px 0;
+}
+.knit-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.knit-transfer-result {
+  border: 1px solid var(--border);
+  margin: 16px 0;
+  padding: 10px;
+}
+.knit-transfer-result h4 {
+  font-size: 12px;
+  font-weight: 400;
+}
+.knit-transfer-result ol,
+.knit-transfer-result ul {
+  padding-left: 20px;
+}
+.knit-transfer-failure {
+  color: #f09188;
+}
 .knit-recipe-panel {
   border: 1px solid var(--border);
   padding: 12px;
