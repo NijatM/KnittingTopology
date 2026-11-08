@@ -7,24 +7,25 @@
   "unit_tests": {
     "command": "npm run check",
     "result": "pass",
-    "passed": 736,
-    "files": 42,
+    "passed": 779,
+    "files": 45,
     "core": 106,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 414,
-    "duration_seconds": 20.53
+    "knit_program": 457,
+    "duration_seconds": 28.89
   },
   "production_build": {
     "command": "npm run build (within npm run check)",
     "result": "pass",
     "base": "/KnittingTopology/",
-    "initial_js_kb": 793.19,
-    "initial_js_gzip_kb": 258.43,
+    "initial_js_kb": 806.18,
+    "initial_js_gzip_kb": 261.21,
     "lazy_viewer_js_kb": 586.18,
     "lazy_viewer_js_gzip_kb": 148.27,
+    "shaping_schedule_worker_js_kb": 30.3,
     "transfer_plan_worker_js_kb": 23.4,
     "knit_worker_js_kb": 178.54,
     "generation_worker_js_kb": 97.35,
@@ -33,20 +34,20 @@
     "warning": "Initial JavaScript exceeds the existing configured 750 kB warning; no maximum-input performance claim."
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5184/KnittingTopology/ npm run test:browser -- --grep 'selected-transition planner|strong saddle layer model'",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5184/KnittingTopology/ npm run test:browser -- --grep 'whole-program schedule:|strong saddle layer model'",
     "result": "pass",
     "passed": 2,
-    "duration_seconds": 38.235,
+    "duration_seconds": 35.653,
     "page_or_console_errors": 0,
-    "source_scope": "Focused final numerical implementation and UI workflow. A later display-only line says incoming state/target not prepared instead of displaying zero counts for a rejected prefix; final production includes that clarification."
+    "source_scope": "Final corrected source; complete plane and partial strong-saddle schedule workflows."
   },
   "production_browser_tests": {
     "command": "KNITTING_BASE_URL=http://127.0.0.1:4184/KnittingTopology/ npm run test:browser",
     "result": "pass",
-    "passed": 50,
-    "duration_seconds": 367.112,
+    "passed": 51,
+    "duration_seconds": 419.376,
     "page_or_console_errors": 0,
-    "source_scope": "Full final rebuilt runtime; source/tests frozen throughout the run. Earlier partial production attempt was interrupted before a display clarification and is not final evidence."
+    "source_scope": "Full final rebuilt runtime; source/tests frozen throughout the run. Earlier partial production attempt was deliberately interrupted for a malformed-source guard and is not final evidence."
   },
   "mobile": {
     "viewport_width": 375,
@@ -56,7 +57,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Bounded selected-transition transfer planning (thesis milestone 4c; project model)",
+  "milestone": "Complete shaping schedule analysis and independent replay (thesis milestone 4d; project model)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -1637,5 +1638,120 @@
       "No confirmed lab machine/needle allocation/usable width/rack/carrier/finishing calibration, selective stack splitting, physical loop mechanics or achieved shape is established."
     ],
     "servers": "Owned dev 5184 and production 4184 previews stopped; listener check empty."
+  },
+  "whole_program_shaping_schedule": {
+    "date": "2026-11-08",
+    "method": "Independent project construction: sequential inter-pass transfer assembly carries actual checked occupancy, preserves source operations/directions, and freshly replays the explicit schedule from empty state. It neither calls the planner during replay nor substitutes desired loop IDs for failed histories. Source-pass semantics are a shared primitive; phase checking is the existing separate core checker.",
+    "scope": [
+      "Fresh supported shared-reference two-guide unpatched open-surface Shape/combined program. Same reference coordinates; no physical thickness or native specifications inferred.",
+      "Preserve source operations, guide assignments and original source knitting-pass directions; added phases occur only between source passes and do not flip those directions.",
+      "Action-aware targets: knit consumes exact reference parents; tuck creates a loop without consuming held parents. Unused held loops keep fixed final bed/needle targets; temporary moves must restore them before the next source pass.",
+      "Reference/schema errors prevent preparation; first incompatible source action or unresolved transition stops assembly with a separately checked prefix. A prefix may end with valid phases before an unexecuted source pass.",
+      "Complete requires fresh replay of every source pass, correct parent histories and final unconsumed reference inventory. Source free operations retain the existing all-fed-then-free-departures/simultaneous-arrivals convention; live drops fail inventory checks, empty drops remain source operations.",
+      "Separate local cancellable analysis with source/request/job identity protection; unchanged saved project, bitmap, actual program and existing export gates. Explicit complete/incomplete and stale one-based knit-shaping-schedule v1 JSON.",
+      "No program application, native carriage scheduling, cast-on/finishing, extra workspace, independently shaped layers or new curved feature recipes."
+    ],
+    "resource_limits": {
+      "per_transition_defaults": {
+        "maxStates": 5000,
+        "maxMoves": 100000,
+        "maxPhases": 64
+      },
+      "per_transition_maximums": {
+        "maxStates": 50000,
+        "maxMoves": 1000000,
+        "maxPhases": 256
+      },
+      "aggregate_defaults": {
+        "maxTotalMoves": 1000000,
+        "maxAddedPhases": 4096
+      },
+      "aggregate_maximums": {
+        "maxTotalMoves": 10000000,
+        "maxAddedPhases": 16384
+      },
+      "meaning": "Computational bounds, not machine capacity. Per-transition remaining aggregate budgets constrain the search; zero-cost transitions can continue after a prior budget is consumed. Cutoffs are not no-plan proofs."
+    },
+    "unit_tests": {
+      "command": "npm run check",
+      "result": "pass",
+      "passed": 779,
+      "files": 45,
+      "core": 106,
+      "project_and_persistence": 32,
+      "learning_and_citations": 33,
+      "import_parsing_and_projects": 84,
+      "mapping_kernel_generation_and_projects": 67,
+      "knit_program": 457,
+      "duration_seconds": 28.89
+    },
+    "new_cases": {
+      "assembly_and_integration": 14,
+      "fresh_replay_and_witness_validation": 22,
+      "worker_client_and_progress": 7,
+      "total": 43
+    },
+    "focused_tests": {
+      "command": "npx vitest run tests/knit/shaping-schedule.test.ts tests/knit/schedule-replay.test.ts tests/knit/schedule-client.test.ts",
+      "result": "pass",
+      "passed": 43
+    },
+    "development_browser": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5184/KnittingTopology/ npm run test:browser -- --grep 'whole-program schedule:|strong saddle layer model'",
+      "result": "pass",
+      "passed": 2,
+      "duration_seconds": 35.653,
+      "page_or_console_errors": 0,
+      "source_scope": "Final corrected source; complete plane and partial strong-saddle schedule workflows."
+    },
+    "production_browser": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4184/KnittingTopology/ npm run test:browser",
+      "result": "pass",
+      "passed": 51,
+      "duration_seconds": 419.376,
+      "page_or_console_errors": 0,
+      "source_scope": "Full final rebuilt runtime; source/tests frozen throughout the run. Earlier partial production attempt was deliberately interrupted for a malformed-source guard and is not final evidence."
+    },
+    "production_build": {
+      "command": "npm run build (within npm run check)",
+      "result": "pass",
+      "base": "/KnittingTopology/",
+      "initial_js_kb": 806.18,
+      "initial_js_gzip_kb": 261.21,
+      "lazy_viewer_js_kb": 586.18,
+      "lazy_viewer_js_gzip_kb": 148.27,
+      "shaping_schedule_worker_js_kb": 30.3,
+      "transfer_plan_worker_js_kb": 23.4,
+      "knit_worker_js_kb": 178.54,
+      "generation_worker_js_kb": 97.35,
+      "import_worker_js_kb": 27.85,
+      "cut_worker_js_kb": 28.28,
+      "warning": "Initial JavaScript exceeds the existing configured 750 kB warning; no maximum-input performance claim."
+    },
+    "typecheck": {
+      "command": "npm run typecheck and within npm run check/build",
+      "result": "pass"
+    },
+    "formatting": {
+      "command": "npm run format:check",
+      "result": "pass"
+    },
+    "evidence": [
+      "Analytic multi-pass paired relocations complete with carried state although the original uncorrected later prefix fails. Every found transition is phase-checked and the final explicit event stream is freshly replayed.",
+      "Held loops, tuck-on-held followed by a declared decrease, incompatible tucks, source drops, source-free baselines, preserved guide/direction/operation tables, one-pass symbolic start and unchanged real plane BMP/project.",
+      "Tampered, omitted and reordered events, wrong parents/layers, malformed references/source symbols, resource cutoffs, atomic failed passes, prefix stopping, final inventory, one-based artifact replay, immutability and cancellation.",
+      "Persistent-held-parking negative witness reproduced false acceptance before the independent validator gained per-boundary restoration checks; restore-positive and source-free-baseline cases pass.",
+      "Unreadable later source symbol reproduced an exception before the assembler guard; missing/null steps now return an unsupported stop with the earlier verified prefix. The final full suite includes this correction.",
+      "Worker client rejects malformed/unverified complete results and wrong source signatures; abort, late messages, independent jobs and error cleanup covered. A mocked worker-entry/performance clock verifies 50 ms counter-normalized progress throttling without timing in numerical results.",
+      "Browser complete plane: 45/45 source passes, zero added phases, unchanged BMP and saved project. Invalid controls, stale files, actual cancellation/supersession using held worker-module requests, regeneration and original direction labels verified.",
+      "Browser strong saddle with aggregate tested-move budget of 1: verified incomplete prefix 1/48 passes, no accepted added phases; original 363 source blockers and disabled BMP/Knit Grammar exports retained. Repair opens the linked bitmap.",
+      "375px document width and new result panels visually inspected in desktop Chrome software WebGL. Synthetic test values are not measured gauges or machine specifications."
+    ],
+    "limits": [
+      "Complete means checked under the declared symbolic model, not machine feasibility, knittability or achieved fabric shape.",
+      "The two-guide bitmap key still cannot encode shaping transfers. Complete candidate analysis does not remove source program blockers or apply phases.",
+      "Maximum-input performance, physical-device/assistive-technology coverage and native lab/profile/calibration validation are not established. Existing initial bundle warning remains."
+    ],
+    "servers": "Owned development 5184 and production 4184 previews stopped; listener check empty."
   }
 }

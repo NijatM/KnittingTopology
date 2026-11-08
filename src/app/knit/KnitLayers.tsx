@@ -6,6 +6,7 @@ import { settingsKey } from '../../knit/keys';
 import { download } from '../../adapters/export';
 import { imageIndex } from '../../knit/grid';
 import KnitTransitionPlanner from './KnitTransitionPlanner';
+import KnitScheduleBuilder from './KnitScheduleBuilder';
 
 interface Props {
   settings: KnitSettings;
@@ -186,6 +187,15 @@ export default function KnitLayers({
       </p>
       {enabled && (
         <KnitTransitionPlanner
+          program={program}
+          surface={surface}
+          outdated={outdated}
+          file={file}
+          onMark={onMark}
+        />
+      )}
+      {enabled && (
+        <KnitScheduleBuilder
           program={program}
           surface={surface}
           outdated={outdated}

@@ -170,6 +170,136 @@ test('selected-transition planner: verified plane target, local controls, stale 
   await planner.screenshot({ path: 'tmp/qa/4c-transfer-planner-panel-mobile.png' });
 });
 
+test('whole-program schedule: complete replay, local controls, stale JSON, cancellation and source preservation', async ({
+  page,
+}) => {
+  await planeNetwork(page);
+  await page.getByRole('combobox', { name: 'Knit key', exact: true }).selectOption('4s52-two');
+  await page.getByRole('combobox', { name: 'Knit mode', exact: true }).selectOption('shape');
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Synthetic test values, not measured gauges.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)', exact: true }).fill('6');
+  await page.getByRole('textbox', { name: 'Course height (mm)', exact: true }).fill('4');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  const layers = page.locator('.knit-layer-panel');
+  await layers.locator(':scope > summary').click();
+  await layers
+    .getByRole('checkbox', { name: 'Check shared two-layer reference', exact: true })
+    .check();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(layers.getByLabel('Layer check summary')).toContainText('0 model blockers');
+  const before = await downloadOf(page, 'Bitmap BMP');
+  const saving = page.waitForEvent('download');
+  await page.getByTitle('Save project JSON (⌘/Ctrl S)', { exact: true }).click();
+  const project = JSON.parse(new TextDecoder().decode(await bytes(await saving))).project;
+  const panel = page.getByLabel('Whole-program shaping schedule', { exact: true });
+  await panel.locator(':scope > summary').click();
+  const run = panel.getByRole('button', { name: 'Build shaping schedule', exact: true });
+  await run.click();
+  const result = panel.getByLabel('Shaping schedule result', { exact: true });
+  await expect(result).toContainText('Complete schedule verified');
+  await expect(result).toContainText('all source passes and final reference inventory match');
+  const data = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Shaping schedule JSON'))
+  );
+  expect(data).toMatchObject({
+    format: 'knit-shaping-schedule',
+    version: 1,
+    status: 'complete',
+    complete: true,
+    stale: false,
+    validation: { ok: true, complete: true },
+    stats: { addedPhases: 0, testedMoves: 0 },
+    source: { programBlockers: [] },
+  });
+  expect(data.validation.completedPasses).toBe(data.height);
+  expect(data.events.map((e: { pass: number }) => e.pass)).toEqual(
+    Array.from({ length: data.height }, (_, i) => i + 1)
+  );
+  expect(
+    data.reference.every((n: { needle: number; pass: number }) => n.needle >= 1 && n.pass >= 1)
+  ).toBe(true);
+  await panel.locator('.knit-schedule-limits > summary').click();
+  await panel.getByRole('spinbutton', { name: 'Total added phases', exact: true }).fill('0');
+  await expect(run).toBeDisabled();
+  await expect(
+    panel.getByRole('spinbutton', { name: 'Total added phases', exact: true })
+  ).toHaveAttribute('aria-invalid', 'true');
+  await expect(result).toContainText('Previous schedule analysis');
+  expect(
+    JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Shaping schedule JSON'))).stale
+  ).toBe(true);
+  await panel.getByRole('spinbutton', { name: 'Total added phases', exact: true }).fill('1');
+  await run.click();
+  await expect(result).not.toContainText('Previous schedule analysis');
+  await expect(result).toContainText('Complete schedule verified');
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(before);
+  const savingAgain = page.waitForEvent('download');
+  await page.getByTitle('Save project JSON (⌘/Ctrl S)', { exact: true }).click();
+  expect(JSON.parse(new TextDecoder().decode(await bytes(await savingAgain))).project).toEqual(
+    project
+  );
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/*shaping-schedule.worker*', async (route) => {
+    await gate;
+    await route.continue().catch(() => {});
+  });
+  await run.click();
+  await panel.getByRole('button', { name: 'Cancel schedule building', exact: true }).click();
+  release();
+  await page.unrouteAll({ behavior: 'wait' });
+  await expect(panel).toContainText(
+    'Schedule building cancelled. The previous result is retained.'
+  );
+  let releaseNext: () => void = () => {};
+  const nextGate = new Promise<void>((resolve) => {
+    releaseNext = resolve;
+  });
+  await page.route('**/*shaping-schedule.worker*', async (route) => {
+    await nextGate;
+    await route.continue().catch(() => {});
+  });
+  await run.click();
+  await panel.getByRole('spinbutton', { name: 'Total tested moves', exact: true }).fill('1');
+  releaseNext();
+  await page.unrouteAll({ behavior: 'wait' });
+  await expect(
+    panel.getByRole('button', { name: 'Cancel schedule building', exact: true })
+  ).toHaveCount(0);
+  await expect(result).toContainText('Previous schedule analysis');
+  await run.click();
+  await expect(result).not.toContainText('Previous schedule analysis');
+  await page
+    .getByRole('combobox', { name: 'First pass direction', exact: true })
+    .selectOption('right-to-left');
+  await expect(run).toBeDisabled();
+  await expect(result).toContainText('Previous schedule analysis');
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(run).toBeEnabled();
+  await run.click();
+  await expect(result).not.toContainText('Previous schedule analysis');
+  const changed = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Shaping schedule JSON'))
+  );
+  expect(changed.complete).toBe(true);
+  expect(changed.canonical.passes[0].direction).toBe(-1);
+  await result
+    .locator('summary')
+    .filter({ hasText: /^Schedule events/ })
+    .click();
+  await expect(result).toContainText('Source knitting pass 1 · right to left');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await page.setViewportSize({ width: 375, height: 900 });
+  await result.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(375);
+  await panel.screenshot({ path: 'tmp/qa/4d-schedule-plane-mobile.png' });
+});
+
 test('knit program: size, split view, linked provenance, exports, swatches and undo', async ({
   page,
 }) => {
@@ -1968,6 +2098,28 @@ test('strong saddle layer model keeps two-guide transfers blocked and exports in
     .getByRole('button', { name: 'Show preceding history failures', exact: true })
     .click();
   await expect(page.getByRole('button', { name: 'Knit Grammar JSON', exact: true })).toBeDisabled();
+  const schedule = panel.getByLabel('Whole-program shaping schedule', { exact: true });
+  await schedule.locator(':scope > summary').click();
+  await schedule.locator('.knit-schedule-limits > summary').click();
+  await schedule.getByRole('spinbutton', { name: 'Total tested moves', exact: true }).fill('1');
+  await schedule.getByRole('button', { name: 'Build shaping schedule', exact: true }).click();
+  const scheduleResult = schedule.getByLabel('Shaping schedule result', { exact: true });
+  await expect(scheduleResult).toContainText('Incomplete candidate');
+  const partial = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Shaping schedule JSON'))
+  );
+  expect(partial).toMatchObject({
+    format: 'knit-shaping-schedule',
+    complete: false,
+    validation: { ok: true, complete: false },
+  });
+  expect(['limit', 'unsupported', 'unreachable']).toContain(partial.status);
+  expect(partial.validation.completedPasses).toBeGreaterThanOrEqual(1);
+  expect(partial.source.programBlockers.length).toBeGreaterThan(0);
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await schedule.getByRole('button', { name: 'Show schedule stop', exact: true }).click();
+  await expect(page.getByRole('img', { name: /^Knit program bitmap/ })).toBeVisible();
+  await schedule.screenshot({ path: 'tmp/qa/4d-schedule-saddle-desktop.png' });
   await panel.getByLabel('Inspect logical layer', { exact: true }).selectOption('back-layer');
   await expect(panel.getByLabel('Inspected layer histories')).toContainText('back-layer');
   await expect(panel.getByLabel('Inspected layer histories')).not.toContainText(
