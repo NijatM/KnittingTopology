@@ -1231,8 +1231,20 @@ test('computational patches: split lines, per-patch start edge, one bitmap per p
   await expect(choose.locator('option').nth(0)).toContainText('P1 · u 0–0.5 · v 0–1 · start v0');
   await expect(choose.locator('option').nth(1)).toContainText('P2 · u 0.5–1 · v 0–1 · start u1');
 
-  // Generate builds every patch as its own piece; the shown piece is the selected patch.
-  await page.getByRole('button', { name: /^(Generate|Regenerate) shape$/ }).click();
+  // New edges start knitted through: different start edges cannot share a piece.
+  const edge = patches.getByRole('checkbox', { name: 'Knit edge u1:1 through' });
+  await expect(edge).toBeChecked();
+  const generate = page.getByRole('button', { name: /^(Generate|Regenerate) shape$/ });
+  await generate.click();
+  await expect(page.getByRole('region', { name: 'Knit generation failure' })).toContainText(
+    'P1 and P2 are knitted through at u1:1 but start at different edges (v0, u1). Make the edge a seam or match the start edges.'
+  );
+  // As a seam, each patch is its own piece; the shown piece is the selected patch's.
+  await edge.uncheck();
+  await expect(patches.getByRole('list', { name: 'Shared edges' })).toContainText(
+    'u1:1 · P1 | P2 · seam'
+  );
+  await generate.click();
   const pieces = patches.getByRole('list', { name: 'Patch pieces' });
   await expect(pieces).toContainText(/P1: \d+ needles × \d+ passes/);
   await expect(pieces).toContainText(/P2: \d+ needles × \d+ passes/);
@@ -1251,7 +1263,9 @@ test('computational patches: split lines, per-patch start edge, one bitmap per p
   expect(bmp2.name).toMatch(/-P2-knit\.bmp$/);
   const report = await named(page, 'Report TXT');
   expect(report.name).toMatch(/-P2-knit-report\.txt$/);
-  expect(new TextDecoder().decode(await bytes(report.download))).toContain('piece P2 of 2');
+  expect(new TextDecoder().decode(await bytes(report.download))).toContain(
+    'This report and its bitmap are for P2 (piece 2 of 2)'
+  );
   await choose.selectOption('0');
   expect((await named(page, 'Bitmap BMP')).name).toMatch(/-P1-knit\.bmp$/);
 
@@ -1259,7 +1273,7 @@ test('computational patches: split lines, per-patch start edge, one bitmap per p
   const seamMap = await named(patches, 'Seam map JSON');
   expect(seamMap.name).toMatch(/-seam-map\.json$/);
   const map = JSON.parse(new TextDecoder().decode(await bytes(seamMap.download)));
-  expect(map).toMatchObject({ format: 'knit-patch-seam-map', version: 1 });
+  expect(map).toMatchObject({ format: 'knit-patch-seam-map', version: 2 });
   expect(map.seams).toHaveLength(1);
   expect(map.patches.map((p: { startEdge: string }) => p.startEdge)).toEqual(['v0', 'u1']);
   await page.screenshot({ path: 'tmp/qa/2c1-patches.png', fullPage: true });
@@ -1269,4 +1283,75 @@ test('computational patches: split lines, per-patch start edge, one bitmap per p
   await expect(choose).toHaveCount(0);
   await expect(page.getByTestId('knit-controls-patch')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Start edge' })).toHaveValue('v0');
+});
+
+test('knitted-through patches: one piece, one bitmap named after its lowest patch, and the edge toggle', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not lab measurements.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  const patches = page.getByRole('region', { name: 'Computational patches' });
+  await patches.getByRole('spinbutton', { name: 'New u split' }).fill('0.5');
+  await patches.getByRole('button', { name: 'Add u split', exact: true }).click();
+  await patches.getByRole('spinbutton', { name: 'New v split' }).fill('0.5');
+  await patches.getByRole('button', { name: 'Add v split', exact: true }).click();
+  const edges = patches.getByRole('list', { name: 'Shared edges' });
+  await expect(edges.getByRole('checkbox')).toHaveCount(4);
+  for (const id of ['u1:1', 'u1:2', 'v1:1', 'v1:2'])
+    await expect(patches.getByRole('checkbox', { name: `Knit edge ${id} through` })).toBeChecked();
+
+  // All four patches are one piece with one bitmap, named after P1 whichever patch is selected.
+  const choose = patches.getByRole('combobox', { name: 'Patch' });
+  await choose.selectOption('3');
+  await expect(patches).toContainText(
+    'the program preview and the exports show its piece, piece P1 (P1, P2, P3, P4)'
+  );
+  const generate = page.getByRole('button', { name: /^(Generate|Regenerate) shape$/ });
+  await generate.click();
+  const pieces = patches.getByRole('list', { name: 'Patch pieces' });
+  await expect(pieces).toContainText(/piece P1 \(P1, P2, P3, P4\): \d+ needles × \d+ passes/);
+  await expect(pieces.getByRole('listitem')).toHaveCount(1);
+  const stages = page.getByRole('region', { name: 'Knit graph stages' });
+  await expect(stages.getByRole('heading')).toHaveText('Knit graph stages · patch P4');
+  await expect(stages.getByRole('list', { name: 'Stage status' })).toContainText(
+    'Loops: rebuilt for the joined piece at each generation, not saved'
+  );
+  const pending = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Bitmap BMP', exact: true }).click();
+  expect((await pending).suggestedFilename()).toMatch(/-P1-knit\.bmp$/);
+
+  // Two seams cut P4 off: an L-shaped piece with a needle stop, and P4 on its own.
+  await patches.getByRole('checkbox', { name: 'Knit edge v1:2 through' }).uncheck();
+  await patches.getByRole('checkbox', { name: 'Knit edge u1:2 through' }).uncheck();
+  await generate.click();
+  await expect(pieces.getByRole('listitem')).toHaveCount(2);
+  await expect(pieces.getByRole('listitem').nth(0)).toContainText('piece P1 (P1, P2, P3)');
+  await expect(pieces.getByRole('listitem').nth(0)).toContainText(
+    /P2 stops after pass \d+, needles \d+–\d+: cast off in the lab software/
+  );
+  await expect(pieces.getByRole('listitem').nth(1)).toContainText(/^P4: \d+ needles/);
+  const seamMap = page.waitForEvent('download');
+  await patches.getByRole('button', { name: 'Seam map JSON', exact: true }).click();
+  const map = JSON.parse(new TextDecoder().decode(await bytes(await seamMap)));
+  expect(map).toMatchObject({
+    version: 2,
+    layout: { through: ['u1:1', 'v1:1'] },
+    pieces: [
+      { piece: 'P1', patches: ['P1', 'P2', 'P3'] },
+      { piece: 'P4', patches: ['P4'] },
+    ],
+  });
+  expect(map.seams.map((x: { id: string }) => x.id)).toEqual(['u1:2', 'v1:2']);
+  await page.screenshot({ path: 'tmp/qa/2c2-joined-patches.png', fullPage: true });
+
+  // Undo restores the knitted-through edge.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(patches.getByRole('checkbox', { name: 'Knit edge u1:2 through' })).toBeChecked();
 });

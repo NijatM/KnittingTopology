@@ -16,7 +16,8 @@ type Input = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
 /** Saved stages of the whole chart, or of each patch, in patch order. */
 const savedStages = (knit: KnitSettings | undefined) =>
   knit ? chartParts(knit).map((part) => part.settings.graph) : [];
-/** The stages of an accepted build, part by part; a patch without a result keeps its saved stages. */
+/** The stages of an accepted build, part by part; a patch without a result keeps its saved stages. A
+ * piece of several patches carries each patch's own stages. */
 function builtStages(build: KnitBuild, knit: KnitSettings | undefined) {
   if (!build.ok) return [];
   const pieces = build.program.patches?.pieces;
@@ -24,13 +25,16 @@ function builtStages(build: KnitBuild, knit: KnitSettings | undefined) {
     const stages = build.program.shape?.knitGraph?.stages;
     return stages ? [stages] : [];
   }
-  const saved = savedStages(knit);
-  return pieces.map((p, i) =>
-    p.build.ok ? (p.build.program.shape?.knitGraph?.stages ?? saved[i]) : saved[i]
-  );
+  const saved = savedStages(knit),
+    stages = saved.slice();
+  for (const p of pieces)
+    p.patches.forEach((patch, k) => {
+      if (p.build.ok) stages[patch] = p.stages[k] ?? saved[patch];
+    });
+  return stages;
 }
 /** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. With computational
- * patches, `piece` selects the patch whose program is shown and exported. */
+ * patches, `piece` selects a patch: the piece that holds it is shown and exported. */
 export function useKnitBuild(
   input: Input,
   staleNetwork: boolean,
@@ -128,17 +132,21 @@ export function useKnitBuild(
       ok: false,
       reason: 'Generate the knit program after entering measurements or a typed network size.',
     };
-  const stalePart = build.ok
+  // Stale stages of any patch of the shown piece block its export.
+  const staleParts = build.ok
     ? build.program.patches
-      ? staleStages[build.program.patches.piece]
-      : staleStages[0]
-    : null;
-  if (build.ok && stalePart)
+      ? build.program.patches.pieces[build.program.patches.piece]!.patches.map(
+          (i) => staleStages[i]
+        )
+      : [staleStages[0]]
+    : [];
+  const stale = staleParts.filter((x): x is string => !!x);
+  if (build.ok && stale.length)
     build = {
       ...build,
       program: {
         ...build.program,
-        exportBlockers: [...build.program.exportBlockers, stalePart],
+        exportBlockers: [...build.program.exportBlockers, ...stale],
       },
     };
   const preflight = requirements[0]?.message ?? '';

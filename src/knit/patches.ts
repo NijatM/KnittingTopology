@@ -1,10 +1,12 @@
 // Computational patches (Popescu 2019, §6.3.2, pp. 109–110). The thesis splits the geometry into patches
 // by hand before pattern generation; each patch has its own knitting direction and loop dimensions. It
 // develops no subdivision strategy. Project restriction: full-length split lines at constant chart u or v
-// give a grid of rectangular patches. In this version every shared edge is a seam: each patch is knitted
-// as its own piece, and the seam map pairs the loops or course ends on both sides by position.
+// give a grid of rectangular patches. Each shared edge is knitted through or a seam: patches linked by
+// knitted-through edges form one piece with one bitmap (joined in patch-join.ts, a project construction),
+// and the seam map pairs the loops or course ends on both sides of every seam by position.
 import type {
   GenerationContext,
+  KnitGraphStages,
   KnitPatch,
   KnitPatchLayout,
   KnitSettings,
@@ -16,9 +18,16 @@ import type {
 } from '../core/types';
 import { evaluateSurface } from '../core/surfaces';
 import type { KnitBuild, KnitProgram } from './program';
-import { buildShapeProgram } from './shape-program';
+import { buildShapeProgram, openLayout, shapeInputs } from './shape-program';
 import { rotatedShapeUV } from './shape-geometry';
 import type { ChartWindow } from './shape-types';
+import {
+  checkKnitGraph,
+  courseStageFingerprint,
+  courseStageFromGeometry,
+  freshStages,
+} from './knit-graph';
+import { joinPatches, loopPatch, type JoinPart } from './patch-join';
 
 /** Project limits. */
 export const MAX_SPLITS = 8;
@@ -154,6 +163,87 @@ function regrid(layout: KnitPatchLayout, u: number[], v: number[]): KnitPatchLay
   }
   return next;
 }
+const edgeId = (axis: SplitAxis, split: number, cell: number) => `${axis}${split + 1}:${cell + 1}`;
+/** Axis, split and cell (row of a u edge, column of a v edge), zero based, of a shared-edge ID. */
+export function parseEdgeId(id: string): { axis: SplitAxis; split: number; cell: number } | null {
+  const m = /^([uv])(\d+):(\d+)$/.exec(id);
+  return m ? { axis: m[1] as SplitAxis, split: Number(m[2]) - 1, cell: Number(m[3]) - 1 } : null;
+}
+/** Knitted-through edges after adding or removing split `k` of `axis`. A new line's edges start knitted
+ * through; an edge divided by a new line keeps its state in both parts; a merged edge keeps the state of
+ * its part below or left. */
+function throughAfter(
+  layout: KnitPatchLayout,
+  next: Pick<KnitPatchLayout, 'u' | 'v'>,
+  axis: SplitAxis,
+  change: { add: number } | { remove: number }
+): string[] {
+  const out = new Set<string>();
+  for (const id of layout.through ?? []) {
+    const e = parseEdgeId(id);
+    if (!e) continue;
+    if ('add' in change) {
+      if (e.axis === axis)
+        out.add(edgeId(axis, e.split >= change.add ? e.split + 1 : e.split, e.cell));
+      else {
+        if (e.cell <= change.add) out.add(edgeId(e.axis, e.split, e.cell));
+        if (e.cell >= change.add) out.add(edgeId(e.axis, e.split, e.cell + 1));
+      }
+    } else if (e.axis === axis) {
+      if (e.split !== change.remove)
+        out.add(edgeId(axis, e.split > change.remove ? e.split - 1 : e.split, e.cell));
+    } else if (e.cell <= change.remove) out.add(edgeId(e.axis, e.split, e.cell));
+    else if (e.cell > change.remove + 1) out.add(edgeId(e.axis, e.split, e.cell - 1));
+  }
+  if ('add' in change)
+    for (let c = 0; c <= (axis === 'u' ? next.v.length : next.u.length); c++)
+      out.add(edgeId(axis, change.add, c));
+  const order = sharedEdges(next).map((e) => e.id);
+  return order.filter((id) => out.has(id));
+}
+/** Whether a shared edge is knitted through (otherwise it is a seam). */
+export const knittedThrough = (layout: Pick<KnitPatchLayout, 'through'>, id: string) =>
+  !!layout.through?.includes(id);
+/** Toggle a shared edge between knitted through and seam. */
+export function toggleEdge(settings: KnitSettings, id: string): KnitSettings {
+  const layout = settings.patches;
+  if (!layout || !sharedEdges(layout).some((e) => e.id === id))
+    throw new Error('There is no such shared edge.');
+  const on = new Set(layout.through ?? []);
+  if (on.has(id)) on.delete(id);
+  else on.add(id);
+  return {
+    ...settings,
+    patches: {
+      ...layout,
+      through: sharedEdges(layout)
+        .map((e) => e.id)
+        .filter((x) => on.has(x)),
+    },
+  };
+}
+/** Pieces: patches linked by knitted-through edges, each named after its lowest-numbered patch. */
+export function patchPieces(layout: Pick<KnitPatchLayout, 'u' | 'v' | 'through'>): number[][] {
+  const parent = Array.from({ length: patchCount(layout) }, (_, i) => i);
+  const root = (i: number): number => (parent[i] === i ? i : (parent[i] = root(parent[i]!)));
+  for (const e of sharedEdges(layout))
+    if (knittedThrough(layout, e.id)) {
+      const a = root(e.a),
+        b = root(e.b);
+      parent[Math.max(a, b)] = Math.min(a, b);
+    }
+  const groups = new Map<number, number[]>();
+  parent.forEach((_, i) => {
+    const r = root(i);
+    groups.set(r, [...(groups.get(r) ?? []), i]);
+  });
+  return [...groups.values()].sort((a, b) => a[0]! - b[0]!);
+}
+/** "piece P1 (P1, P2, P4)", or "P3" for a single patch. */
+export const pieceLabel = (patches: readonly number[]) =>
+  patches.length === 1
+    ? patchLabel(patches[0]!)
+    : `piece ${patchLabel(patches[0]!)} (${patches.map(patchLabel).join(', ')})`;
 /** Add a split; the first split turns the whole-chart settings into two patches. */
 export function addSplit(settings: KnitSettings, axis: SplitAxis, value: number): KnitSettings {
   const layout: KnitPatchLayout = settings.patches ?? {
@@ -166,9 +256,10 @@ export function addSplit(settings: KnitSettings, axis: SplitAxis, value: number)
   if (problem) throw new Error(problem);
   const splits = [...layout[axis], value].sort((a, b) => a - b);
   const { graph: _g, ...rest } = settings;
+  const next = regrid(layout, axis === 'u' ? splits : layout.u, axis === 'v' ? splits : layout.v);
   return {
     ...rest,
-    patches: regrid(layout, axis === 'u' ? splits : layout.u, axis === 'v' ? splits : layout.v),
+    patches: { ...next, through: throughAfter(layout, next, axis, { add: splits.indexOf(value) }) },
   };
 }
 export function moveSplit(
@@ -225,7 +316,11 @@ export function removeSplit(settings: KnitSettings, axis: SplitAxis, index: numb
       same = [0, 1].every((j) => old.u[j] === w.u[j] && old.v[j] === w.v[j]);
     next.patches.push(same ? layout.patches[from]! : withoutGraph(layout.patches[from]!));
   }
-  if (u.length || v.length) return { ...settings, patches: next };
+  if (u.length || v.length)
+    return {
+      ...settings,
+      patches: { ...next, through: throughAfter(layout, next, axis, { remove: index }) },
+    };
   const only = next.patches[0]!,
     { patches: _p, graph: _g, courseMethod: _c, popescu: _s, ...rest } = settings;
   return {
@@ -239,16 +334,22 @@ export function removeSplit(settings: KnitSettings, axis: SplitAxis, index: numb
 
 // ---- pieces --------------------------------------------------------------------------------------
 export interface PatchPiece {
+  /** The lowest-numbered patch, which names the piece. */
   index: number;
   label: string;
+  /** The piece's patches, ascending. */
+  patches: number[];
+  /** Bounding rectangle of the patches. */
   window: ChartWindow;
   build: KnitBuild;
+  /** Each patch's own stages, in `patches` order; they are saved per patch. */
+  stages: (KnitGraphStages | undefined)[];
 }
 export interface SeamElement {
   kind: 'loop' | 'course end';
   /** Loop ID in the patch's knit graph. */
   loop: string;
-  /** 1-based needle and pass in the patch's bitmap. */
+  /** 1-based needle and pass in the bitmap of the patch's piece. */
   needle: number;
   pass: number;
   /** Fraction along the edge, from its lower chart end. */
@@ -258,6 +359,8 @@ export interface SeamElement {
 export type PatchSide = 'start' | 'end' | 'needle-1' | 'far';
 export interface SeamSide {
   patch: number;
+  /** The piece's lowest patch. */
+  piece: number;
   side: PatchSide;
   /** Null when the patch has no bitmap. */
   elements: SeamElement[] | null;
@@ -277,9 +380,12 @@ export interface PatchSeam {
   unpaired: [number[], number[]];
 }
 export interface PatchBuild {
+  /** The layout the pieces were built from, without saved stages. */
+  layout: KnitPatchLayout;
   pieces: PatchPiece[];
+  /** Seam edges only; knitted-through edges are inside a piece. */
   seams: PatchSeam[];
-  /** The piece shown in `program`. */
+  /** Index in `pieces` of the piece shown in `program`. */
   piece: number;
 }
 
@@ -347,25 +453,36 @@ const dist = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b
 
 function sideElements(
   program: KnitProgram | null,
+  patch: number,
   side: PatchSide,
   edge: { axis: SplitAxis; range: [number, number] }
 ): SeamElement[] | null {
   const shape = program?.shape;
   if (!shape) return null;
+  // In a joined piece, loop IDs carry their patch; a single patch's do not.
+  const mine = (id: string) => {
+    const p = loopPatch(id);
+    return p < 0 || p === patch;
+  };
   const { w, h } = shape.needles,
     cell = new Map<number, [number, number]>();
   shape.placementAt.forEach((p, i) => {
     if (p >= 0 && !cell.has(p)) cell.set(p, [(i % w) + 1, h - Math.floor(i / w)]);
   });
   const index = new Map(shape.needles.placements.map((p, i) => [p.loop.id, i]));
-  const courses = shape.geometry.courses,
+  const courses = shape.geometry.courses.filter((c) => c.loops.some((l) => mine(l.id))),
+    own = (c: (typeof courses)[number] | undefined) => (c?.loops ?? []).filter((l) => mine(l.id)),
     loops =
       side === 'start'
-        ? (courses[0]?.loops ?? [])
+        ? own(courses[0])
         : side === 'end'
-          ? (courses.at(-1)?.loops ?? [])
+          ? own(courses.at(-1))
           : courses
-              .filter((c) => (side === 'needle-1' ? c.leftBoundary : c.rightBoundary))
+              .filter((c) =>
+                side === 'needle-1'
+                  ? (c.leftBoundary || c.leftFree) && mine(c.loops[0]!.id)
+                  : (c.rightBoundary || c.rightFree) && mine(c.loops.at(-1)!.id)
+              )
               .map((c) => (side === 'needle-1' ? c.loops[0]! : c.loops.at(-1)!));
   const k = edge.axis === 'u' ? 1 : 0,
     span = edge.range[1] - edge.range[0];
@@ -409,45 +526,203 @@ export function pairByPosition(
     unpaired: swap ? [lonely, all] : [all, lonely],
   };
 }
+/** The seams of the layout (shared edges that are not knitted through), with both sides' elements. */
 export function patchSeams(
   surface: SurfaceSpec,
   layout: KnitPatchLayout,
   pieces: readonly PatchPiece[]
 ): PatchSeam[] {
-  return sharedEdges(layout).map((edge) => {
-    const path = edgePath(edge).map((uv) => evaluateSurface(surface, 0, uv[0], uv[1]));
-    let length = 0;
-    for (let i = 1; i < path.length; i++) length += dist(path[i - 1]!, path[i]!);
-    const sideOf = (patch: number, chartSide: 'u0' | 'u1' | 'v0' | 'v1'): SeamSide => {
-      const piece = pieces[patch],
-        side = patchSide(layout.patches[patch]!, patchWindow(layout, patch), chartSide);
-      return {
-        patch,
-        side,
-        elements: sideElements(piece?.build.ok ? piece.build.program : null, side, edge),
+  const pieceOf = (patch: number) => pieces.find((p) => p.patches.includes(patch));
+  return sharedEdges(layout)
+    .filter((edge) => !knittedThrough(layout, edge.id))
+    .map((edge) => {
+      const path = edgePath(edge).map((uv) => evaluateSurface(surface, 0, uv[0], uv[1]));
+      let length = 0;
+      for (let i = 1; i < path.length; i++) length += dist(path[i - 1]!, path[i]!);
+      const sideOf = (patch: number, chartSide: 'u0' | 'u1' | 'v0' | 'v1'): SeamSide => {
+        const piece = pieceOf(patch),
+          side = patchSide(layout.patches[patch]!, patchWindow(layout, patch), chartSide);
+        return {
+          patch,
+          piece: piece?.index ?? patch,
+          side,
+          elements: sideElements(piece?.build.ok ? piece.build.program : null, patch, side, edge),
+        };
       };
-    };
-    // The lower/left patch meets the line on its u1/v1 side, the other on its u0/v0 side.
-    const sides: [SeamSide, SeamSide] =
-      edge.axis === 'u'
-        ? [sideOf(edge.a, 'u1'), sideOf(edge.b, 'u0')]
-        : [sideOf(edge.a, 'v1'), sideOf(edge.b, 'v0')];
-    const paired =
-      sides[0].elements && sides[1].elements
-        ? pairByPosition(sides[0].elements, sides[1].elements)
-        : { pairs: [], unpaired: [[], []] as [number[], number[]] };
-    return {
-      id: edge.id,
-      axis: edge.axis,
-      value: edge.value,
-      range: edge.range,
-      length,
-      sides,
-      ...paired,
-    };
-  });
+      // The lower/left patch meets the line on its u1/v1 side, the other on its u0/v0 side.
+      const sides: [SeamSide, SeamSide] =
+        edge.axis === 'u'
+          ? [sideOf(edge.a, 'u1'), sideOf(edge.b, 'u0')]
+          : [sideOf(edge.a, 'v1'), sideOf(edge.b, 'v0')];
+      const paired =
+        sides[0].elements && sides[1].elements
+          ? pairByPosition(sides[0].elements, sides[1].elements)
+          : { pairs: [], unpaired: [[], []] as [number[], number[]] };
+      return {
+        id: edge.id,
+        axis: edge.axis,
+        value: edge.value,
+        range: edge.range,
+        length,
+        sides,
+        ...paired,
+      };
+    });
 }
-/** Build every patch as its own piece (all shared edges are seams in this version). */
+/** Bounding rectangle of some patches. */
+function boundsOf(
+  layout: Pick<KnitPatchLayout, 'u' | 'v'>,
+  patches: readonly number[]
+): ChartWindow {
+  const w = patches.map((i) => patchWindow(layout, i));
+  return {
+    u: [Math.min(...w.map((x) => x.u[0])), Math.max(...w.map((x) => x.u[1]))],
+    v: [Math.min(...w.map((x) => x.v[0])), Math.max(...w.map((x) => x.v[1]))],
+  };
+}
+/** Layout problems that block a piece's export: a seam between two of its patches. */
+function pieceSeamBlockers(layout: KnitPatchLayout, patches: readonly number[]): string[] {
+  return sharedEdges(layout)
+    .filter((e) => !knittedThrough(layout, e.id) && patches.includes(e.a) && patches.includes(e.b))
+    .map(
+      (e) =>
+        `Seam ${e.id} lies between ${patchLabel(e.a)} and ${patchLabel(e.b)} of the same piece: the bitmap cannot leave it open. Knit the edge through, or make more edges seams to separate the patches.`
+    );
+}
+/** One piece of several patches, joined into one geometry (project construction, patch-join.ts). */
+function buildJoinedPiece(
+  project: Pick<ProjectState, 'surface' | 'graph'>,
+  settings: KnitSettings,
+  swatches: readonly SwatchEntry[],
+  patches: readonly number[],
+  context?: GenerationContext
+): { build: KnitBuild; stages: (KnitGraphStages | undefined)[] } {
+  const layout = settings.patches!,
+    none = patches.map(() => undefined),
+    lowest = patches[0]!,
+    start = layout.patches[lowest]!.startEdge;
+  for (const e of sharedEdges(layout))
+    if (
+      knittedThrough(layout, e.id) &&
+      patches.includes(e.a) &&
+      layout.patches[e.a]!.startEdge !== layout.patches[e.b]!.startEdge
+    )
+      return {
+        build: {
+          ok: false,
+          reason: `${patchLabel(e.a)} and ${patchLabel(e.b)} are knitted through at ${e.id} but start at different edges (${layout.patches[e.a]!.startEdge}, ${layout.patches[e.b]!.startEdge}). Make the edge a seam or match the start edges.`,
+        },
+        stages: none,
+      };
+  const parts: JoinPart[] = [],
+    stages: KnitGraphStages[] = [],
+    checks: ReturnType<typeof checkKnitGraph> = [];
+  const popescuPatches = new Set<number>();
+  let savedCourses = true;
+  for (const index of patches) {
+    const view = patchSettings(settings, index),
+      window = patchWindow(layout, index),
+      label = patchLabel(index),
+      inputs = shapeInputs(view, swatches);
+    if (!inputs.ok)
+      return { build: { ok: false, reason: `${label}: ${inputs.reason}` }, stages: none };
+    const saved = freshStages(
+        { surface: project.surface, knit: view, swatches: [...swatches] },
+        window
+      ),
+      expected = courseStageFingerprint(project.surface, view, inputs.gauge, window);
+    try {
+      const own = openLayout(
+        project.surface,
+        view,
+        inputs.gauge,
+        saved,
+        expected,
+        context,
+        window,
+        true
+      );
+      savedCourses &&= !!saved;
+      if (inputs.method === 'popescu-2019-rules') popescuPatches.add(index);
+      const patchStages = own.stages ?? {
+        courseMethod: inputs.method,
+        courses: courseStageFromGeometry(expected, own.geometry),
+      };
+      stages.push(patchStages);
+      if (patchStages.loops)
+        checks.push(
+          ...checkKnitGraph(patchStages).map((c) => ({
+            ...c,
+            id: `${label}:${c.id}`,
+            label: `${label}: ${c.label}`,
+          }))
+        );
+      parts.push({
+        index,
+        stitchWidth: inputs.gauge.stitchWidth,
+        geometry: own.geometry,
+        ...(own.fixedParents ? { fixedParents: own.fixedParents } : {}),
+      });
+    } catch (cause) {
+      if ((cause as Error).name === 'AbortError') throw cause;
+      return {
+        build: { ok: false, reason: `${label}: shape generation: ${(cause as Error).message}` },
+        stages: none,
+      };
+    }
+  }
+  const knitted = (a: number, b: number) =>
+    sharedEdges(layout).some(
+      (e) => knittedThrough(layout, e.id) && ((e.a === a && e.b === b) || (e.a === b && e.b === a))
+    );
+  let join: ReturnType<typeof joinPatches>;
+  try {
+    join = joinPatches(layout, start, parts, knitted);
+  } catch (cause) {
+    return { build: { ok: false, reason: `Joining patches: ${(cause as Error).message}` }, stages };
+  }
+  const fills = [...new Set(patches.map((i) => layout.patches[i]!.fill))],
+    popescu = popescuPatches.size > 0;
+  const build = buildShapeProgram(
+    project,
+    patchSettings(settings, lowest),
+    swatches,
+    context,
+    boundsOf(layout, patches),
+    {
+      geometry: join.geometry,
+      ...(join.fixedParents ? { fixedParents: join.fixedParents } : {}),
+      ...(popescu ? { locked: (id: string) => popescuPatches.has(loopPatch(id)) } : {}),
+      pairTurns: !join.splitArms,
+      fillOf: (id) => layout.patches[loopPatch(id)]?.fill ?? layout.patches[lowest]!.fill,
+      savedCourses,
+      checks,
+      issues: [
+        `Patches ${patches.map(patchLabel).join(', ')} are joined into one piece. The thesis combines patch patterns but gives no algorithm (§6.3.2, p. 107; p. 153, fn. 9), so the join is a project construction: side by side, the courses reaching the shared edge are paired in order along it, and an unpaired course turns at the edge; stacked, the needle planner links the upper patch's first course to the loops below.`,
+        ...(popescu
+          ? [
+              'A Popescu-method patch keeps its loop connections inside the patch; turn pairing never removes its loops, so a short-row turn that needs it blocks export.',
+            ]
+          : []),
+        ...(fills.length > 1
+          ? [
+              `Fills differ within the piece (${fills.join(', ')}), as the thesis allows (p. 110). Each loop keeps its patch's structure and measured size; the join between loop sizes is not validated physically, and machine tension per pass is a lab setting, not in the bitmap. Where patches of different loop widths are stacked, the change in loop count must fit one-needle transfers; a pass that does not fit blocks export.`,
+            ]
+          : []),
+      ],
+      blockers: [
+        ...pieceSeamBlockers(layout, patches),
+        ...(join.splitArms
+          ? [
+              'The piece has separate arms in one band (a U, an arch or a ring): the yarn jumps between them. Make an edge a seam to knit the arms as separate pieces.',
+            ]
+          : []),
+      ],
+    }
+  );
+  return { build, stages };
+}
+/** Build every piece: patches linked by knitted-through edges, one bitmap each. */
 export function buildPatchPieces(
   project: Pick<ProjectState, 'surface' | 'graph'>,
   settings: KnitSettings,
@@ -455,27 +730,35 @@ export function buildPatchPieces(
   context?: GenerationContext
 ): PatchPiece[] {
   const layout = settings.patches!,
-    count = patchCount(layout);
-  return layout.patches.map((_, index) => {
-    const label = patchLabel(index),
-      window = patchWindow(layout, index);
-    const build = buildShapeProgram(
-      project,
-      patchSettings(settings, index),
-      swatches,
-      {
+    groups = patchPieces(layout);
+  return groups.map((patches, k) => {
+    const index = patches[0]!,
+      label = pieceLabel(patches),
+      window = boundsOf(layout, patches),
+      ctx: GenerationContext = {
         ...context,
         progress: (fraction, stage) =>
-          context?.progress?.((index + fraction) / count, `${label}: ${stage}`),
-      },
-      window
-    );
-    return { index, label, window, build };
+          context?.progress?.((k + fraction) / groups.length, `${label}: ${stage}`),
+      };
+    if (patches.length > 1) {
+      const { build, stages } = buildJoinedPiece(project, settings, swatches, patches, ctx);
+      return { index, label, patches, window, build, stages };
+    }
+    const build = buildShapeProgram(project, patchSettings(settings, index), swatches, ctx, window);
+    return {
+      index,
+      label,
+      patches,
+      window,
+      build,
+      stages: [build.ok ? build.program.shape?.knitGraph?.stages : undefined],
+    };
   });
 }
-/** The build of piece `index`, carrying the patch overview. */
-export function pieceBuild(patches: Omit<PatchBuild, 'piece'>, index: number): KnitBuild {
-  const piece = patches.pieces[index];
+/** The build of the piece that holds `patch`, carrying the patch overview. */
+export function pieceBuild(patches: Omit<PatchBuild, 'piece'>, patch: number): KnitBuild {
+  const index = patches.pieces.findIndex((p) => p.patches.includes(patch)),
+    piece = patches.pieces[index];
   if (!piece)
     return { ok: false, reason: 'This patch is not generated yet. Generate the knit program.' };
   if (!piece.build.ok) return { ok: false, reason: `${piece.label}: ${piece.build.reason}` };
@@ -489,11 +772,11 @@ export function buildPatchedProgram(
 ): KnitBuild {
   const pieces = buildPatchPieces(project, settings, swatches, context),
     seams = patchSeams(project.surface, settings.patches!, pieces),
-    first = Math.max(
-      0,
-      pieces.findIndex((p) => p.build.ok)
-    );
-  const build = pieceBuild({ pieces, seams }, first);
+    first = pieces.find((p) => p.build.ok) ?? pieces[0]!;
+  const build = pieceBuild(
+    { layout: withoutStages(settings).patches!, pieces, seams },
+    first.index
+  );
   if (build.ok) return build;
   return {
     ok: false,
@@ -510,10 +793,10 @@ export function seamMapJson(
   return JSON.stringify(
     {
       format: SEAM_MAP_FORMAT,
-      version: 1,
+      version: 2,
       units: 'm',
       method:
-        'Computational patches (Popescu 2019, §6.3.2): chart-grid split lines (project restriction); every shared edge is a seam.',
+        'Computational patches (Popescu 2019, §6.3.2): chart-grid split lines (project restriction); each shared edge is knitted through or a seam, and patches linked by knitted-through edges form one piece (project construction). Only seams are listed.',
       pairing: PATCH_PAIRING_RULE,
       note: 'Sewing guidance from a geometric prediction, not a sewing sequence. Count and length differences are reported, not blocking.',
       surface: {
@@ -523,7 +806,11 @@ export function seamMapJson(
         revision: surface.revision,
         mapping: surface.mapping ?? null,
       },
-      layout: { kind: layout.kind, u: layout.u, v: layout.v },
+      layout: { kind: layout.kind, u: layout.u, v: layout.v, through: layout.through ?? [] },
+      pieces: patchPieces(layout).map((patches) => ({
+        piece: patchLabel(patches[0]!),
+        patches: patches.map(patchLabel),
+      })),
       patches: layout.patches.map((p, i) => ({
         patch: patchLabel(i),
         chart: patchWindow(layout, i),
@@ -537,6 +824,7 @@ export function seamMapJson(
         length: round(s.length),
         sides: s.sides.map((side) => ({
           patch: patchLabel(side.patch),
+          piece: patchLabel(side.piece),
           side: side.side,
           count: side.elements?.length ?? null,
           elements:

@@ -24,6 +24,8 @@ export interface ShapePoint {
 }
 export interface ShapeLoop extends ShapePoint {
   id: string;
+  /** Measured stitch width of this loop's patch when it differs from the geometry's (joined pieces). */
+  stitchWidth?: number;
 }
 export interface ShapeCourse {
   id: string;
@@ -35,6 +37,13 @@ export interface ShapeCourse {
   extent: [number, number];
   leftBoundary: boolean;
   rightBoundary: boolean;
+  /** A side on a piece boundary inside the chart (joined pieces, project construction): loops beyond it
+   * stay held, but new loops may start beyond the parents, as at a boundary. */
+  leftFree?: boolean;
+  rightFree?: boolean;
+  /** Arc-length fraction of the boundary before each loop and after the last (joined courses, whose parts
+   * have their own loop widths); without it the loops divide the course equally. */
+  loopCuts?: number[];
   turnStart: boolean;
   turnEnd: boolean;
   length: number;
@@ -52,6 +61,9 @@ export interface ShapeGeometry {
   resolution: number;
   method: string;
   issues: string[];
+  /** Joined pieces: after course `after`, the held loops whose IDs start with `prefix` leave the bed (a
+   * patch that stops at a piece boundary inside the chart; project construction). */
+  release?: { after: number; prefix: string }[];
   /** Open surfaces: contour samples, their links (indices in contour order) and each course's samples. */
   graph?: { samples: ShapePoint[][]; links: [number, number][]; courses: number[][] };
 }
@@ -94,6 +106,16 @@ export interface ShapeKnitGraph {
   saved: { courses: boolean; loops: boolean };
   checks: { id: string; label: string; source: string; violations: number; examples: string[] }[];
 }
+/** Needles where a patch of a joined piece stops inside the chart (zero-based needles, one-based pass). */
+export interface PieceStop {
+  pass: number;
+  from: number;
+  to: number;
+  /** Loop ID prefix of the patch (`P<n>/`). */
+  patch: string;
+  /** A later pass knits on one of these needles, so the loops must be cast off, not held. */
+  reused: boolean;
+}
 export interface ShapeResult {
   geometry: ShapeGeometry;
   needles: ShapeNeedles;
@@ -105,6 +127,8 @@ export interface ShapeResult {
   closed?: CubeNetLayout;
   /** Sphere opened by a pole-to-pole cut: counts, short rows, poles and seam loops. */
   sphere?: SphereKnitLayout;
+  /** Joined pieces: needles that stop inside the chart (reported, not blocking). */
+  stops?: PieceStop[];
   /** Saved-stage form of this layout (measured layouts only). */
   knitGraph?: ShapeKnitGraph;
 }

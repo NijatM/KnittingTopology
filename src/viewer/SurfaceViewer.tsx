@@ -1195,13 +1195,13 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       lineSegments(state.selectionGroup, segments, '#d09a4e');
     }
     if (props.patchLines) {
-      const seams: number[] = [],
+      const edges: number[] = [],
         selected: number[] = [];
-      for (const line of props.patchLines.seams) appendPath(seams, line);
+      for (const line of props.patchLines.edges) appendPath(edges, line);
       for (const line of props.patchLines.selected) appendPath(selected, line);
       lineSegments(
         state.selectionGroup,
-        seams,
+        edges,
         props.options.background === 'light' ? '#3a3a3a' : '#e0e0e0'
       );
       lineSegments(state.selectionGroup, selected, '#d09a4e');

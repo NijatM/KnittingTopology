@@ -2150,3 +2150,9 @@ details.knit-required-control,
   padding: 5px 8px;
   font-size: 9px;
 }
+.knit-edges input[type='checkbox'] {
+  flex: none;
+}
+.knit-edges li.selected {
+  font-weight: 600;
+}

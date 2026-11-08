@@ -8,7 +8,13 @@ import { CALIBRATION_FIELDS, measurementStateLabel, type Gauge } from './gauge';
 import { COURSE_METHODS } from './knit-graph';
 import { editSummary } from './knit-graph-edit';
 import type { ShapeKnitGraph } from './shape-types';
-import { PATCH_PAIRING_RULE, patchLabel, type PatchBuild, type SeamSide } from './patches';
+import {
+  PATCH_PAIRING_RULE,
+  patchLabel,
+  patchWindow,
+  type PatchBuild,
+  type SeamSide,
+} from './patches';
 
 const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(n - s.length));
 const mm = (m: number) => `${+(m * 1000).toFixed(3)} mm`;
@@ -293,28 +299,42 @@ function sphereLines(c: SphereKnitLayout, p: KnitProgram): string[] {
 
 function patchLines(b: PatchBuild): string[] {
   const span = ([a, z]: [number, number]) => `${a}-${z}`,
-    shown = b.pieces[b.piece]!;
+    shown = b.pieces[b.piece]!,
+    layout = b.layout,
+    through = layout.through ?? [];
   const side = (x: SeamSide) =>
     `${patchLabel(x.patch)} ${x.side} side ${
       x.elements
         ? `${x.elements.length} ${x.side === 'start' || x.side === 'end' ? 'loops' : 'course ends'}`
         : 'not built'
     }`;
+  const patchLine = (i: number) => {
+    const w = patchWindow(layout, i),
+      p = layout.patches[i]!;
+    return `    ${patchLabel(i)}: chart u ${span(w.u)}, v ${span(w.v)}; start edge ${p.startEdge}; fill ${p.fill}; ${COURSE_METHODS[p.courseMethod ?? 'project-alignment'].label}.`;
+  };
   return [
-    'Computational patches: Mariana Adriana Popescu (2019), KnitCrete, section 6.3.2, pp. 109-110. The chart is split by hand into patches, each with its own knitting direction, fill structure (loop size) and course method. Split lines across the whole chart at constant u or v are a project restriction.',
-    `This report and its bitmap are piece ${shown.label} of ${b.pieces.length}: chart u ${span(shown.window.u)}, v ${span(shown.window.v)}. Every shared edge is a seam in this version: each patch is knitted as its own piece. Combining patches into one piece is not implemented.`,
-    'Patches:',
-    ...b.pieces.map((x) => {
-      if (!x.build.ok)
-        return `  ${x.label}: chart u ${span(x.window.u)}, v ${span(x.window.v)}; not built: ${x.build.reason}`;
-      const q = x.build.program,
-        method = q.settings.courseMethod ?? 'project-alignment';
-      return `  ${x.label}: chart u ${span(x.window.u)}, v ${span(x.window.v)}; start edge ${q.settings.startEdge ?? 'v0'}; fill ${q.settings.cells.fill}; ${COURSE_METHODS[method].label}; ${q.w} needles x ${q.h} passes; ${q.exportBlockers.length} export blockers.`;
-    }),
+    'Computational patches: Mariana Adriana Popescu (2019), KnitCrete, section 6.3.2, pp. 107-110. The chart is split by hand into patches, each with its own knitting direction, fill structure (loop size) and course method. Split lines across the whole chart at constant u or v are a project restriction.',
+    "Each shared edge is knitted through or a seam. Patches linked by knitted-through edges form one piece with one bitmap. The thesis combines patch patterns into one pattern but gives no algorithm (p. 107; p. 153, fn. 9), so the join is a project construction: side by side, the courses reaching the shared edge are paired in order along it and an unpaired course turns at the edge; stacked, the needle planner links the upper patch's first course to the loops below.",
+    `This report and its bitmap are for ${shown.label} (piece ${b.piece + 1} of ${b.pieces.length}): chart u ${span(shown.window.u)}, v ${span(shown.window.v)}.`,
+    `Knitted-through edges: ${through.length ? through.join(', ') : 'none'}.`,
+    'Pieces and their patches:',
+    ...b.pieces.flatMap((x) => [
+      x.build.ok
+        ? `  ${x.label}: ${x.build.program.w} needles x ${x.build.program.h} passes; ${x.build.program.exportBlockers.length} export blockers.`
+        : `  ${x.label}: not built: ${x.build.reason}`,
+      ...x.patches.map(patchLine),
+      ...(x.build.ok ? (x.build.program.shape?.stops ?? []) : []).map(
+        (t) =>
+          `    ${t.patch.slice(0, -1)} stops after pass ${t.pass} on needles ${t.from + 1}-${t.to + 1}: cast off in the lab software${t.reused ? ' (a later pass knits on these needles)' : ', or hold the loops to the end'}.`
+      ),
+    ]),
     `Seams (sewing guidance from a geometric prediction; ${PATCH_PAIRING_RULE} Differences are reported, not blocking):`,
-    ...b.seams.map(
-      (x) =>
-        `  ${x.id}: chart ${x.axis} = ${x.value}, ${x.axis === 'u' ? 'v' : 'u'} ${span(x.range)}, ${mm(x.length)} along the surface; ${side(x.sides[0])}, ${side(x.sides[1])}; ${x.pairs.length} pairs; without a partner ${x.unpaired[0].length} and ${x.unpaired[1].length}.`
-    ),
+    ...(b.seams.length
+      ? b.seams.map(
+          (x) =>
+            `  ${x.id}: chart ${x.axis} = ${x.value}, ${x.axis === 'u' ? 'v' : 'u'} ${span(x.range)}, ${mm(x.length)} along the surface; ${side(x.sides[0])}, ${side(x.sides[1])}; ${x.pairs.length} pairs; without a partner ${x.unpaired[0].length} and ${x.unpaired[1].length}.`
+        )
+      : ['  none: every shared edge is knitted through.']),
   ];
 }

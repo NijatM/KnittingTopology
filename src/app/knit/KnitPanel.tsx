@@ -347,9 +347,11 @@ export default function KnitPanel(props: Props) {
   const [importError, setImportError] = useState('');
   const program = build.ok ? build.program : null;
   const file = projectFilename(props.projectName);
-  // Each patch is its own piece: its files carry the patch label.
+  // A piece's files carry its lowest patch's label; stage files carry the selected patch's.
   const pieceLabel = props.patches?.layout ? patchLabel(props.patches.patch) : '';
-  const pieceFile = pieceLabel ? `${file}-${pieceLabel}` : file;
+  const shownPiece = program?.patches?.pieces[program.patches.piece];
+  const stageFile = pieceLabel ? `${file}-${pieceLabel}` : file;
+  const pieceFile = shownPiece ? `${file}-${patchLabel(shownPiece.index)}` : stageFile;
   const set = (change: Partial<KnitSettings>, coalesceKey?: string) =>
     props.onSettings({ ...s, ...change }, coalesceKey);
   const saveSwatch = (entry: SwatchEntry, replace: boolean): string | null => {
@@ -683,11 +685,12 @@ export default function KnitPanel(props: Props) {
         settings={s}
         swatches={swatches}
         program={program}
-        file={pieceFile}
+        file={stageFile}
         onSettings={(next) => props.onSettings(next)}
         edit={props.graphEdit}
         window={props.window}
         label={pieceLabel || undefined}
+        joined={(shownPiece?.patches.length ?? 0) > 1}
       />
 
       {selectedCell && s.mode !== 'shape' && (

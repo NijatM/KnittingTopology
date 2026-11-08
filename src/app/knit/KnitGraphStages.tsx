@@ -26,6 +26,8 @@ interface Props {
   /** The selected computational patch: its chart rectangle and label. */
   window?: ChartWindow;
   label?: string;
+  /** The patch is part of a piece of several patches, whose loop graph is rebuilt, not saved. */
+  joined?: boolean;
 }
 
 const STATE_TEXT: Record<StageState, string> = {
@@ -44,6 +46,7 @@ export default function KnitGraphStages({
   edit,
   window,
   label,
+  joined,
 }: Props) {
   const [error, setError] = useState('');
   const state = knitGraphFreshness({ surface, knit: settings, swatches }, window);
@@ -101,7 +104,10 @@ export default function KnitGraphStages({
             ` · edited (${edits} edit${edits === 1 ? '' : 's'}: ${editSummary(courses!)})`}
         </li>
         <li>
-          Loops: {STATE_TEXT[state.loops]}
+          Loops:{' '}
+          {joined && !loops
+            ? 'rebuilt for the joined piece at each generation, not saved'
+            : STATE_TEXT[state.loops]}
           {loops &&
             ` · ${loops.loops.length} loops (${roles})${
               loops.rows ? `, ${loops.rows.length} rows` : ''

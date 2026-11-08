@@ -1,6 +1,7 @@
-// Computational patch layout on the surface (Popescu 2019, §6.3.2, pp. 109–110): split lines at constant
-// chart u or v, patch selection and seams. The viewer reports clicks and drags; this module turns them
-// into layout changes, which are committed as settings (one undo step each).
+// Computational patch layout on the surface (Popescu 2019, §6.3.2, pp. 107–110): split lines at constant
+// chart u or v, patch selection, and each shared edge knitted through or a seam. The viewer reports clicks
+// and drags; this module turns them into layout changes, which are committed as settings (one undo step
+// each).
 import { useMemo, useState } from 'react';
 import type { KnitPatchLayout, KnitSettings, SurfaceSpec, Vec2, Vec3 } from '../../core/types';
 import { evaluateSurface } from '../../core/surfaces';
@@ -8,17 +9,19 @@ import { knitSupported } from '../../knit/mapping';
 import {
   addSplit,
   edgePath,
+  knittedThrough,
   moveSplit,
   patchAt,
   patchCount,
   patchWindow,
   removeSplit,
   sharedEdges,
+  toggleEdge,
   type SplitAxis,
 } from '../../knit/patches';
 import type { GraphEditHandles, GraphEditIntent } from '../../viewer/types';
 
-export type PatchTool = 'split-u' | 'split-v' | 'select';
+export type PatchTool = 'split-u' | 'split-v' | 'edge' | 'select';
 export const PATCH_TOOL_TEXT: Record<PatchTool, [label: string, hint: string]> = {
   'split-u': [
     'Split along u',
@@ -28,7 +31,11 @@ export const PATCH_TOOL_TEXT: Record<PatchTool, [label: string, hint: string]> =
     'Split along v',
     'Click the surface to add a split line at constant v through that point. Drag a split line to move it.',
   ],
-  select: ['Select patch or seam', 'Click a patch to choose it, or a split line to see its seam.'],
+  edge: [
+    'Knit through or seam',
+    'Click a split line between two patches to switch it between knitted through (drawn single) and a seam (drawn double).',
+  ],
+  select: ['Select patch or edge', 'Click a patch to choose it, or a split line to see its edge.'],
 };
 /** Clicked split values are rounded to this chart step (project display choice); typed values are exact. */
 const CLICK_STEP = 0.001;
@@ -51,20 +58,21 @@ export function patchHandles(surface: SurfaceSpec, layout: KnitPatchLayout | und
   }
   return handles;
 }
-/** Display lines: every seam drawn double, and the selected patch or seam highlighted. */
+/** Display lines: knitted-through edges drawn single, seams double, and the selected patch or edge
+ * highlighted. */
 export function patchLines(
   surface: SurfaceSpec,
   layout: KnitPatchLayout | undefined,
   patch: number,
   edge: string | null
-): { seams: Vec3[][]; selected: Vec3[][] } | null {
+): { edges: Vec3[][]; selected: Vec3[][] } | null {
   if (!layout) return null;
-  const seams: Vec3[][] = [],
+  const edges: Vec3[][] = [],
     selected: Vec3[][] = [],
     gap = 0.003;
   for (const e of sharedEdges(layout)) {
-    for (const offset of [-gap, gap])
-      seams.push(samples(surface, edgePath({ ...e, value: e.value + offset })));
+    for (const offset of knittedThrough(layout, e.id) ? [0] : [-gap, gap])
+      edges.push(samples(surface, edgePath({ ...e, value: e.value + offset })));
     if (e.id === edge) selected.push(samples(surface, edgePath(e)));
   }
   if (edge === null) {
@@ -81,7 +89,7 @@ export function patchLines(
       ].map((side) => samples(surface, edgePath(side)))
     );
   }
-  return { seams, selected };
+  return { edges, selected };
 }
 
 /** Patch layout state for the panel and the viewer. */
@@ -149,6 +157,8 @@ export function usePatchLayout(
     remove: (axis: SplitAxis, index: number) => {
       if (change(() => removeSplit(settings, axis, index))) setEdge(null);
     },
+    /** Switch a shared edge between knitted through and seam. */
+    toggle: (id: string) => change(() => toggleEdge(settings, id)),
     onIntent: (intent: GraphEditIntent) => {
       const split = intent.segment?.startsWith('e:') ? edgeSplit(intent.segment.slice(2)) : null;
       if (intent.drop) {
@@ -157,6 +167,13 @@ export function usePatchLayout(
         if (!intent.drop.uv) return setError('Drop the split line on the surface.');
         const value = round(intent.drop.uv[split.axis === 'u' ? 0 : 1]);
         change(() => moveSplit(settings, split.axis, split.index, value));
+        return;
+      }
+      if (tool === 'edge') {
+        if (!intent.segment?.startsWith('e:'))
+          return setError('Click a split line between two patches.');
+        const id = intent.segment.slice(2);
+        if (change(() => toggleEdge(settings, id))) setEdge(id);
         return;
       }
       if (tool === 'select') {

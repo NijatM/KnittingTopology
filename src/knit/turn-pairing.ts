@@ -56,8 +56,8 @@ function trimCourse(
   const n = c.loops.length,
     l = shapeLengths(c.points),
     total = l.at(-1)!;
-  const t0 = a / n,
-    t1 = (b + 1) / n;
+  const t0 = c.loopCuts ? c.loopCuts[a]! : a / n,
+    t1 = c.loopCuts ? c.loopCuts[b + 1]! : (b + 1) / n;
   const inside = c.points.filter((_, i) => l[i]! > t0 * total && l[i]! < t1 * total);
   const points: ShapePoint[] = [
     a ? interpolateShape(surface, c.points, l, t0) : c.points[0]!,
@@ -75,25 +75,33 @@ function trimCourse(
       extent: [points[0]!.across, points.at(-1)!.across],
       leftBoundary,
       rightBoundary,
-      turnStart: !leftBoundary,
-      turnEnd: !rightBoundary,
+      leftFree: c.leftFree && a === 0 ? true : undefined,
+      rightFree: c.rightFree && b === n - 1 ? true : undefined,
+      turnStart: !(leftBoundary || (c.leftFree && a === 0)),
+      turnEnd: !(rightBoundary || (c.rightFree && b === n - 1)),
+      ...(c.loopCuts
+        ? { loopCuts: c.loopCuts.slice(a, b + 2).map((t) => (t - t0) / (t1 - t0)) }
+        : {}),
       length,
     },
-    rounding: length - (b - a + 1) * stitchWidth,
+    rounding:
+      length - c.loops.slice(a, b + 1).reduce((sum, l) => sum + (l.stitchWidth ?? stitchWidth), 0),
   };
 }
 
 /** Plans needles and pairs every short-row turn it can (first jump first, then re-plan). A jump is left in
- * place, and blocks export, when pairing would trim the cast-on course, empty a course or leave more
- * shaping steps unresolved. Deterministic for equal inputs. */
+ * place, and blocks export, when pairing would trim the cast-on course, empty a course, remove a `fixed`
+ * loop (saved parent links, kept as they are) or leave more shaping steps unresolved. Deterministic for
+ * equal inputs. */
 export function pairShortRowTurns(
   surface: SurfaceSpec,
   geometry: ShapeGeometry,
   firstDir: 1 | -1,
-  context?: GenerationContext
+  context?: GenerationContext,
+  fixed?: { parents: ReadonlyMap<string, readonly string[]>; locked: (loopId: string) => boolean }
 ): { geometry: ShapeGeometry; needles: ShapeNeedles; removed: number; maxPerWale: number } {
   let g = geometry,
-    needles = placeShapeNeedles(g, firstDir);
+    needles = placeShapeNeedles(g, firstDir, fixed?.parents);
   const stuck = new Set<number>(),
     // Removed loops per wale position (distance from the needle-1 side in stitch widths).
     lost = new Map<number, number>();
@@ -115,7 +123,13 @@ export function pairShortRowTurns(
     const a = keep.indexOf(true),
       b = keep.lastIndexOf(true);
     // The cast-on course sets the starting needles and is never trimmed.
-    if (!wider || a < 0 || keep.every(Boolean) || keep.slice(a, b + 1).some((x) => !x)) {
+    if (
+      !wider ||
+      a < 0 ||
+      keep.every(Boolean) ||
+      keep.slice(a, b + 1).some((x) => !x) ||
+      (fixed && course.loops.some((loop, j) => !keep[j] && fixed.locked(loop.id)))
+    ) {
       stuck.add(jump.pass);
       continue;
     }
@@ -125,7 +139,7 @@ export function pairShortRowTurns(
         courses: g.courses.map((c) => (c.index === wider ? trimmed.course : c)),
         courseRounding: g.courseRounding.map((r, i) => (i === wider ? trimmed.rounding : r)),
       },
-      planned = placeShapeNeedles(next, firstDir);
+      planned = placeShapeNeedles(next, firstDir, fixed?.parents);
     // A trim that leaves more shaping steps unresolved is not taken; the jump then blocks export.
     if (planned.unresolved.length > needles.unresolved.length) {
       stuck.add(jump.pass);

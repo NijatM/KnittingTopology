@@ -76,8 +76,9 @@ export interface SurfaceViewerProps {
   onGraphEdit?: (intent: GraphEditIntent) => void;
   /** Accessible name of the canvas while `graphEdit` is set, when the editor is not the courses editor. */
   graphEditLabel?: string;
-  /** Computational patch layout (display only): seams drawn double, the selected patch or seam. */
-  patchLines?: { seams: Vec3[][]; selected: Vec3[][] } | null;
+  /** Computational patch layout (display only): knitted-through edges drawn single, seams double, and
+   * the selected patch or edge. */
+  patchLines?: { edges: Vec3[][]; selected: Vec3[][] } | null;
   cutEdgeIds?: readonly string[];
   pickCutEdge?: boolean;
   onCutEdgePick?: (edgeId: string) => void;

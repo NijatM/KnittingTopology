@@ -1454,7 +1454,7 @@ export default function App() {
                 onGraphEdit={editingPatches ? patchLayout.onIntent : graphEdit.onIntent}
                 graphEditLabel={
                   editingPatches
-                    ? 'Patch layout. Click the surface to add a split line or choose a patch; drag a split line to move it; turn the patch tool off to rotate.'
+                    ? 'Patch layout. Click the surface to add a split line or choose a patch, or click a split line to knit it through or make it a seam; drag a split line to move it; turn the patch tool off to rotate.'
                     : undefined
                 }
                 onShapePick={(index) => {

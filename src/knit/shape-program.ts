@@ -4,11 +4,13 @@ import type {
   KnitGraphStages,
   KnitSettings,
   ProjectState,
+  SurfaceSpec,
   SwatchEntry,
 } from '../core/types';
 import type { KnitBuild } from './program';
 import type {
   ChartWindow,
+  PieceStop,
   ShapeGeometry,
   ShapeKnitGraph,
   ShapeNeedles,
@@ -37,6 +39,7 @@ import { pairShortRowTurns, TURN_PAIRING_NOTE, yarnJumpList } from './turn-pairi
 import {
   checkBlockers,
   checkKnitGraph,
+  type KnitGraphCheck,
   courseMethodOf,
   courseStageFingerprint,
   courseStageFromGeometry,
@@ -60,19 +63,13 @@ import { validateShapeOperations } from './shape-validate';
 import { rasterizeSurfaceNetwork } from './rasterize-surface';
 import type { Raster } from './rasterize';
 
-export function buildShapeProgram(
-  project: Pick<ProjectState, 'surface' | 'graph'>,
-  settings: KnitSettings,
-  swatches: readonly SwatchEntry[],
-  context?: GenerationContext,
-  /** One computational patch of an open-surface chart (§6.3.2); absent for the whole chart. */
-  window?: ChartWindow
-): KnitBuild {
+/** The measured loop size, key and fill structure that shape mode needs, or why they are missing. */
+export function shapeInputs(settings: KnitSettings, swatches: readonly SwatchEntry[]) {
   const jersey = gaugeOf(GAUGE_REFERENCE, swatches),
     gauge = gaugeOf(settings.cells.fill, swatches);
   if (!jersey || jersey.assumed || !gauge)
     return {
-      ok: false,
+      ok: false as const,
       reason:
         'Shape mode needs a measured jersey swatch. Enter your stitch width and course height in the measurement table.',
     };
@@ -82,7 +79,7 @@ export function buildShapeProgram(
     )
   )
     return {
-      ok: false,
+      ok: false as const,
       reason: 'Shape mode needs finite measured stitch dimensions in the measurement-table range.',
     };
   const key = settingsKey(settings);
@@ -90,8 +87,113 @@ export function buildShapeProgram(
     (s) => s.id === settings.cells.fill
   );
   if (!structure)
-    return { ok: false, reason: 'The shape fill structure is not available with this key.' };
-  const method = courseMethodOf(settings);
+    return {
+      ok: false as const,
+      reason: 'The shape fill structure is not available with this key.',
+    };
+  return { ok: true as const, gauge, key, structure, method: courseMethodOf(settings) };
+}
+/** The stages and geometry of an open-surface chart or patch: fresh saved stages, else computed by the
+ * course method. In a joined piece only a Popescu-method patch keeps a loops stage. */
+export function openLayout(
+  surface: SurfaceSpec,
+  settings: KnitSettings,
+  gauge: { stitchWidth: number; courseHeight: number },
+  saved: KnitGraphStages | undefined,
+  expected: string,
+  context?: GenerationContext,
+  window?: ChartWindow,
+  inPiece = false
+): { stages?: KnitGraphStages; geometry: ShapeGeometry; fixedParents?: Map<string, string[]> } {
+  const startEdge = settings.startEdge ?? 'v0',
+    method = courseMethodOf(settings);
+  let stages: KnitGraphStages | undefined;
+  if (method === 'popescu-2019-rules') {
+    const options = popescuSettingsOf(settings);
+    context?.progress?.(0.3, 'Connecting contours by the Popescu 2019 rules');
+    const courses =
+      saved?.courses ??
+      popescuCourseStage(
+        surface,
+        gauge.stitchWidth,
+        gauge.courseHeight,
+        startEdge,
+        options,
+        expected,
+        context,
+        window
+      );
+    context?.progress?.(0.5, 'Dividing courses into loops');
+    const loops =
+      saved?.loops ??
+      popescuLoopStage(
+        surface,
+        courses,
+        gauge.stitchWidth,
+        startEdge,
+        options,
+        loopStageFingerprint(courses, settings),
+        context,
+        window
+      );
+    stages = { courseMethod: method, courses, loops };
+  } else
+    stages =
+      inPiece && saved ? { courseMethod: saved.courseMethod, courses: saved.courses } : saved;
+  if (stages)
+    return {
+      stages,
+      ...geometryFromStages(
+        surface,
+        stages.courses,
+        stages.loops,
+        gauge.stitchWidth,
+        gauge.courseHeight
+      ),
+    };
+  return {
+    geometry: buildShapeGeometry(
+      surface,
+      gauge.stitchWidth,
+      gauge.courseHeight,
+      startEdge,
+      context,
+      undefined,
+      window
+    ),
+  };
+}
+/** A piece of several computational patches, joined by `joinPatches` (project construction). */
+export interface JoinedPiece {
+  geometry: ShapeGeometry;
+  fixedParents?: Map<string, string[]>;
+  /** Loops of Popescu-method patches: turn pairing never removes them. */
+  locked?: (loopId: string) => boolean;
+  /** Pair short-row turns: no band has separate arms. */
+  pairTurns: boolean;
+  /** Fill structure of each loop's patch. */
+  fillOf: (loopId: string) => string;
+  /** Whether every patch's courses stage was saved. */
+  savedCourses: boolean;
+  /** Checks of the patches' own stages (Popescu-method patches), labelled by patch. */
+  checks: KnitGraphCheck[];
+  issues: string[];
+  blockers: string[];
+}
+
+export function buildShapeProgram(
+  project: Pick<ProjectState, 'surface' | 'graph'>,
+  settings: KnitSettings,
+  swatches: readonly SwatchEntry[],
+  context?: GenerationContext,
+  /** One computational patch of an open-surface chart (§6.3.2); absent for the whole chart. */
+  window?: ChartWindow,
+  /** A joined piece of several patches; `settings` are its lowest patch's and `window` its bounds. */
+  joined?: JoinedPiece
+): KnitBuild {
+  const inputs = shapeInputs(settings, swatches);
+  if (!inputs.ok) return inputs;
+  const { gauge, key, structure, method } = inputs;
   if (
     method === 'popescu-2019-rules' &&
     (project.surface.kind === 'cube' || project.surface.kind === 'sphere')
@@ -102,10 +204,10 @@ export function buildShapeProgram(
         'The Popescu 2019 rules method works on open surfaces only. Choose the project alignment method for a cube or sphere.',
     };
   // Fresh saved stages are authoritative; stale ones never reach a build (Generate leaves them out).
-  const saved = freshStages(
-      { surface: project.surface, knit: settings, swatches: [...swatches] },
-      window
-    ),
+  // A joined piece's loop graph is rebuilt from its patches' stages and never saved.
+  const saved = joined
+      ? undefined
+      : freshStages({ surface: project.surface, knit: settings, swatches: [...swatches] }, window),
     expected = courseStageFingerprint(project.surface, settings, gauge, window),
     graphMismatch: string[] = [];
   let stages: KnitGraphStages | undefined;
@@ -180,57 +282,32 @@ export function buildShapeProgram(
       };
       if (settings.mode !== 'shape')
         chart = sphereChart(project.surface, project.graph, cut, built.layout);
-    } else {
-      const startEdge = settings.startEdge ?? 'v0';
-      if (method === 'popescu-2019-rules') {
-        const options = popescuSettingsOf(settings);
-        context?.progress?.(0.3, 'Connecting contours by the Popescu 2019 rules');
-        const courses =
-          saved?.courses ??
-          popescuCourseStage(
-            project.surface,
-            gauge.stitchWidth,
-            gauge.courseHeight,
-            startEdge,
-            options,
-            expected,
-            context,
-            window
-          );
-        context?.progress?.(0.5, 'Dividing courses into loops');
-        const loops =
-          saved?.loops ??
-          popescuLoopStage(
-            project.surface,
-            courses,
-            gauge.stitchWidth,
-            startEdge,
-            options,
-            loopStageFingerprint(courses, settings),
-            context,
-            window
-          );
-        stages = { courseMethod: method, courses, loops };
-      } else stages = saved;
-      let fixedParents: Map<string, string[]> | undefined;
-      if (stages)
-        ({ geometry, fixedParents } = geometryFromStages(
+    } else if (joined) {
+      geometry = joined.geometry;
+      context?.progress?.(0.6, 'Placing the joined piece on needles');
+      if (joined.pairTurns) {
+        courseGeometry = geometry;
+        ({ geometry, needles, ...paired } = pairShortRowTurns(
           project.surface,
-          stages.courses,
-          stages.loops,
-          gauge.stitchWidth,
-          gauge.courseHeight
-        ));
-      else
-        geometry = buildShapeGeometry(
-          project.surface,
-          gauge.stitchWidth,
-          gauge.courseHeight,
-          startEdge,
+          geometry,
+          firstDir,
           context,
-          undefined,
-          window
-        );
+          joined.fixedParents && joined.locked
+            ? { parents: joined.fixedParents, locked: joined.locked }
+            : undefined
+        ));
+      } else needles = placeShapeNeedles(geometry, firstDir, joined.fixedParents);
+    } else {
+      let fixedParents: Map<string, string[]> | undefined;
+      ({ stages, geometry, fixedParents } = openLayout(
+        project.surface,
+        settings,
+        gauge,
+        saved,
+        expected,
+        context,
+        window
+      ));
       context?.progress?.(0.6, 'Placing shaping loops on needles');
       if (method === 'project-alignment' && !stages?.loops) {
         courseGeometry = geometry;
@@ -258,7 +335,13 @@ export function buildShapeProgram(
           leftBoundary: c.leftBoundary,
           rightBoundary: c.rightBoundary,
         }));
-      const computed: KnitGraphStages = { courseMethod: method, courses, loops };
+      // A joined piece's loop graph is checked by the project invariants only (its patches' own stages
+      // carry the method checks).
+      const computed: KnitGraphStages = {
+        courseMethod: joined ? 'project-alignment' : method,
+        courses,
+        loops,
+      };
       // A cube or sphere is rebuilt from its cut and must reproduce any saved stages exactly.
       if (
         (closed || sphere) &&
@@ -276,6 +359,14 @@ export function buildShapeProgram(
     const shaping = settings.mode !== 'network';
     if (settings.mode !== 'shape' && !project.graph)
       return { ok: false, reason: 'Generate a network first.' };
+    // A joined piece keeps each loop's patch fill (Popescu 2019, p. 110: properties vary per patch).
+    const fills = joined
+      ? [...new Set(needles.placements.map((p) => joined.fillOf(p.loop.id)))]
+      : [structure.id];
+    const available = structuresForKey(key, settings.tiles, settings.keys),
+      pieceStructures = fills.map((id) => available.find((s) => s.id === id));
+    if (pieceStructures.some((s) => !s))
+      return { ok: false, reason: 'A patch fill structure is not available with this key.' };
     const raster: Raster =
       settings.mode === 'shape'
         ? {
@@ -284,7 +375,7 @@ export function buildShapeProgram(
             structure: new Uint16Array(w * h),
             kind: new Uint8Array(w * h),
             element: new Int32Array(w * h).fill(-1),
-            structures: [structure],
+            structures: pieceStructures.map((s) => s!),
             cellStructure: [],
             issues: [],
           }
@@ -312,6 +403,7 @@ export function buildShapeProgram(
         i = imageIndex(w, h, x.needle, x.course);
       if (placementAt[i] !== -1) throw new Error('Two shape loops occupy one needle in a pass.');
       placementAt[i] = p;
+      if (joined) raster.structure[i] = fills.indexOf(joined.fillOf(x.loop.id));
       const id = tileOp(raster.structures[raster.structure[i]!]!, x.needle, x.course);
       const op = opIndex.get(id);
       if (op === undefined) throw new Error(`The shape tile uses an unavailable operation: ${id}.`);
@@ -333,12 +425,6 @@ export function buildShapeProgram(
           });
       }
     }
-    const transfers = settings.autoTransfers
-      ? insertTransfers(w, h, cells, key, (i) =>
-          isTwoLayer(raster.structures[raster.structure[i]!]!, key)
-        )
-      : { cells, changes: [], skipped: [] };
-    cells = transfers.cells;
     const unresolved: ShapeStep[] = shaping ? [...needles.unresolved, ...newLoopGaps] : [];
     for (const move of shaping ? needles.moves : []) {
       // ShapeMove pass and forPass count from one; needle indices count from zero.
@@ -362,19 +448,32 @@ export function buildShapeProgram(
         unresolved.push({ pass: move.pass, needle: move.needle, role: 'transfer', reason });
       else cells[i] = shift;
     }
+    // Bed changes are inserted after the shaping transfers, so a loop that moves sideways is followed to its
+    // new needle (where fills on different beds meet in a joined piece, a needle can change bed as the loops
+    // beside it move).
+    const transfers = settings.autoTransfers
+      ? insertTransfers(w, h, cells, key, (i) =>
+          isTwoLayer(raster.structures[raster.structure[i]!]!, key)
+        )
+      : { cells, changes: [], skipped: [] };
+    cells = transfers.cells;
     context?.progress?.(0.9, 'Checking shaping connectivity and operations');
-    const checks = checkKnitGraph(stages),
+    const checks = [...checkKnitGraph(stages), ...(joined?.checks ?? [])],
       knitGraph: ShapeKnitGraph = {
         stages,
-        saved: { courses: !!saved, loops: !!saved?.loops },
+        saved: joined
+          ? { courses: joined.savedCourses, loops: false }
+          : { courses: !!saved, loops: !!saved?.loops },
         checks,
       };
+    const stops = joined ? pieceStops(geometry, needles) : [];
     const shape: ShapeResult = {
       geometry,
       knitGraph,
       needles: { ...needles, unresolved: shaping ? unresolved : needles.unresolved },
       placementAt,
       blockers: [],
+      ...(joined ? { stops } : {}),
       ...(closed ? { closed } : {}),
       ...(sphere ? { sphere } : {}),
     };
@@ -397,6 +496,7 @@ export function buildShapeProgram(
         ),
         ...graphMismatch,
         ...checkBlockers(checks),
+        ...(joined?.blockers ?? []),
       ]),
     ];
     shape.blockers = blockers;
@@ -417,6 +517,12 @@ export function buildShapeProgram(
     const maxAddedPasses = Math.max(...addedPerNeedle);
     const issues = [
       ...geometry.issues,
+      ...(joined?.issues ?? []),
+      ...(stops.length
+        ? [
+            `${stops.length} needle range${stops.length === 1 ? '' : 's'} stop inside the piece, where a patch ends at a seam or the piece boundary. The colour key has no cast-off: cast off there in the lab software, or hold the loops to the end.`,
+          ]
+        : []),
       ...raster.issues,
       ...(method === 'project-alignment' && !closed && !sphere && stages.loops?.rows
         ? [
@@ -486,4 +592,28 @@ export function buildShapeProgram(
     if ((cause as Error).name === 'AbortError') throw cause;
     return { ok: false, reason: `Shape generation: ${(cause as Error).message}` };
   }
+}
+
+/** Needles of a joined piece whose patch stops inside the chart (`geometry.release`): the loops left on
+ * them, as ranges of neighbouring needles; `reused` when a later pass knits on one of them. */
+function pieceStops(geometry: ShapeGeometry, needles: ShapeNeedles): PieceStop[] {
+  const consumed = new Set(needles.placements.flatMap((p) => p.parents)),
+    stops: PieceStop[] = [];
+  for (const r of geometry.release ?? []) {
+    const held = needles.placements
+      .filter(
+        (p) => p.course <= r.after && p.loop.id.startsWith(r.prefix) && !consumed.has(p.loop.id)
+      )
+      .map((p) => p.needle)
+      .sort((a, b) => a - b);
+    for (const needle of held) {
+      const last = stops.at(-1),
+        reused = needles.placements.some((p) => p.course > r.after && p.needle === needle);
+      if (last && last.patch === r.prefix && last.to === needle - 1) {
+        last.to = needle;
+        last.reused ||= reused;
+      } else stops.push({ pass: r.after + 1, from: needle, to: needle, patch: r.prefix, reused });
+    }
+  }
+  return stops;
 }

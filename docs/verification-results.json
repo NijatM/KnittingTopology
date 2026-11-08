@@ -1206,5 +1206,53 @@
       "free-curve or quad-layout patch boundaries",
       "automatic subdivision (not developed in the thesis either)"
     ]
+  },
+  "knitted_through_joins": {
+    "status": "Local verification complete: 600 unit tests, production browser 43/43. The join is a project construction; no physical knitting result is claimed.",
+    "source": "Popescu (2019), section 6.3.2, p. 107 (patterns of several patches can be combined, or virtually stitched together, into one pattern), pp. 109-110 (patches are combined into one knitting pattern; direction and loop size vary per patch and can be produced in a single process; full courses along division lines), p. 153 footnote 9 (manual editing to align patches in KnitCandela). No combining algorithm is given.",
+    "available": [
+      "each shared edge knitted through or a seam (knit.patches.through); new edges start knitted through; a surface tool and a panel list switch them; knitted-through edges drawn single, seams double",
+      "pieces of any connected shape, named after the lowest patch, with one bitmap, Knit Grammar JSON and report (-P<lowest>); stage files stay per patch",
+      "mixed fills within a piece, each loop with its patch's structure and measured size",
+      "Popescu-method patches keep their saved loop links inside the patch",
+      "needle stops inside a piece reported by pass and needle range in the panel, report and issues (not blocking)",
+      "knit-patch-seam-map JSON v2: seams only, each side with its patch and piece"
+    ],
+    "project_rules": [
+      "bands along the wales are knitted one after another; within a band, patches linked side by side form a run",
+      "side by side: edge courses paired 1:1 in order by position along the edge (minimum total distance; skipping costs half the larger mean course spacing); a pair becomes one course; an unpaired course turns at the edge",
+      "stacked: the needle planner takes the lower patch's last loops as parents of the upper patch's first course; Popescu saved links of that first course are dropped",
+      "a run end inside the chart is a free side: new loops may start beyond the parents, held loops beyond it stay held",
+      "a patch whose top lies inside the chart and is not knitted to the patch above leaves the bed after its last course",
+      "alignment cost scaled by the child loop's own width",
+      "bed changes inserted after shaping transfers; turn pairing never removes a Popescu-method patch's loops",
+      "edge IDs renumbered on split changes: a divided edge keeps its state in both parts; a merged edge keeps the state of its part below or left"
+    ],
+    "blocking": [
+      "different start edges across a knitted-through edge (the piece fails with a message)",
+      "a seam between two patches of the same piece",
+      "separate arms in one band (U, arch, ring): yarn jumps",
+      "joined loop graph checks and unplaceable passes, as for one patch"
+    ],
+    "evidence": [
+      "plane u = 0.5 knitted through (test values 6 x 4 mm): one piece of 18 needles x 25 passes, 450 loops, no seams, stops or blockers; rebuild from saved per-patch courses stages gives identical cells",
+      "saddle 100 mm, curvature 1, 2 x 2 patches: one piece, no blockers",
+      "saddle L shape (seams u1:2 and v1:2): piece P1 (P1, P2, P3) without blockers and with P2 stops; P4 separate; both seams listed with their pieces",
+      "seam inside one piece and a U on the plane block export with their messages",
+      "plane jersey beside reverse jersey (9 x 4 mm): 15 needles, front and back beds, no blockers",
+      "Popescu-method patch beside a project-method patch: plane and saddle without blockers",
+      "browser: four knitted-through edges, one piece with a -P1 bitmap, loops stage rebuilt not saved, two seams giving an L piece with a P2 stop and P4 separate, seam map v2, Undo"
+    ],
+    "known_limits": [
+      "saddle right half with the Popescu method: saved links unplaceable at pass 4, also as its own piece",
+      "saddle right half in reverse jersey: yarn jump at pass 2 (cast-on not trimmed), also as its own piece",
+      "stacking patches of different loop widths can need more loop-count change in one pass than one-needle transfers allow (blocks export)",
+      "a narrow saddle patch can fail its own contour construction"
+    ],
+    "not_implemented": [
+      "free-curve patch boundaries",
+      "cast-off operations in the colour key",
+      "physical validation of joins between loop sizes"
+    ]
   }
 }

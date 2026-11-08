@@ -503,7 +503,12 @@ export function historyReducer(history: HistoryState, action: HistoryAction): Hi
       return history;
     const view = { ...knit, graph: action.graph };
     const state = knitGraphFreshness({ ...history.present, knit: view }, window);
-    if (state?.courses !== 'fresh' || state.loops !== 'fresh') return history;
+    // A patch in a piece of several patches has no loops stage (the joined loop graph is not saved).
+    if (
+      state?.courses !== 'fresh' ||
+      (state.loops !== 'fresh' && !(state.loops === 'missing' && !action.graph.loops))
+    )
+      return history;
     const next = {
       ...history.present,
       knit: layout ? withPatchSettings(present, patch!, view) : view,

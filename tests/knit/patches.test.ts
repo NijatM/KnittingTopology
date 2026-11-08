@@ -10,11 +10,14 @@ import {
   patchAt,
   patchSettings,
   patchSide,
+  patchPieces,
   patchWindow,
   pieceBuild,
+  pieceLabel,
   removeSplit,
   seamMapJson,
   splitProblem,
+  toggleEdge,
   withPatchSettings,
 } from '../../src/knit/patches';
 import { courseStageFingerprint, knitGraphFreshness } from '../../src/knit/knit-graph';
@@ -79,6 +82,51 @@ describe('computational patches (Popescu 2019, §6.3.2)', () => {
     ).toThrow(/does not match/);
   });
 
+  it('keeps each shared edge knitted through or a seam across split changes', () => {
+    // New split lines start knitted through.
+    const one = addSplit(knit(), 'u', 0.4);
+    expect(one.patches!.through).toEqual(['u1:1']);
+    const two = addSplit(one, 'v', 0.5);
+    expect(two.patches!.through).toEqual(['u1:1', 'u1:2', 'v1:1', 'v1:2']);
+    expect(patchPieces(two.patches!)).toEqual([[0, 1, 2, 3]]);
+    // P4 is cut off by two seams; the rest stays one piece named after P1.
+    const cut = toggleEdge(toggleEdge(two, 'v1:2'), 'u1:2');
+    expect(cut.patches!.through).toEqual(['u1:1', 'v1:1']);
+    expect(patchPieces(cut.patches!)).toEqual([[0, 1, 2], [3]]);
+    expect(pieceLabel([0, 1, 2])).toBe('piece P1 (P1, P2, P3)');
+    expect(pieceLabel([3])).toBe('P4');
+    expect(toggleEdge(cut, 'u1:2').patches!.through).toEqual(['u1:1', 'u1:2', 'v1:1']);
+    expect(() => toggleEdge(cut, 'u2:1')).toThrow(/no such shared edge/);
+    // A new u line divides v1:2 (a seam) into two seams and renumbers nothing below it.
+    const three = addSplit(cut, 'u', 0.7);
+    expect(three.patches!.through).toEqual(['u1:1', 'u2:1', 'u2:2', 'v1:1']);
+    // A knitted-through edge divided by a new line keeps its state in both parts.
+    const split = addSplit(toggleEdge(cut, 'v1:2'), 'u', 0.7);
+    expect(split.patches!.through).toEqual(['u1:1', 'u2:1', 'u2:2', 'v1:1', 'v1:2', 'v1:3']);
+    // A new line before existing ones shifts their IDs.
+    const before = addSplit(cut, 'u', 0.2);
+    expect(before.patches!.through).toEqual(['u1:1', 'u1:2', 'u2:1', 'v1:1', 'v1:2']);
+    // Removing a line drops its edges; a merged edge keeps the state of its part below or left.
+    const mixed = toggleEdge(three, 'v1:2');
+    expect(mixed.patches!.through).toEqual(['u1:1', 'u2:1', 'u2:2', 'v1:1', 'v1:2']);
+    expect(removeSplit(mixed, 'u', 1).patches!.through).toEqual(['u1:1', 'v1:1', 'v1:2']);
+    expect(removeSplit(mixed, 'u', 0).patches!.through).toEqual(['u1:1', 'u1:2', 'v1:1']);
+    expect(removeSplit(mixed, 'v', 0).patches!.through).toEqual(['u1:1', 'u2:1']);
+    // Moving a line keeps every edge's state.
+    expect(moveSplit(mixed, 'u', 0, 0.45).patches!.through).toEqual(mixed.patches!.through);
+    // A file without the field (2c1) keeps every edge a seam.
+    const { through: _t, ...old } = two.patches!;
+    expect(patchPieces(old)).toEqual([[0], [1], [2], [3]]);
+    expect(validateKnitSettings(clone(cut))).toEqual(cut);
+    const bad = (through: unknown) => ({
+      ...clone(cut),
+      patches: { ...clone(cut.patches!), through },
+    });
+    expect(() => validateKnitSettings(bad(['u2:1']))).toThrow(/u2:1 is not a shared edge/);
+    expect(() => validateKnitSettings(bad(['u1:1', 'u1:1']))).toThrow(/listed twice/);
+    expect(() => validateKnitSettings(bad('u1:1'))).toThrow(/must be a list/);
+  });
+
   it('names each chart side of a patch in its own knitting frame', () => {
     const w = { u: [0, 0.5] as [number, number], v: [0, 1] as [number, number] };
     expect(patchSide({ startEdge: 'v0' }, w, 'v0')).toBe('start');
@@ -89,8 +137,8 @@ describe('computational patches (Popescu 2019, §6.3.2)', () => {
     expect(rotatedShapeUV([0.25, 0.5], 'v0', w)).toEqual([0.5, 0.5]);
   });
 
-  it('builds each patch as its own piece; on a plane the counts are exact', () => {
-    const settings = addSplit(knit(), 'u', 0.5);
+  it('builds a patch cut off by seams as its own piece; on a plane the counts are exact', () => {
+    const settings = toggleEdge(addSplit(knit(), 'u', 0.5), 'u1:1');
     const program = build(plane, settings),
       pieces = program.patches!.pieces;
     expect(pieces).toHaveLength(2);
@@ -109,12 +157,25 @@ describe('computational patches (Popescu 2019, §6.3.2)', () => {
     expect(seam!.pairs).toEqual(Array.from({ length: 25 }, (_, i) => [i, i]));
     expect(seam!.length).toBeCloseTo(0.1, 12);
     const text = seamMapJson(plane, settings.patches!, program.patches!.seams);
-    expect(JSON.parse(text)).toMatchObject({ format: 'knit-patch-seam-map', version: 1 });
+    expect(JSON.parse(text)).toMatchObject({
+      format: 'knit-patch-seam-map',
+      version: 2,
+      layout: { u: [0.5], v: [], through: [] },
+      pieces: [
+        { piece: 'P1', patches: ['P1'] },
+        { piece: 'P2', patches: ['P2'] },
+      ],
+    });
+    expect(JSON.parse(text).seams[0].sides.map((x: { piece: string }) => x.piece)).toEqual([
+      'P1',
+      'P2',
+    ]);
     // The report of a piece names it and lists every patch and seam.
     const second = pieceBuild(program.patches!, 1);
     if (!second.ok) throw new Error(second.reason);
     const report = knitReport(second.program, 'test', plane.size);
-    expect(report).toContain('piece P2 of 2: chart u 0.5-1, v 0-1');
+    expect(report).toContain('This report and its bitmap are for P2 (piece 2 of 2): chart u 0.5-1');
+    expect(report).toContain('Knitted-through edges: none.');
     expect(report).toContain(
       'P1 far side 25 course ends, P2 needle-1 side 25 course ends; 25 pairs'
     );
@@ -127,6 +188,14 @@ describe('computational patches (Popescu 2019, §6.3.2)', () => {
       startEdge: 'u0',
       cells: { ...settings.cells, fill: 'reverse' },
     });
+    // Knitted through, the two start edges cannot share a piece.
+    const joined = buildKnitProgram(project(saddle, settings));
+    expect(joined.ok).toBe(false);
+    if (!joined.ok)
+      expect(joined.reason).toContain(
+        'P1 and P2 are knitted through at v1:1 but start at different edges (v0, u0). Make the edge a seam or match the start edges.'
+      );
+    settings = toggleEdge(settings, 'v1:1');
     const program = build(saddle, settings),
       [p1, p2] = program.patches!.pieces;
     if (!p1!.build.ok || !p2!.build.ok)
@@ -160,7 +229,7 @@ describe('computational patches (Popescu 2019, §6.3.2)', () => {
   });
 
   it('edits a patch inside its rectangle', () => {
-    const settings = addSplit(knit(), 'u', 0.5),
+    const settings = toggleEdge(addSplit(knit(), 'u', 0.5), 'u1:1'),
       window = patchWindow(settings.patches!, 1);
     const program = build(saddle, settings),
       p2 = program.patches!.pieces[1]!.build;
@@ -195,7 +264,7 @@ describe('computational patches (Popescu 2019, §6.3.2)', () => {
     expect(
       pairByPosition([{ at: 0.1 }, { at: 0.15 }], [{ at: 0.1 }, { at: 0.9 }]).unpaired
     ).toEqual([[], [1]]);
-    const settings = addSplit(knit(), 'u', 0.5),
+    const settings = toggleEdge(addSplit(knit(), 'u', 0.5), 'u1:1'),
       input = project(plane, settings),
       built = buildKnitProgram(input);
     const back = withMappings(clone(withoutMappings(built)), input);
@@ -204,6 +273,13 @@ describe('computational patches (Popescu 2019, §6.3.2)', () => {
     if (!piece.ok) throw new Error(piece.reason);
     expect(piece.program.patches!.piece).toBe(1);
     expect(typeof piece.program.mapping.toGrid).toBe('function');
+    // Knitted through, both patches select the one piece.
+    const joined = build(plane, addSplit(knit(), 'u', 0.5)).patches!;
+    for (const patch of [0, 1]) {
+      const shown = pieceBuild(joined, patch);
+      if (!shown.ok) throw new Error(shown.reason);
+      expect(shown.program.patches!.piece).toBe(0);
+    }
   });
 
   it('keeps patches to shape mode and leaves unsplit layouts unchanged', () => {

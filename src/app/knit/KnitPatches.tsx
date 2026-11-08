@@ -1,13 +1,18 @@
-// Computational patches (Popescu 2019, §6.3.2, pp. 109–110): split lines, patch choice, pieces and seams.
+// Computational patches (Popescu 2019, §6.3.2, pp. 107–110): split lines, patch choice, knitted-through
+// edges and seams, pieces.
 import { useState } from 'react';
 import type { SurfaceSpec } from '../../core/types';
 import { download } from '../../adapters/export';
 import {
   MAX_SPLITS,
   PATCH_PAIRING_RULE,
+  knittedThrough,
   patchLabel,
+  patchPieces,
   patchWindow,
+  pieceLabel,
   seamMapJson,
+  sharedEdges,
   type PatchBuild,
   type PatchSide,
   type SeamSide,
@@ -101,18 +106,52 @@ function SplitList({ axis, state }: { axis: SplitAxis; state: PatchLayoutState }
   );
 }
 
+function EdgeList({ state }: { state: PatchLayoutState }) {
+  const layout = state.layout!;
+  const edges = sharedEdges(layout);
+  return (
+    <ul className="knit-splits knit-edges" aria-label="Shared edges">
+      {edges.map((e) => {
+        const through = knittedThrough(layout, e.id);
+        return (
+          <li key={e.id} className={state.edge === e.id ? 'selected' : undefined}>
+            <label>
+              <input
+                type="checkbox"
+                aria-label={`Knit edge ${e.id} through`}
+                checked={through}
+                onChange={() => {
+                  if (state.toggle(e.id)) state.selectEdge(e.id);
+                }}
+              />
+              {e.id} · {patchLabel(e.a)} | {patchLabel(e.b)} ·{' '}
+              {through ? 'knitted through' : 'seam'}
+            </label>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export default function KnitPatches({ state, build, surface, file, outdated }: Props) {
   const layout = state.layout;
   if (!state.available && !layout) return null;
   const seam = state.edge ? build?.seams.find((s) => s.id === state.edge) : undefined;
+  const groups = layout ? patchPieces(layout) : [];
+  const group = groups.find((g) => g.includes(state.patch)) ?? [state.patch];
+  const edge =
+    layout && state.edge ? sharedEdges(layout).find((e) => e.id === state.edge) : undefined;
+  const edgeGroup = edge ? groups.find((g) => g.includes(edge.a)) : undefined;
   return (
     <section aria-label="Computational patches">
       <h3 className="knit-heading">Computational patches</h3>
       <p className="hint">
         Split the chart by hand into patches with their own knitting direction, loop size and course
         method (Popescu 2019, §6.3.2). Split lines run across the whole chart at constant u or v
-        (project restriction). In this version every shared edge is a seam: each patch is knitted as
-        its own piece with its own bitmap; combining patches into one piece is not implemented yet.
+        (project restriction). Each shared edge is knitted through or a seam; new edges start
+        knitted through. Patches linked by knitted-through edges form one piece with one bitmap. The
+        thesis gives no algorithm for combining patches, so the join is a project construction.
       </p>
       {!state.available && (
         <p className="hint warn">
@@ -177,28 +216,49 @@ export default function KnitPatches({ state, build, surface, file, outdated }: P
             </select>
           </label>
           <p className="hint">
-            The knit controls, the program preview, the exports and the knit graph stages show patch{' '}
-            {patchLabel(state.patch)} of {layout.patches.length}. Patches are numbered row by row
-            from the chart corner u = 0, v = 0.
+            The knit controls and the knit graph stages show patch {patchLabel(state.patch)} of{' '}
+            {layout.patches.length}; the program preview and the exports show its piece,{' '}
+            {pieceLabel(group)}. Patches are numbered row by row from the chart corner u = 0, v = 0.
+            Patches in one piece must share a start edge.
           </p>
+          <EdgeList state={state} />
           {build && (
             <ul className="hint" aria-label="Patch pieces">
-              {build.pieces.map((p) => (
-                <li key={p.index} className={p.build.ok ? undefined : 'warn'}>
-                  {p.label}:{' '}
-                  {p.build.ok
-                    ? `${p.build.program.w} needles × ${p.build.program.h} passes${
-                        p.build.program.exportBlockers.length
-                          ? ` · ${p.build.program.exportBlockers.length} export blockers`
-                          : ''
-                      }`
-                    : p.build.reason}
-                </li>
-              ))}
+              {build.pieces.map((p) => {
+                const stops = p.build.ok ? (p.build.program.shape?.stops ?? []) : [];
+                return (
+                  <li key={p.index} className={p.build.ok ? undefined : 'warn'}>
+                    {p.label}:{' '}
+                    {p.build.ok
+                      ? `${p.build.program.w} needles × ${p.build.program.h} passes${
+                          p.build.program.exportBlockers.length
+                            ? ` · ${p.build.program.exportBlockers.length} export blockers`
+                            : ''
+                        }`
+                      : p.build.reason}
+                    {stops.map((t) => (
+                      <span key={`${t.patch}${t.from}`} className="knit-stop">
+                        {' '}
+                        · {t.patch.slice(0, -1)} stops after pass {t.pass}, needles {t.from + 1}–
+                        {t.to + 1}: cast off in the lab software
+                        {t.reused ? ' (a later pass knits there)' : ', or hold the loops'}
+                      </span>
+                    ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
-          {state.edge && (
-            <div aria-label="Selected seam" className="hint">
+          {edge && knittedThrough(layout, edge.id) && (
+            <div aria-label="Selected edge" className="hint">
+              <p>
+                Edge {edge.id} is knitted through: {patchLabel(edge.a)} and {patchLabel(edge.b)} are
+                knitted in one piece, {pieceLabel(edgeGroup ?? [edge.a, edge.b])}.
+              </p>
+            </div>
+          )}
+          {edge && !knittedThrough(layout, edge.id) && (
+            <div aria-label="Selected edge" className="hint">
               {seam && !outdated ? (
                 <>
                   <p>

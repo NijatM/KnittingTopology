@@ -7,7 +7,7 @@ import { DEFAULT_LIMITS } from './checks';
 import { MAX_SIDE } from './grid';
 import { validateTiles } from './tiles';
 import { POPESCU_LIMITS, validateKnitGraph } from './knit-graph';
-import { MAX_SPLITS, patchCount, splitProblem } from './patches';
+import { MAX_SPLITS, patchCount, sharedEdges, splitProblem } from './patches';
 
 export const MAX_LINE_LOOPS = 40;
 export const MAX_PALETTE = 8;
@@ -128,7 +128,21 @@ function patchLayoutOf(value: unknown): KnitPatchLayout {
         ...(p.graph === undefined ? {} : { graph: validateKnitGraph(p.graph) }),
       };
     }),
+    ...(layout.through === undefined ? {} : { through: throughOf(layout.through, { u, v }) }),
   };
+}
+/** Knitted-through edges: distinct IDs of shared edges of the layout. */
+function throughOf(value: unknown, layout: Pick<KnitPatchLayout, 'u' | 'v'>): string[] {
+  const edges = new Set(sharedEdges(layout).map((e) => e.id));
+  if (!Array.isArray(value)) throw new Error('knitted-through edges must be a list.');
+  const out: string[] = [];
+  for (const x of value) {
+    if (typeof x !== 'string' || !edges.has(x))
+      throw new Error(`knitted-through edge ${String(x)} is not a shared edge of the layout.`);
+    if (out.includes(x)) throw new Error(`knitted-through edge ${x} is listed twice.`);
+    out.push(x);
+  }
+  return out;
 }
 
 /** Validated copy of knit settings; throws a descriptive Error. */

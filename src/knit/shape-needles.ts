@@ -88,12 +88,18 @@ export function placeShapeNeedles(
     const contiguous = parents.every((p, i) => !i || p.needle === parents[i - 1].needle + 1);
     const n = parents.length,
       m = c.loops.length;
+    // New loops may start beyond the parents at a boundary or a free side; only a boundary takes parents
+    // beyond the course's extent.
+    const leftOpen = c.leftBoundary || !!c.leftFree,
+      rightOpen = c.rightBoundary || !!c.rightFree;
+    // Alignment cost in loops of the child's own width (joined pieces may mix loop sizes).
+    const width = (j: number) => c.loops[j]!.stitchWidth ?? geometry.stitchWidth;
     const boundaryStarts =
       n > 0 &&
       c.loops.some(
         (p) =>
-          (c.leftBoundary && p.across < parents[0].loop.across) ||
-          (c.rightBoundary && p.across > parents[n - 1].loop.across)
+          (leftOpen && p.across < parents[0].loop.across) ||
+          (rightOpen && p.across > parents[n - 1].loop.across)
       );
     // With no 0:1 boundary-start block, the first/last parent must each reach
     // one of the first/last two children. Each end can add one unparented child
@@ -101,7 +107,7 @@ export function placeShapeNeedles(
     // bound for this pass grammar, not an impossibility proof for other schedules.
     const capacity = n + 2 + Number(c.leftBoundary) + Number(c.rightBoundary);
     const capacityFailure = contiguous && n > 0 && !boundaryStarts && m > capacity;
-    const base = n ? parents[0].needle : Math.round(c.loops[0].across / geometry.stitchWidth);
+    const base = n ? parents[0].needle : Math.round(c.loops[0].across / width(0));
     const align = (
       start: number,
       constrained: boolean,
@@ -125,8 +131,8 @@ export function placeShapeNeedles(
               n &&
               !(
                 (j === 0 || j < m) &&
-                ((c.leftBoundary && c.loops[j].across < parents[0].loop.across) ||
-                  (c.rightBoundary && c.loops[j].across > parents[n - 1].loop.across))
+                ((leftOpen && c.loops[j].across < parents[0].loop.across) ||
+                  (rightOpen && c.loops[j].across > parents[n - 1].loop.across))
               )
             )
               return;
@@ -145,13 +151,13 @@ export function placeShapeNeedles(
                 return;
               cost +=
                 ((p.loop.across - c.loops[j + (b === 2 ? host : 0)].across) /
-                  geometry.stitchWidth) **
+                  width(j + (b === 2 ? host : 0))) **
                 2;
               if (delta) moved++;
             }
             if (a === 1 && b === 2)
               cost +=
-                ((parents[i].loop.across - c.loops[j + 1 - host].across) / geometry.stitchWidth) **
+                ((parents[i].loop.across - c.loops[j + 1 - host].across) / width(j + 1 - host)) **
                 2;
             if (a === 2 && constrained) {
               const target = start + j,
@@ -262,7 +268,7 @@ export function placeShapeNeedles(
     const identityPlan = (): Plan => ({
       blocks: [],
       cost: parents.reduce(
-        (sum, p, i) => sum + ((p.loop.across - c.loops[i].across) / geometry.stitchWidth) ** 2,
+        (sum, p, i) => sum + ((p.loop.across - c.loops[i].across) / width(i)) ** 2,
         0
       ),
       moves: [],
@@ -368,6 +374,9 @@ export function placeShapeNeedles(
     previousEnd = end;
     if (c.turnStart) result.steps.push({ pass: c.index + 1, needle: left, role: 'turn' });
     if (c.turnEnd) result.steps.push({ pass: c.index + 1, needle: right, role: 'turn' });
+    for (const r of geometry.release ?? [])
+      if (r.after === c.index)
+        for (const [needle, p] of bed) if (p.loop.id.startsWith(r.prefix)) bed.delete(needle);
   }
   const all = result.placements
     .map((p) => p.needle)

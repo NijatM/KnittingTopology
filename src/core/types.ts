@@ -383,6 +383,8 @@ export interface KnitPatchLayout {
   v: number[];
   /** (u.length + 1) × (v.length + 1) patches, index = row (v) × (u.length + 1) + column (u). */
   patches: KnitPatch[];
+  /** Knitted-through shared edges (`u<s>:<row>`, `v<s>:<column>`); missing or unlisted edges are seams. */
+  through?: string[];
 }
 export interface KnitSettings {
   mode: KnitMode;

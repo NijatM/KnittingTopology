@@ -319,3 +319,37 @@ A new browser case on the saddle adds a split line by clicking the surface, type
 The seam map is sewing guidance from a geometric prediction, not a sewing sequence. Patches are not combined into one knitted piece yet (knitted-through joins are the next step), patch boundaries are full-length grid lines rather than free curves, and no knitted piece was compared. Topology network patches are never used as knit patches.
 
 Build assets: 696.85 kB initial JavaScript (226.01 kB gzip), 585.93 kB lazy viewer (148.20 kB gzip), 97.35 kB generation worker and 137.93 kB knit worker.
+
+## Knitted-through joins between computational patches — 8 November 2026
+
+Each shared edge between computational patches is now knitted through or a seam, and new split lines start knitted through. Patches linked by knitted-through edges form one piece of any connected shape, named after its lowest patch, with one bitmap, Knit Grammar JSON and report (`-P<lowest>` file names); stage files stay per patch. The thesis combines patch patterns into one pattern (Popescu 2019, §6.3.2, p. 107) but gives no algorithm, so the join is a project construction: side by side, the courses reaching the shared edge are paired one to one in order along it and an unpaired course turns at the edge; stacked, the needle planner links the upper patch's first course to the loops below; short-row turns are then paired over the whole piece. Fills may differ within a piece (p. 110). A Popescu-method patch keeps its loop connections inside the patch. Needle stops inside a piece are reported for cast-off in the lab software and do not block export. Different start edges across a knitted-through edge fail the piece; a seam inside one piece and separate arms in one band block export. The seam map (version 2) lists seams only, with each side's piece. See [knit shaping](knit-shaping.md#computational-patches) and the [data contract](data-contract.md).
+
+Two planner details changed for joined pieces and leave single-patch programs unchanged (all earlier knit cases pass): bed changes are inserted after the shaping transfers, so a loop that moves sideways is followed to its new needle; and turn pairing accepts fixed parent links and never removes a Popescu-method patch's loops.
+
+All **600/600 unit tests across 33 files** passed in 26.8 seconds, including 278 knit cases. With test values of 6 × 4 mm (reverse jersey 9 × 4 mm), not lab measurements, the new cases cover:
+
+- the edge IDs across added, divided, moved and removed split lines, and old files whose edges all stay seams;
+- validation of the `through` list;
+- the in-order pairing rule and the common knitting frame for each start edge;
+- a plane split at u = 0.5 and knitted through, which gives exactly the whole chart: one piece of 18 needles × 25 passes and 450 loops, no seams, no stops and no blockers. Rebuilding from the saved per-patch courses stages gives identical cells.
+- a 2 × 2 saddle that builds as one piece without blockers;
+- an L-shaped piece on the saddle: its stops are all P2's, reported in the issues and the report; P4 is a separate piece, and seams u1:2 and v1:2 are listed with both pieces;
+- the blocker for a seam inside one piece, and the separate-arms blocker for a U on the plane;
+- jersey beside reverse jersey on the plane: 9 + 6 = 15 needles on the front and back beds, with no blockers;
+- a Popescu-method patch beside a project-method patch on the plane, and on the saddle with paired turns, both without blockers;
+- the start-edge message;
+- the reducer that saves a patch's courses-only stages.
+
+Typecheck, formatting and the production build pass.
+
+A new browser case on the saddle adds a u and a v split in the panel and finds all four edges knitted through. It selects P4, generates one piece P1 (P1, P2, P3, P4), sees that the loops stage is rebuilt rather than saved, and downloads a `-P1` bitmap. It then turns two edges into seams, which gives an L-shaped piece with a reported P2 stop and P4 on its own. It downloads the version 2 seam map, and Undo restores an edge. The 2c1 case now starts with the start-edge message, then makes the edge a seam. Both cases passed on the development server. The full suite passed **43/43 on the production build in 4.8 minutes** with no page or console errors, and both owned servers were stopped.
+
+Known limits found with the same test values on the 100 mm saddle (curvature 1):
+
+- A Popescu-method patch on the right half has saved links that cannot be placed at pass 4, and a reverse-jersey right half has a yarn jump at pass 2. Both also occur when that patch is built as its own piece, so the join does not cause them.
+- Stacking a reverse-jersey patch on a jersey patch needs more loop-count change in one pass than one-needle transfers allow, so that pass blocks export.
+- A narrow saddle patch (a third of the chart wide) can fail its own contour construction.
+
+The join is a geometric construction checked by symbolic graph rules, not a machine simulation, and no knitted piece was compared. The join between loop sizes has not been validated physically.
+
+Build assets: 713.76 kB initial JavaScript (231.96 kB gzip), 585.93 kB lazy viewer (148.20 kB gzip), 97.35 kB generation worker and 150.25 kB knit worker.
