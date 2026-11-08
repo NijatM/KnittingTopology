@@ -10,6 +10,8 @@ interface Props {
   hover: number | null;
   onHover: (index: number | null) => void;
   onPick: (index: number) => void;
+  /** Feature zones: per cell the zone on top (or -1) and each zone's colour, as in the marked BMP. */
+  zones?: { top: Int16Array; rgb: readonly (readonly number[])[] } | null;
 }
 
 const LEFT = 38,
@@ -48,16 +50,26 @@ function roleColours(p: KnitProgram): Uint8Array | null {
   return out;
 }
 
-export default function KnitBitmap({ program, reason, marks, hover, onHover, onPick }: Props) {
+export default function KnitBitmap({
+  program,
+  reason,
+  marks,
+  hover,
+  onHover,
+  onPick,
+  zones,
+}: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const size = useRef({ width: 0, height: 0 });
   const image = useRef<HTMLCanvasElement | null>(null);
   const markImage = useRef<HTMLCanvasElement | null>(null);
   const redraw = useRef<() => void>(() => {});
-  const [colourBy, setColourBy] = useState<'operation' | 'role'>('operation');
+  const [colourBy, setColourBy] = useState<'operation' | 'role' | 'zones'>('operation');
   const roles = useMemo(() => (program ? roleColours(program) : null), [program]);
   const byRole = colourBy === 'role' && !!roles;
+  const byZone =
+    colourBy === 'zones' && !!zones && zones.top.length === (program?.cells.length ?? -1);
 
   // one pixel per loop, rebuilt when the program or the colouring changes
   useEffect(() => {
@@ -73,13 +85,15 @@ export default function KnitBitmap({ program, reason, marks, hover, onHover, onP
     program.cells.forEach((v, i) => {
       const rgb = byRole
         ? roles!.subarray(i * 3, i * 3 + 3)
-        : (program.key.ops[v]?.rgb ?? [255, 0, 255]);
+        : byZone && zones!.top[i]! >= 0
+          ? zones!.rgb[zones!.top[i]!]!
+          : (program.key.ops[v]?.rgb ?? [255, 0, 255]);
       data.data.set([rgb[0]!, rgb[1]!, rgb[2]!, 255], i * 4);
     });
     ctx.putImageData(data, 0, 0);
     image.current = off;
     redraw.current();
-  }, [program, byRole, roles]);
+  }, [program, byRole, roles, byZone, zones]);
 
   useEffect(() => {
     if (!program || !marks) {
@@ -213,17 +227,23 @@ export default function KnitBitmap({ program, reason, marks, hover, onHover, onP
           if (i !== null) onPick(i);
         }}
       />
-      {roles && (
+      {(roles || zones) && (
         <label className="knit-bitmap-colour">
           Colour by
           <select
             aria-label="Bitmap colour by"
             value={colourBy}
-            onChange={(e) => setColourBy(e.target.value as 'operation' | 'role')}
+            onChange={(e) => setColourBy(e.target.value as 'operation' | 'role' | 'zones')}
           >
             <option value="operation">Operation</option>
-            <option value="role">Loop role</option>
+            {roles && <option value="role">Loop role</option>}
+            {zones && <option value="zones">Feature zones</option>}
           </select>
+          {byZone && (
+            <span className="knit-bitmap-legend">
+              zone cells in zone colours, as in the marked BMP; other cells by operation
+            </span>
+          )}
           {byRole && (
             <span className="knit-bitmap-legend">
               grey loop · blue short-row end · green increase · gold decrease · dark held/unused

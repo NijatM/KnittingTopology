@@ -1206,6 +1206,20 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       );
       lineSegments(state.selectionGroup, selected, '#d09a4e');
     }
+    if (props.zoneLines) {
+      for (const line of props.zoneLines.lines) {
+        const segments: number[] = [];
+        appendPath(segments, line.points);
+        lineSegments(
+          state.selectionGroup,
+          segments,
+          `#${line.rgb.map((c) => c.toString(16).padStart(2, '0')).join('')}`
+        );
+      }
+      const selected: number[] = [];
+      for (const line of props.zoneLines.selected) appendPath(selected, line);
+      lineSegments(state.selectionGroup, selected, '#d09a4e');
+    }
     if (props.graphEdit) {
       pointsObject(
         state.selectionGroup,
@@ -1246,6 +1260,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     props.cutEdgeIds,
     props.graphEdit,
     props.patchLines,
+    props.zoneLines,
   ]);
 
   const editing = !!props.graphEdit;

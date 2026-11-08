@@ -386,6 +386,16 @@ export interface KnitPatchLayout {
   /** Knitted-through shared edges (`u<s>:<row>`, `v<s>:<column>`); missing or unlisted edges are seams. */
   through?: string[];
 }
+export type KnitZoneKind = 'channel' | 'opening' | 'pocket' | 'inlay' | 'material' | 'colour';
+/** A feature zone on an open-surface chart (Popescu 2019, §6.3.2, p. 112): intent only, no operations. */
+export interface KnitZone {
+  id: string;
+  name: string;
+  kind: KnitZoneKind;
+  rgb: [number, number, number];
+  /** Original chart (u, v) points joined by straight chart lines; a stroke's width is in meters. */
+  shape: { kind: 'stroke'; points: Vec2[]; width: number } | { kind: 'region'; points: Vec2[] };
+}
 export interface KnitSettings {
   mode: KnitMode;
   /** Missing means `project-alignment`. The Popescu rules apply on open surfaces only. */
@@ -397,6 +407,8 @@ export interface KnitSettings {
   /** Computational patches for shape mode on open surfaces; while present, the top-level start edge,
    *  course method, settings and graph are not used for shaping. */
   patches?: KnitPatchLayout;
+  /** Feature zones in chart coordinates (open surfaces, every mode); they change no operation. */
+  zones?: KnitZone[];
   /** Chart side used for the first course. Missing in older projects means v0. */
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   /** Initial action on an opened needle; unconfirmed lab convention, default knit. */

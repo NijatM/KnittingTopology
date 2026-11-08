@@ -353,3 +353,22 @@ Known limits found with the same test values on the 100 mm saddle (curvature 1):
 The join is a geometric construction checked by symbolic graph rules, not a machine simulation, and no knitted piece was compared. The join between loop sizes has not been validated physically.
 
 Build assets: 713.76 kB initial JavaScript (231.96 kB gzip), 585.93 kB lazy viewer (148.20 kB gzip), 97.35 kB generation worker and 150.25 kB knit worker.
+
+## Feature zones (intent only) — 8 November 2026
+
+Feature zones mark where features go, as in the thesis workflow (Popescu 2019, §6.3.2, p. 112; §6.4.1, pp. 113–114). On open surfaces, in every mode, a zone is drawn on the surface as a stroke with a width in millimetres or as a closed region, and stored in chart coordinates, with a thesis kind, a name and a colour. A region marks the loops whose chart position is inside it (even-odd rule); a stroke marks the loops whose 3D centre is within half its width of its path on the surface (project rule). Zones change no operation. They are left out of the build signature, so drawing them never makes the preview outdated. The bitmap preview can colour cells by zone, and clicking a marked cell selects its zone. A zone map JSON (version 1) lists each zone's cells. A marked BMP shows the operation bitmap with zone cells in zone colours; it is not a Knit Grammar program. It is refused while a zone colour equals a key colour or another zone's colour, and it is blocked together with the operation exports. See the [data contract](data-contract.md).
+
+All **608/608 unit tests across 34 files** passed in 20.0 seconds, including 286 knit cases. With test values of 6 × 4 mm, not lab measurements, the new cases cover:
+
+- validation of zones, and their round trip through the knit settings;
+- on the plane, a 12 mm stroke along u = 0.5: each loop is marked exactly when its 3D distance to the stroke's path is at most 6 mm, and each marked needle is marked on all 25 passes. A region marks exactly the loops whose chart position is inside it. The operation cells are identical with and without zones.
+- overlap: the zone lower in the list is on top, and overlapping cells are counted;
+- a typed rectangular chart without shaping: a region over half the chart marks 5 of 10 needle columns on all 6 passes, and a region without area marks nothing;
+- the marked BMP pixel by pixel (zone colour on zone cells, the operation colour elsewhere), the unchanged operation BMP, and the zone map's 1-based needles and passes;
+- colour clashes with the key and between zones;
+- the report's zone lines;
+- a zone across computational patches on the saddle: loops of both patches in a knitted-through piece, and each piece's own part when the edge is a seam.
+
+On the production build (`vite preview`), the full browser suite passed **44/44** in 5.4 minutes with no page or console errors. The zones case was then extended with a bitmap click and passed again on the same build. It draws a three-point region and a two-point stroke on the saddle surface, and checks that the operation BMP is byte-identical before and after drawing. It colours the preview by zone, and checks that clicking a cell of the first zone in the bitmap selects that zone. It downloads the zone map, the marked BMP and the report. A key colour blocks the marked BMP, and Undo restores it; Undo also brings back a deleted zone. The production build's initial JavaScript is 730.44 kB (237.17 kB gzip); the knit worker is unchanged at 150.25 kB.
+
+Known limits: a stroke's width is measured as straight-line 3D distance to its sampled path on the surface, not as geodesic distance. The "across" figures are median runs of marked cells, as a guide only. Marks cannot be drawn on the 2D bitmap. Closed surfaces have no zones. Zones are not expanded into operations; feature recipes are later work. Nothing has been knitted.

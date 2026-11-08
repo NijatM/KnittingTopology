@@ -69,6 +69,8 @@ import KnitControls from './knit/KnitControls';
 import { useKnitBuild } from './knit/useKnitBuild';
 import { useGraphEdit } from './knit/graph-edit';
 import { usePatchLayout } from './knit/patch-layout';
+import { useZoneLayout } from './knit/zone-layout';
+import { markZones } from '../knit/zones';
 import { fromPatchView, patchSettings, patchWindow } from '../knit/patches';
 import type { KnitRequirementId } from '../knit/requirements';
 import KnitBitmap from './knit/KnitBitmap';
@@ -694,6 +696,8 @@ export default function App() {
   // Computational patches: the panel, the start-edge pick and the courses editor work on the selected
   // patch through its settings view; shared settings go back to the whole layout.
   const patchLayout = usePatchLayout(project.surface, knitSettings, changeKnit);
+  // Feature zones belong to the whole chart, not to a patch.
+  const zoneLayout = useZoneLayout(project.surface, knitSettings, changeKnit);
   const piece = patchLayout.patch;
   const knitView = knitSettings.patches ? patchSettings(knitSettings, piece) : knitSettings;
   const knitWindow = knitSettings.patches ? patchWindow(knitSettings.patches, piece) : undefined;
@@ -779,8 +783,17 @@ export default function App() {
   );
   const inspectingKnit = showProgram && !!knitProgram;
   const graphEdit = useGraphEdit(project.surface, knitView, swatches, changeView, knitWindow);
-  // The patch tool and the courses editor share the viewer's edit mode: one at a time.
+  // The patch tool, the zone tool and the courses editor share the viewer's edit mode: one at a time.
   const editingPatches = patchLayout.active;
+  const editingZones = zoneLayout.active;
+  // Cells of each feature zone in the program shown (display and zone exports only).
+  const zoneMarks = useMemo(
+    () =>
+      knitProgram && zoneLayout.available && zoneLayout.zones.length
+        ? markZones(knitProgram, project.surface, zoneLayout.zones)
+        : null,
+    [knitProgram, project.surface, zoneLayout.available, zoneLayout.zones]
+  );
   // While editing, the courses layer shows the saved (edited) stage before the rebuild finishes.
   const graphLayerKind = graphEdit.active ? 'courses' : knitLayers.graph;
   // With patches, the knit graph layer shows every patch's stages, so courses can be compared across seams.
@@ -1450,12 +1463,27 @@ export default function App() {
                 }}
                 shapeOverlay={knitShapeOverlay}
                 patchLines={tab === 'knit' || knitOpen ? patchLayout.lines : null}
-                graphEdit={editingPatches ? patchLayout.handles : graphEdit.handles}
-                onGraphEdit={editingPatches ? patchLayout.onIntent : graphEdit.onIntent}
+                zoneLines={tab === 'knit' || knitOpen ? zoneLayout.lines : null}
+                graphEdit={
+                  editingZones
+                    ? zoneLayout.handles
+                    : editingPatches
+                      ? patchLayout.handles
+                      : graphEdit.handles
+                }
+                onGraphEdit={
+                  editingZones
+                    ? zoneLayout.onIntent
+                    : editingPatches
+                      ? patchLayout.onIntent
+                      : graphEdit.onIntent
+                }
                 graphEditLabel={
-                  editingPatches
-                    ? 'Patch layout. Click the surface to add a split line or choose a patch, or click a split line to knit it through or make it a seam; drag a split line to move it; turn the patch tool off to rotate.'
-                    : undefined
+                  editingZones
+                    ? 'Feature zones. Click points on the surface to draw a stroke or a region, or click a zone outline to choose it; drag a point of the chosen zone to move it; turn the zone tool off to rotate.'
+                    : editingPatches
+                      ? 'Patch layout. Click the surface to add a split line or choose a patch, or click a split line to knit it through or make it a seam; drag a split line to move it; turn the patch tool off to rotate.'
+                      : undefined
                 }
                 onShapePick={(index) => {
                   setKnitHover(index);
@@ -1602,10 +1630,18 @@ export default function App() {
                   program={knitProgram}
                   reason={knitBuild.ok ? '' : knitBuild.reason}
                   marks={knitMarkCells}
+                  zones={
+                    zoneMarks
+                      ? { top: zoneMarks.top, rgb: zoneLayout.zones.map((z) => z.rgb) }
+                      : null
+                  }
                   hover={knitHover}
                   onHover={setKnitHover}
                   onPick={(i) => {
                     if (!knitProgram) return;
+                    // A marked cell selects its zone (the zone on top).
+                    const zone = zoneMarks?.top[i] ?? -1;
+                    if (zone >= 0) zoneLayout.select(zoneLayout.zones[zone]!.id);
                     if (knitProgram.shape && knitSettings.mode === 'shape') {
                       setKnitMarks([i]);
                       setTab('knit');
@@ -2327,9 +2363,24 @@ export default function App() {
                     ...patchLayout,
                     setOn: (on: boolean) => {
                       patchLayout.setOn(on);
-                      if (on) graphEdit.setOn(false);
+                      if (on) {
+                        graphEdit.setOn(false);
+                        zoneLayout.setOn(false);
+                      }
                     },
                   }}
+                  zones={{
+                    ...zoneLayout,
+                    setOn: (on: boolean) => {
+                      zoneLayout.setOn(on);
+                      if (on) {
+                        setKnitOpen(true);
+                        graphEdit.setOn(false);
+                        patchLayout.setOn(false);
+                      }
+                    },
+                  }}
+                  zoneMarks={zoneMarks}
                   swatches={swatches}
                   graph={project.graph}
                   projectName={project.name}
@@ -2345,6 +2396,7 @@ export default function App() {
                       if (on) {
                         setKnitOpen(true);
                         patchLayout.setOn(false);
+                        zoneLayout.setOn(false);
                       }
                     },
                   }}

@@ -79,6 +79,12 @@ export interface SurfaceViewerProps {
   /** Computational patch layout (display only): knitted-through edges drawn single, seams double, and
    * the selected patch or edge. */
   patchLines?: { edges: Vec3[][]; selected: Vec3[][] } | null;
+  /** Feature zone outlines in their colours (display only); the selected zone's outline is drawn again in the
+   * highlight colour. */
+  zoneLines?: {
+    lines: { rgb: [number, number, number]; points: Vec3[] }[];
+    selected: Vec3[][];
+  } | null;
   cutEdgeIds?: readonly string[];
   pickCutEdge?: boolean;
   onCutEdgePick?: (edgeId: string) => void;

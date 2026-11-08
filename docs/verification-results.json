@@ -1254,5 +1254,43 @@
       "cast-off operations in the colour key",
       "physical validation of joins between loop sizes"
     ]
+  },
+  "feature_zones": {
+    "status": "Local verification complete: 608 unit tests (34 files, 286 knit), production browser 44/44. Zones are feature intent only; no operation changes and no physical knitting result are claimed.",
+    "source": "Popescu (2019), section 6.3.1, p. 109 (knit_mark: features marked in 3D onto the 2D pattern and vice versa); section 6.3.2, p. 112 (channels, openings, pockets; inlays or inserts; material regions; colour patterns; marking assigns a predefined colour to pattern cells); section 6.4.1, pp. 113-114 and Fig. 6.19 (colour zones mark where features go and are filled with predefined clusters in the machine software; a colour is a design aid, not a fixed symbol).",
+    "available": [
+      "knit.zones: up to 32 zones on open surfaces in every mode, each a stroke (2-64 chart points, width in metres, mm in the UI) or a region (3-64 chart points), with a thesis kind, a name and a colour",
+      "drawing on the surface point by point (stroke, region, select tools), dragging the selected zone's points, one undo step per change",
+      "zone outlines on the surface in zone colours; bitmap preview coloured by zone; a click on a marked cell selects its zone",
+      "knit-zone-map JSON v1 with each zone's cells as 1-based needle and pass, and the overlap count",
+      "marked BMP: the operation bitmap with zone cells in zone colours (not a Knit Grammar program)",
+      "report lines per zone: kind, shape, colour, loop count and, for strokes, median needles and passes across"
+    ],
+    "project_rules": [
+      "a region marks the loops whose chart position is inside it (even-odd rule)",
+      "a stroke marks the loops whose 3D centre is within half its width of its path, the path being straight chart segments mapped onto the surface and sampled no coarser than half the width",
+      "overlapping zones: the zone lower in the list is drawn on top",
+      "zone colours must differ from the key's colours and from each other for the marked BMP; default colours skip used colours",
+      "limits of 32 zones and 64 points per zone"
+    ],
+    "blocking": [
+      "zones never block the operation BMP or Knit Grammar JSON",
+      "the marked BMP is refused while a zone colour equals a key colour or another zone's colour, and is blocked together with the operation exports"
+    ],
+    "evidence": [
+      "tests/knit/zones.test.ts (8 cases): validation and settings round trip; plane stroke marked exactly by the 6 mm distance rule with full-height needle runs; region by chart position; identical operation cells with and without zones; overlap order and count; typed chart half-region 5 of 10 columns x 6 passes; marked BMP pixel by pixel and unchanged operation BMP; zone map cells; colour clashes; report lines; zones across knitted-through and seamed patches on the saddle",
+      "tests/browser/knit.spec.ts 'feature zones' case on dev and on the production build",
+      "test values 6 x 4 mm (unit) and 10 x 8 mm (browser) are not lab measurements"
+    ],
+    "known_limits": [
+      "straight-line 3D distance to a sampled path, not geodesic distance",
+      "median run lengths for 'across' are a guide only",
+      "no marks drawn on the 2D bitmap; no zones on closed surfaces",
+      "nothing knitted"
+    ],
+    "not_implemented": [
+      "feature recipes that expand a zone into operations (audit item 4)",
+      "the machine-neutral operation sequence and symbolic run (milestone 3b)"
+    ]
   }
 }

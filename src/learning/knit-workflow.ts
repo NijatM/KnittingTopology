@@ -29,8 +29,8 @@ export const KNIT_WORKFLOW = [
     title: 'Mark feature intent',
     source:
       'Use linked 3D/2D marks to locate channels, openings, pockets, inlays, material/tension changes and colour patterns. A mark can identify a region that needs a whole symbol cluster.',
-    here: 'Linked surface/bitmap inspection and network-to-structure assignments exist. Class keys and user tiles describe a limited set of operation meanings.',
-    gap: 'A textured edge is not a fabricated channel or rib. Separate semantic feature zones and verified layer-aware recipes are needed before those features can be generated.',
+    here: 'Feature zones: strokes with a width in millimetres or closed regions drawn on the surface, each with a thesis kind, a name and a colour. The bitmap preview shows the marked cells; a zone map JSON and a marked BMP prepare filling the zones in the lab software. Zones change no operation.',
+    gap: 'A zone is feature intent, and a textured edge is not a fabricated channel or rib. Verified layer-aware recipes are needed before those features can be generated; marks cannot yet be drawn on the 2D bitmap.',
     locator: '§5.5, pp. 89–91; §6.3.2, p. 112; Fig. 6.19, p. 115',
   },
   {

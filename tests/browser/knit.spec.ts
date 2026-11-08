@@ -1355,3 +1355,101 @@ test('knitted-through patches: one piece, one bitmap named after its lowest patc
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(patches.getByRole('checkbox', { name: 'Knit edge u1:2 through' })).toBeChecked();
 });
+
+test('feature zones: draw a region and a stroke on the surface, marked bitmap and zone map, operations unchanged', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not lab measurements.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) shape$/ }).click();
+  const before = await downloadOf(page, 'Bitmap BMP');
+
+  const zones = page.getByRole('region', { name: 'Feature zones' });
+  const toggle = zones.getByRole('button', { name: 'Draw zones on the surface' });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  const canvas = page.getByTestId('surface-viewer').locator('canvas');
+  await expect(canvas).toHaveAttribute('aria-label', /Feature zones/);
+  const box = (await canvas.boundingBox())!;
+  const click = (x: number, y: number) =>
+    page.mouse.click(box.x + box.width * x, box.y + box.height * y);
+  await zones.getByRole('combobox', { name: 'Zone tool' }).selectOption('region');
+  await click(0.42, 0.45);
+  await click(0.58, 0.45);
+  await click(0.5, 0.58);
+  await expect(zones.getByLabel('Zone being drawn')).toContainText('3 points');
+  await zones.getByRole('button', { name: 'Finish zone', exact: true }).click();
+  await zones.getByRole('combobox', { name: 'Zone tool' }).selectOption('stroke');
+  await click(0.4, 0.52);
+  await click(0.6, 0.52);
+  await zones.getByRole('button', { name: 'Finish zone', exact: true }).click();
+  const list = zones.getByRole('list', { name: 'Zones' });
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+  await expect(zones.getByRole('combobox', { name: 'Zone Z1 kind' })).toHaveValue('pocket');
+  await expect(zones.getByRole('combobox', { name: 'Zone Z2 kind' })).toHaveValue('channel');
+  await expect(zones.getByRole('spinbutton', { name: 'Zone Z2 width (mm)' })).toHaveValue('10');
+  await expect(list.getByRole('listitem').nth(0)).toContainText(/Region of 3 points · \d+ loops/);
+  await expect(list.getByRole('listitem').nth(1)).toContainText(
+    /Stroke of 2 points · \d+ loops · about \d+ needles across/
+  );
+  await toggle.click();
+  await expect(canvas).not.toHaveAttribute('aria-label', /Feature zones/);
+
+  // Zones change no operation and do not make the preview outdated.
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(before);
+  await page.getByRole('combobox', { name: 'Bitmap colour by' }).selectOption('zones');
+  await expect(page.locator('.knit-bitmap')).toContainText('zone cells in zone colours');
+  const map = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Zone map JSON')));
+  expect(map).toMatchObject({ format: 'knit-zone-map', version: 1, piece: null });
+  expect(map.zones.map((z: { id: string; kind: string }) => [z.id, z.kind])).toEqual([
+    ['Z1', 'pocket'],
+    ['Z2', 'channel'],
+  ]);
+  expect(map.zones.every((z: { loops: number }) => z.loops > 0)).toBe(true);
+  // Clicking a cell of Z1 (not under Z2) in the bitmap selects Z1. Cell geometry as drawn by KnitBitmap.
+  const z1 = zones.getByRole('button', { name: 'Z1', exact: true });
+  await expect(z1).toHaveAttribute('aria-pressed', 'false');
+  const under = new Set(map.zones[1].cells.map((c: number[]) => c.join(':')));
+  const [needle, pass] = map.zones[0].cells.find((c: number[]) => !under.has(c.join(':')));
+  const image = page.getByRole('img', { name: /^Knit program bitmap/ });
+  const area = (await image.boundingBox())!;
+  const cell = Math.max(
+    0.05,
+    Math.min((area.width - 48) / map.needles, (area.height - 48) / map.passes)
+  );
+  const left = 38 + Math.max(0, (area.width - 48 - cell * map.needles) / 2),
+    top = 18 + Math.max(0, (area.height - 48 - cell * map.passes) / 2);
+  await page.mouse.click(
+    area.x + left + (needle - 0.5) * cell,
+    area.y + top + (map.passes - pass + 0.5) * cell
+  );
+  await expect(z1).toHaveAttribute('aria-pressed', 'true');
+  const marked = page.waitForEvent('download');
+  await zones.getByRole('button', { name: 'Marked BMP', exact: true }).click();
+  const markedFile = await marked;
+  expect(markedFile.suggestedFilename()).toMatch(/-zones\.bmp$/);
+  expect(await bytes(markedFile)).not.toEqual(before);
+  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(report).toContain('Feature zones (intent only;');
+
+  // A zone colour equal to a key colour blocks the marked BMP; Undo restores it.
+  await zones.getByLabel('Zone Z1 colour').fill('#0000ff');
+  await expect(zones.getByRole('list', { name: 'Marked bitmap problems' })).toContainText(
+    "Zone Z1 has the colour of the key's knit front (#0000ff): choose another colour."
+  );
+  await expect(zones.getByRole('button', { name: 'Marked BMP', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(zones.getByRole('button', { name: 'Marked BMP', exact: true })).toBeEnabled();
+  await zones.getByRole('button', { name: 'Delete zone Z2' }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(list.getByRole('listitem')).toHaveCount(2);
+  await page.screenshot({ path: 'tmp/qa/3a-feature-zones.png', fullPage: true });
+});

@@ -2156,3 +2156,35 @@ details.knit-required-control,
 .knit-edges li.selected {
   font-weight: 600;
 }
+.knit-zones {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+.knit-zones li {
+  margin-bottom: 6px;
+  padding-left: 6px;
+  border-left: 2px solid transparent;
+}
+.knit-zones li.selected {
+  border-left-color: #d09a4e;
+}
+.knit-zones .inline-actions {
+  flex-wrap: wrap;
+}
+.knit-zones input[type='text'] {
+  flex: 1;
+  min-width: 6em;
+}
+.knit-zones input[type='color'] {
+  flex: none;
+  width: 28px;
+  padding: 0;
+}
+.knit-zones button {
+  padding: 5px 8px;
+  font-size: 9px;
+}
+.knit-zones .hint {
+  margin: 2px 0 0;
+}

@@ -1,6 +1,8 @@
 // Plain-text report that travels with the bitmap: conventions, key, assignment, gauge status, transfers, checks
 // and the lab rules still to confirm.
 import type { KnitProgram } from './program';
+import type { KnitZone } from '../core/types';
+import { zoneLines, type ZoneMarks } from './zones';
 import { keyById, meaningName, rgbText } from './keys';
 import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
@@ -20,7 +22,13 @@ const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(
 const mm = (m: number) => `${+(m * 1000).toFixed(3)} mm`;
 const LIST_LIMIT = 200;
 
-export function knitReport(p: KnitProgram, projectName: string, surfaceSize: number): string {
+/** `zones`: the project's feature zones and their cells in this program (intent only). */
+export function knitReport(
+  p: KnitProgram,
+  projectName: string,
+  surfaceSize: number,
+  zones?: { zones: readonly KnitZone[]; marks: ZoneMarks }
+): string {
   const s = p.settings,
     k = p.key;
   const usage = new Map<number, number>();
@@ -48,6 +56,7 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
         : 'Size typed by the user; it is not derived from a measurement.',
     `Mapping: ${p.mapping.method}.`,
     ...(p.patches ? patchLines(p.patches) : []),
+    ...(zones ? zoneLines(zones.zones, zones.marks) : []),
     ...(p.rectification
       ? [
           `Network-only reference layout: ${p.rectification.addedCells} filled cells; maximum ${p.rectification.maxAddedPasses} added passes per needle, ${mm(p.rectification.maxAddedCourseLengthM)} nominal course-height accumulation. Shaping transfers are not applied. This is not physical shape error or a shape prediction.`,

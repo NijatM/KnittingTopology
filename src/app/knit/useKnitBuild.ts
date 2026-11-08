@@ -53,9 +53,14 @@ export function useKnitBuild(
     (input.knit.startEdge !== undefined && input.knit.startEdge !== 'v0');
   const graphSignature = useMemo(() => JSON.stringify(input.graph), [input.graph]);
   const surfaceSignature = useMemo(() => JSON.stringify(input.surface), [input.surface]);
-  // Saved knit graph stages enter by content hash, so saving them after a build does not restale it.
+  // Saved knit graph stages enter by content hash, so saving them after a build does not restale it. Feature
+  // zones change no operation and are marked on the built program, so they never restale it.
   const settingsSignature = useMemo(
-    () => JSON.stringify([input.knit && withoutStages(input.knit), input.swatches]),
+    () =>
+      JSON.stringify([
+        input.knit && { ...withoutStages(input.knit), zones: undefined },
+        input.swatches,
+      ]),
     [input.knit, input.swatches]
   );
   const signatureWith = (stages: (KnitGraphStages | undefined)[]) =>

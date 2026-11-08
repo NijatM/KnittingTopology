@@ -30,6 +30,9 @@ import type { PatchLayoutState } from './patch-layout';
 import type { ChartWindow } from '../../knit/shape-types';
 import { patchLabel, type PatchBuild } from '../../knit/patches';
 import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
+import KnitZones from './KnitZones';
+import type { ZoneLayoutState } from './zone-layout';
+import type { ZoneMarks } from '../../knit/zones';
 
 interface Props {
   build: KnitBuild;
@@ -54,6 +57,9 @@ interface Props {
   patches?: PatchLayoutState;
   patchBuild?: Omit<PatchBuild, 'piece'>;
   window?: ChartWindow;
+  /** Feature zones: the drawing state and their cells in the program shown. */
+  zones?: ZoneLayoutState;
+  zoneMarks?: ZoneMarks | null;
 }
 
 const mm = (m: number) => +(m * 1000).toFixed(4);
@@ -658,7 +664,14 @@ export default function KnitPanel(props: Props) {
               type="button"
               onClick={() =>
                 download(
-                  knitReport(program, props.projectName, props.surfaceSize),
+                  knitReport(
+                    program,
+                    props.projectName,
+                    props.surfaceSize,
+                    props.zones?.zones.length && props.zoneMarks
+                      ? { zones: props.zones.zones, marks: props.zoneMarks }
+                      : undefined
+                  ),
                   `${pieceFile}-knit-report.txt`,
                   'text/plain'
                 )
@@ -668,6 +681,18 @@ export default function KnitPanel(props: Props) {
             </button>
           </div>
         </>
+      )}
+
+      {props.zones && (
+        <KnitZones
+          state={props.zones}
+          program={program}
+          marks={props.zoneMarks ?? null}
+          surface={props.surface}
+          file={pieceFile}
+          piece={shownPiece ? shownPiece.label : null}
+          outdated={props.previewOutdated}
+        />
       )}
 
       {props.patches && (
