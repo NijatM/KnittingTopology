@@ -9,6 +9,7 @@ import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
 import { CALIBRATION_FIELDS, measurementStateLabel, type Gauge } from './gauge';
 import { recipeLines } from './recipes';
+import { layerGraphLines } from './layer-graph';
 import { COURSE_METHODS } from './knit-graph';
 import { editSummary } from './knit-graph-edit';
 import type { ShapeKnitGraph } from './shape-types';
@@ -154,6 +155,7 @@ export function knitReport(
     ...(p.findings.length ? p.findings.map((f) => `  - ${f.title}: ${f.text}`) : ['  none']),
     ...(p.sequence ? ['', ...sequenceLines(p.sequence, p.h, !!p.recipeResult?.applied)] : []),
     ...(p.recipeResult ? ['', ...recipeLines(p.recipeResult)] : []),
+    ...(p.layerGraph ? ['', ...layerGraphLines(p.layerGraph)] : []),
     ...(p.issues.length ? ['', 'Notes', ...p.issues.map((t) => `  - ${t}`)] : []),
     '',
     'Measurement context (user-reported; not machine settings or physical validation)',

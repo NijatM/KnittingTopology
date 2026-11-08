@@ -207,6 +207,9 @@ export function validateKnitSettings(value: unknown): KnitSettings {
     ...(s.patches === undefined ? {} : { patches: patchLayoutOf(s.patches) }),
     ...(s.zones === undefined ? {} : { zones: validateZones(s.zones) }),
     ...(s.recipes === undefined ? {} : { recipes: validateRecipes(s.recipes) }),
+    ...(s.layerModel === undefined
+      ? {}
+      : { layerModel: pick(s.layerModel, 'layer model', ['shared-reference-v1'] as const) }),
     keyId,
     ...(cut
       ? {

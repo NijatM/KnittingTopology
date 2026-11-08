@@ -22,6 +22,7 @@ import { buildTypedSurfaceProgram } from './typed-program';
 import { buildPatchedProgram, type PatchBuild } from './patches';
 import { executeSequence, programSequence, type KnitSequence, type SequenceRun } from './sequence';
 import { applyRecipes, type RecipeResult } from './recipes';
+import { applyLayerModel, type LayerGraphResult } from './layer-graph';
 
 export interface StructureUse {
   id: string;
@@ -60,6 +61,7 @@ export interface KnitProgram {
   /** Actual derived symbols and fills; never recreate recipe operations from their bitmap. */
   operations?: KnitSequence;
   recipeResult?: RecipeResult;
+  layerGraph?: LayerGraphResult;
   /** Network-only fills cells without reference-surface loops. */
   rectification?: { addedCells: number; maxAddedPasses: number; maxAddedCourseLengthM: number };
 }
@@ -76,11 +78,18 @@ export function buildKnitProgram(
   context?: GenerationContext
 ): KnitBuild {
   const build = buildBaseKnitProgram(project, staleNetwork, context);
-  if (!build.ok || !project.knit?.recipes?.length) return build;
-  const program = applyRecipes(build.program, project.surface, context);
+  if (!build.ok) return build;
+  let program = project.knit?.recipes?.length
+    ? applyRecipes(build.program, project.surface, context)
+    : build.program;
+  program = applyLayerModel(program, project.surface, context);
   // Unsupported patched recipes must not become exportable by selecting a child piece.
-  if (program.patches && program.recipeResult?.blockers.length) {
-    const blockers = program.recipeResult.blockers;
+  const newBlockers = [
+    ...(program.recipeResult?.blockers ?? []),
+    ...(program.layerGraph?.blockers ?? []),
+  ];
+  if (program.patches && newBlockers.length) {
+    const blockers = newBlockers;
     program.patches = {
       ...program.patches,
       pieces: program.patches.pieces.map((piece) => ({
@@ -90,6 +99,7 @@ export function buildKnitProgram(
               ok: true as const,
               program: {
                 ...piece.build.program,
+                ...(program.layerGraph ? { layerGraph: program.layerGraph } : {}),
                 exportBlockers: [...piece.build.program.exportBlockers, ...blockers],
               },
             }

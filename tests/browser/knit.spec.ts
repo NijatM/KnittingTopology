@@ -1689,3 +1689,135 @@ test('pocket recipe: one boundary mouth, three checked joins, report and respons
   expect(layout.width, JSON.stringify(layout.overflow)).toBeLessThanOrEqual(375);
   await page.screenshot({ path: 'tmp/qa/4a-pocket-mobile.png', fullPage: true });
 });
+
+test('shared two-layer reference: opt-in histories, export, undo, unsupported-mode repair and project reload', async ({
+  page,
+}) => {
+  await planeNetwork(page);
+  await page.getByRole('combobox', { name: 'Knit key', exact: true }).selectOption('4s52-two');
+  await page.getByRole('combobox', { name: 'Knit mode', exact: true }).selectOption('shape');
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Synthetic test values, not measured gauges.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)', exact: true }).fill('6');
+  await page.getByRole('textbox', { name: 'Course height (mm)', exact: true }).fill('4');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Show program beside the surface', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  const before = await downloadOf(page, 'Bitmap BMP');
+  const panel = page.locator('.knit-layer-panel');
+  await panel.locator(':scope > summary').click();
+  const check = panel.getByRole('checkbox', {
+    name: 'Check shared two-layer reference',
+    exact: true,
+  });
+  await check.check();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(check).not.toBeChecked();
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(check).toBeChecked();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(panel.getByLabel('Layer check summary')).toContainText(
+    '0 missing/mismatched targets · 0 model blockers'
+  );
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(before);
+  const data = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Layer graph JSON')));
+  expect(data).toMatchObject({
+    format: 'knit-layer-graph',
+    model: 'shared-reference-v1',
+    supported: true,
+    units: 'm',
+    programBlockers: [],
+  });
+  expect(data.nodes.length).toBe(2 * data.counts.referenceLoops);
+  expect(data.nodes[0].id).not.toBe(data.nodes[1].id);
+  expect(data.nodes[0].position).toEqual(data.nodes[1].position);
+  for (const n of data.nodes) expect(n.actualParents).toEqual(n.parents);
+  await panel.getByLabel('Inspect logical layer', { exact: true }).selectOption('front-layer');
+  await expect(panel.getByLabel('Inspected layer histories')).toContainText('front-layer');
+  await expect(panel.getByLabel('Inspected layer histories')).not.toContainText('back-layer');
+  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(report).toContain('Shared-reference two-layer graph');
+  const saving = page.waitForEvent('download');
+  await page.getByTitle('Save project JSON (⌘/Ctrl S)', { exact: true }).click();
+  const saved = await saving;
+  expect(JSON.parse(new TextDecoder().decode(await bytes(saved))).project.knit.layerModel).toBe(
+    'shared-reference-v1'
+  );
+  // An enabled model cannot certify a network-only rectangular registration.
+  await page.getByRole('combobox', { name: 'Knit mode', exact: true }).selectOption('network');
+  await page.getByRole('combobox', { name: 'Program size', exact: true }).selectOption('typed');
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(panel).toContainText('unsupported enabled model');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  const invalid = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Layer graph JSON')));
+  expect(invalid.supported).toBe(false);
+  expect(invalid.programBlockers.length).toBeGreaterThan(0);
+  await check.uncheck();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await page.getByLabel('Load project file').setInputFiles(await saved.path());
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(before);
+  await panel.evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
+  await expect(check).toBeChecked();
+  await expect(panel.getByLabel('Layer check summary')).toContainText('0 model blockers');
+});
+
+test('strong saddle layer model keeps two-guide transfers blocked and exports inspectable logical histories', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  const size = page.getByRole('slider', { name: 'Side length', exact: true });
+  await size.focus();
+  await size.press('Home');
+  for (let i = 0; i < 28; i++) await size.press('ArrowRight');
+  const rise = page.getByRole('slider', { name: 'Saddle rise', exact: true });
+  await rise.focus();
+  await rise.press('End');
+  await page.getByRole('combobox', { name: 'Knit key', exact: true }).selectOption('4s52-two');
+  await page.getByRole('combobox', { name: 'Knit mode', exact: true }).selectOption('shape');
+  await page.getByRole('combobox', { name: 'Start edge', exact: true }).selectOption('v1');
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Synthetic test values, not measured gauges.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)', exact: true }).fill('5');
+  await page.getByRole('textbox', { name: 'Course height (mm)', exact: true }).fill('5');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page
+    .getByRole('combobox', { name: 'First pass direction', exact: true })
+    .selectOption('right-to-left');
+  const panel = page.locator('.knit-layer-panel');
+  await panel.locator(':scope > summary').click();
+  await panel
+    .getByRole('checkbox', { name: 'Check shared two-layer reference', exact: true })
+    .check();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(panel.getByLabel('Layer check summary')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  const data = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Layer graph JSON')));
+  expect(data.supported).toBe(true);
+  expect(data.counts.failed).toBeGreaterThan(0);
+  expect(data.requests.length).toBeGreaterThan(0);
+  expect(data.programBlockers.join(' ')).toContain('two-layer structure');
+  expect(data.nodes.some((n: { matched: boolean }) => !n.matched)).toBe(true);
+  await panel.getByLabel('Inspect logical layer', { exact: true }).selectOption('back-layer');
+  await expect(panel.getByLabel('Inspected layer histories')).toContainText('back-layer');
+  await expect(panel.getByLabel('Inspected layer histories')).not.toContainText(
+    'Actual incoming: none (new loop)'
+  );
+  await expect(
+    panel.locator('summary').filter({ hasText: 'terminal layer inventory differs' })
+  ).toContainText('global check');
+  await page.getByRole('button', { name: 'Show program beside the surface', exact: true }).click();
+  await expect(page.getByRole('img', { name: /^Knit program bitmap/ })).toBeVisible();
+  await page.screenshot({ path: 'tmp/qa/4b-layer-graph-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 375, height: 900 });
+  await panel.getByLabel('Inspect logical layer', { exact: true }).scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(375);
+  await page.screenshot({ path: 'tmp/qa/4b-layer-graph-mobile.png', fullPage: true });
+});

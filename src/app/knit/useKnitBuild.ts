@@ -46,6 +46,7 @@ export function useKnitBuild(
   // Shape generation has no graph input, except on a cube or sphere, whose layout comes from the cut network.
   const graphFree = shape && input.surface.kind !== 'cube' && input.surface.kind !== 'sphere';
   const usesWorker =
+    !!input.knit?.layerModel ||
     !!input.knit?.recipes?.length ||
     input.knit?.mode === 'both' ||
     shape ||

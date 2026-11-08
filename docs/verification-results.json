@@ -1408,5 +1408,88 @@
       "Curved/shaped or patched recipes, arbitrary strokes, interior access holes, overlapping applied recipes and transfer/drop feature families remain unsupported."
     ],
     "servers": "Both owned preview servers5184/4184 stopped after verification; listener check empty."
+  },
+  "shared_layer_foundation": {
+    "status": "Local verification complete:688/688 units39files366knit; full production browser49/49 plus final display-only focused recheck2/2. Symbolic model validation only.",
+    "date": "2026-11-08",
+    "model": "shared-reference-v1",
+    "method": "Project model: shared reference coordinates; distinct front-layer/back-layer IDs and parent histories; canonical-sequence replay. Explicit whole-stack transfer-phase checking is a separate core API, not a native scheduler.",
+    "scope": [
+      "Opt-in knit.layerModel on two-guide Shape/combined, unpatched plane/saddle/eligible mapped OBJ; absence preserves prior behaviour and bitmap bytes.",
+      "Records expected/actual sheet-qualified parents, missing/wrong-layer/repeated-parent/reference-ancestry findings, held final loop inventory and separate per-layer sideways transfer demands.",
+      "Enabled failures and unsupported inputs block operation exports; graph JSON/report available, including failures on selected unsupported patch pieces. Existing two-guide transfer blockers remain active.",
+      "Pure phase checker: declared logical grid/occupancy, whole stacks, project racking sign, independent sources/destinations per phase, ordered arrivals, atomic phase failure, optional exact final target and mixed-stack reporting.",
+      "No automatic schedule search, phase authoring/import, additional workspace, physical layer thickness, native parameter inference or new curved recipe support."
+    ],
+    "unit_tests": {
+      "command": "npm run check",
+      "passed": 688,
+      "files": 39,
+      "knit": 366,
+      "duration_seconds": 19.81,
+      "result": "pass"
+    },
+    "focused_tests": {
+      "command": "npx vitest run tests/knit/layer-graph.test.ts tests/knit/transfer-phases.test.ts",
+      "passed": 38,
+      "result": "pass"
+    },
+    "typecheck": {
+      "command": "npm run typecheck (also within npm run check and npm run build)",
+      "result": "pass"
+    },
+    "formatting": {
+      "command": "npm run format:check",
+      "result": "Final records formatted; final format/diff and source-fingerprint checks performed before delivery."
+    },
+    "production_build": {
+      "command": "npm run build",
+      "result": "pass",
+      "initial_js_kb": 779.31,
+      "initial_js_gzip_kb": 254.05,
+      "viewer_js_kb": 586.18,
+      "viewer_js_gzip_kb": 148.27,
+      "knit_worker_js_kb": 177.66,
+      "generation_worker_js_kb": 97.35,
+      "import_worker_js_kb": 27.85,
+      "cut_worker_js_kb": 28.28,
+      "warning": "Initial JS exceeds configured750kB warning. No maximum-size browser performance claim."
+    },
+    "development_browser": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5184/KnittingTopology/ npm run test:browser -- --grep \"(shared two-layer reference:|strong saddle layer model)\" --output=tmp/qa/4b-development-focused",
+      "result": "pass",
+      "passed": 2,
+      "duration_seconds_reported": 34.3,
+      "page_or_console_errors": 0,
+      "source_scope": "Numerical and UI implementation checked; subsequent teaching-text-only change included in full production build."
+    },
+    "production_browser": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4184/KnittingTopology/ npm run test:browser -- --output=tmp/qa/4b-production",
+      "result": "pass",
+      "passed": 49,
+      "duration_minutes_reported": 6.1,
+      "page_or_console_errors": 0,
+      "source_scope": "Full built runtime frozen throughout49tests. Afterward two display-only labels were corrected (empty actual parents and global finding labels); numerical/model logic unchanged. Final rebuilt runtime passed both affected workflows again.",
+      "final_followup": {
+        "command": "KNITTING_BASE_URL=http://127.0.0.1:4184/KnittingTopology/ npm run test:browser -- --grep \"(shared two-layer reference:|strong saddle layer model)\" --output=tmp/qa/4b-production-final-focus",
+        "result": "pass",
+        "passed": 2,
+        "duration_seconds_reported": 33.5,
+        "page_or_console_errors": 0,
+        "scope": "Adds explicit assertions for correct diagnostic wording; strong-saddle screenshot includes bitmap. Runtime changes are display labels only."
+      }
+    },
+    "evidence": [
+      "15 graph/integration cases: disjoint sheet IDs, coincident coordinates, actual/expected histories, default byte identity, distinguishing same-source-ID bed swap, missing/tuck and duplicate-bed actions, invalid ancestry, curved held/turn history, retained strong-saddle gates, save/load/undo/fingerprints, worker cloning, JSON indexing/report, unsupported contexts and patch-child gates, cancellation.",
+      "23 phase-checker cases: four-phase two-sheet move into declared vacant slots; sequential dependency and atomic failures; racking, grid/source/schema/ID rejection; whole-stack retention, mixing and explicit target mismatch; held loops, immutability, target ordering and cancellation.",
+      "Synthetic150000-loop stack checks identity retention without argument-spreading overflow; test values, not measured gauges or machine capacity.",
+      "2 new browser workflows: enabled plane check and unchanged BMP; filter/inspect IDs; undo/redo and project reload; unsupported-mode gating/repair; strong-saddle demands and blocked two-guide transfers; graph/report download;375px document layout."
+    ],
+    "limits": [
+      "Local parent matches do not remove an earlier ancestor/global failure. Graph is a declared symbolic target, not native feasibility or fabric simulation.",
+      "Layer graph and phase model are independent project constructions; no native symbol/font library is reproduced.",
+      "Whole stacks cannot be selectively split; no carrier/take-down/collision-envelope or safe native-racking parameters are established."
+    ],
+    "servers": "Owned dev5184 and production4184 previews stopped; listener check empty."
   }
 }

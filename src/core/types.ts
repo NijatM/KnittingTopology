@@ -416,6 +416,8 @@ export interface KnitSettings {
   zones?: KnitZone[];
   /** Opt-in boundary-access channel/pocket presets on unpatched, unshaped two-guide plane programs. */
   recipes?: KnitRecipe[];
+  /** Opt-in logical-layer parent histories on the shared open-surface Shape reference. */
+  layerModel?: 'shared-reference-v1';
   /** Chart side used for the first course. Missing in older projects means v0. */
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   /** Initial action on an opened needle; unconfirmed lab convention, default knit. */

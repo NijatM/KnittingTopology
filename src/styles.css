@@ -2156,6 +2156,36 @@ details.knit-required-control,
 .knit-edges li.selected {
   font-weight: 600;
 }
+.knit-layer-panel {
+  border: 1px solid var(--border);
+  padding: 12px;
+  margin: 20px 0;
+  font-size: 11px;
+}
+.knit-layer-panel summary {
+  cursor: pointer;
+  color: var(--hi);
+}
+.knit-layer-enable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.8;
+}
+.knit-layer-enable input {
+  width: auto;
+  flex: 0 0 auto;
+}
+.knit-layer-history {
+  margin: 12px 0;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+.knit-layer-history h4 {
+  font-weight: 400;
+  margin: 12px 0 6px;
+}
 .knit-recipe-panel {
   border: 1px solid var(--border);
   padding: 12px;

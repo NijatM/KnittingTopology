@@ -32,6 +32,7 @@ import { patchLabel, type PatchBuild } from '../../knit/patches';
 import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
 import KnitZones from './KnitZones';
 import KnitRecipes from './KnitRecipes';
+import KnitLayers from './KnitLayers';
 import KnitSequence from './KnitSequence';
 import type { ZoneLayoutState } from './zone-layout';
 import type { ZoneMarks } from '../../knit/zones';
@@ -715,6 +716,17 @@ export default function KnitPanel(props: Props) {
         onSettings={props.onSettings}
         onMark={props.onMark}
         onSelectZone={props.zones?.select}
+      />
+      <KnitLayers
+        settings={s}
+        surface={props.surface}
+        patched={!!props.patches?.layout}
+        program={program}
+        file={pieceFile}
+        outdated={props.previewOutdated}
+        hover={props.hover}
+        onSettings={props.onSettings}
+        onMark={props.onMark}
       />
 
       {props.patches && (
