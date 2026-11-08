@@ -304,6 +304,13 @@ test('strong saddle exports one-guide shaping and blocks unsupported two-guide s
   await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
   await page.getByRole('button', { name: 'Show program beside the surface' }).click();
   await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  // Left to right, the cast-on leaves the yarn 15 needles from the first short row.
+  await expect(page.locator('.knit-export-blockers')).toContainText(
+    'Pass 2: the yarn ends at needle 49 but this pass starts at needle 34'
+  );
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await page.getByRole('combobox', { name: 'First pass direction' }).selectOption('right-to-left');
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
   await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Knit interpretation' })).toContainText(
     'Shaping operations encoded'
@@ -1028,4 +1035,77 @@ test('swatch calibration context persists, survives undo, and the thesis guide c
   expect(bib).toContain('10.3929/ethz-b-000408640');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
   await page.screenshot({ path: 'tmp/qa/knit-workflow-guide.png', fullPage: true });
+});
+
+test('knit graph stages: save, download, discard, load in order, colour by role and second method', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not lab measurements.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(page.getByRole('img', { name: /Knit program bitmap/ })).toBeVisible();
+  const panel = page.getByRole('region', { name: 'Knit graph stages' }),
+    status = panel.getByRole('list', { name: 'Stage status' });
+  await expect(status).toContainText('Courses: saved, matches the current inputs');
+  await expect(status).toContainText('Loops: saved, matches the current inputs');
+  await expect(panel.getByRole('list', { name: 'Knit graph checks' })).toContainText(
+    'Consistent parent links'
+  );
+  const bmp = await downloadOf(page, 'Bitmap BMP');
+  // Saved stage files, loaded back from their download paths below.
+  const saved = async (button: string) => {
+    const pending = page.waitForEvent('download');
+    await panel.getByRole('button', { name: button, exact: true }).click();
+    const download = await pending;
+    return {
+      path: await download.path(),
+      json: JSON.parse(new TextDecoder().decode(await bytes(download))),
+    };
+  };
+  const courses = await saved('Courses JSON'),
+    loops = await saved('Loops JSON');
+  expect(courses.json).toMatchObject({ format: 'knit-graph-stage', version: 1, stage: 'courses' });
+  expect(loops.json).toMatchObject({ format: 'knit-graph-stage', version: 1, stage: 'loops' });
+  const load = (file: { path: string }) =>
+    panel.getByLabel('Load knit graph stage file').setInputFiles(file.path);
+
+  await panel.getByRole('button', { name: 'Discard stages', exact: true }).click();
+  await expect(status).toContainText('Courses: not saved; Generate builds it');
+  await load(loops);
+  await expect(panel.getByRole('alert')).toContainText('courses stage first');
+  await load(courses);
+  await expect(status).toContainText('Courses: saved, matches the current inputs');
+  await expect(status).toContainText('Loops: not saved');
+  await load(loops);
+  await expect(status).toContainText('Loops: saved, matches the current inputs');
+  await expect(panel.getByRole('alert')).toHaveCount(0);
+  // The same stages are back, so the program is current and its bitmap is unchanged.
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(bmp);
+
+  // Colouring by loop role changes the display only.
+  await page.getByRole('combobox', { name: 'Bitmap colour by' }).selectOption('role');
+  await expect(page.locator('.knit-bitmap-legend')).toContainText('blue short-row end');
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(bmp);
+  await page.getByRole('combobox', { name: 'Knit graph layer' }).selectOption('loops');
+  await expect(page.getByRole('combobox', { name: 'Knit graph layer' })).toHaveValue('loops');
+
+  // The second course method makes the saved stages stale until Generate rebuilds them.
+  await page.getByRole('combobox', { name: 'Course method' }).selectOption('popescu-2019-rules');
+  await expect(status).toContainText('Courses: saved, stale');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: /^(Generate|Regenerate) shape$/ }).click();
+  await expect(panel).toContainText('Popescu connection rules');
+  await expect(status).toContainText('Courses: saved, matches the current inputs');
+  await expect(panel.getByRole('list', { name: 'Knit graph checks' })).toContainText(
+    'Course connection rule'
+  );
+  await page.screenshot({ path: 'tmp/qa/2a-stage-panel.png', fullPage: true });
 });

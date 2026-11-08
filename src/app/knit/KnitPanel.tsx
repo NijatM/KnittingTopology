@@ -1,6 +1,6 @@
 // Inspector "Knit" tab: program summary, provenance, checks, exports, measurement table and lab rules.
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import type { KnitSettings, PatternGraph, SwatchEntry } from '../../core/types';
+import type { KnitSettings, PatternGraph, SurfaceSpec, SwatchEntry } from '../../core/types';
 import type { ViewerSelection } from '../../viewer/types';
 import type { KnitBuild } from '../../knit/program';
 import { BASIC, TWO, settingsKey } from '../../knit/keys';
@@ -23,6 +23,7 @@ import { referencesBibtex, referencesCSL } from '../../learning/citations';
 import KeyEditor from './KeyEditor';
 import TileEditor from './TileEditor';
 import KnitAssessment from './KnitAssessment';
+import KnitGraphStages from './KnitGraphStages';
 import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
 
 interface Props {
@@ -35,6 +36,7 @@ interface Props {
   swatches: SwatchEntry[];
   graph: PatternGraph | null;
   projectName: string;
+  surface: SurfaceSpec;
   surfaceSize: number;
   hover: number | null;
   selection: ViewerSelection | null;
@@ -651,6 +653,15 @@ export default function KnitPanel(props: Props) {
           </div>
         </>
       )}
+
+      <KnitGraphStages
+        surface={props.surface}
+        settings={s}
+        swatches={swatches}
+        program={program}
+        file={file}
+        onSettings={(next) => props.onSettings(next)}
+      />
 
       {selectedCell && s.mode !== 'shape' && (
         <>

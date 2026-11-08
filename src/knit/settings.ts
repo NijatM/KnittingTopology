@@ -6,6 +6,7 @@ import { structuresForKey } from './structures';
 import { DEFAULT_LIMITS } from './checks';
 import { MAX_SIDE } from './grid';
 import { validateTiles } from './tiles';
+import { POPESCU_LIMITS, validateKnitGraph } from './knit-graph';
 
 export const MAX_LINE_LOOPS = 40;
 export const MAX_PALETTE = 8;
@@ -103,6 +104,18 @@ export function validateKnitSettings(value: unknown): KnitSettings {
     )
       throw new Error('cut edge IDs must be unique bounded source IDs.');
   }
+  const popescu = s.popescu === undefined ? undefined : obj(s.popescu, 'Popescu rule settings');
+  const angleTolerance = popescu?.angleTolerance;
+  if (
+    popescu &&
+    (typeof angleTolerance !== 'number' ||
+      !Number.isFinite(angleTolerance) ||
+      angleTolerance < POPESCU_LIMITS.angleTolerance[0] ||
+      angleTolerance > POPESCU_LIMITS.angleTolerance[1])
+  )
+    throw new Error(
+      `angle tolerance must be ${POPESCU_LIMITS.angleTolerance[0]}–${POPESCU_LIMITS.angleTolerance[1]} degrees.`
+    );
   if (typeof s.autoTransfers !== 'boolean')
     throw new Error('automatic transfers must be on or off.');
   if (typeof edges.boundary !== 'boolean') throw new Error('boundary lines must be on or off.');
@@ -114,6 +127,23 @@ export function validateKnitSettings(value: unknown): KnitSettings {
     ...(s.newLoop === undefined
       ? {}
       : { newLoop: pick(s.newLoop, 'new loop action', ['knit', 'tuck'] as const) }),
+    ...(s.courseMethod === undefined
+      ? {}
+      : {
+          courseMethod: pick(s.courseMethod, 'course method', [
+            'project-alignment',
+            'popescu-2019-rules',
+          ] as const),
+        }),
+    ...(popescu
+      ? {
+          popescu: {
+            resultCount: int(popescu.resultCount, 'result count', ...POPESCU_LIMITS.resultCount),
+            angleTolerance: angleTolerance as number,
+          },
+        }
+      : {}),
+    ...(s.graph === undefined ? {} : { graph: validateKnitGraph(s.graph) }),
     keyId,
     ...(cut
       ? {

@@ -1,5 +1,5 @@
 // The knit program as a bitmap: one square per needle and pass, exact key colours, pass 1 at the bottom.
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KnitProgram } from '../../knit/program';
 
 interface Props {
@@ -27,6 +27,26 @@ function layout(p: KnitProgram, width: number, height: number) {
 }
 
 const labelStep = (c: number) => [1, 5, 10, 20, 50, 100].find((s) => s * c >= 26) ?? 100;
+/** Display only: loop roles from the saved loop stage; held or unused needles stay dark. */
+const ROLE_RGB: Record<string, [number, number, number]> = {
+  loop: [128, 128, 128],
+  'short-row': [88, 166, 255],
+  increase: [97, 199, 137],
+  decrease: [226, 191, 98],
+};
+
+function roleColours(p: KnitProgram): Uint8Array | null {
+  const loops = p.shape?.knitGraph?.stages.loops?.loops;
+  if (!p.shape || !loops) return null;
+  const role = new Map(loops.map((l) => [l.id, l.role]));
+  const out = new Uint8Array(p.w * p.h * 3).fill(28);
+  p.shape.placementAt.forEach((k, i) => {
+    if (k < 0) return;
+    const rgb = ROLE_RGB[role.get(p.shape!.needles.placements[k]!.loop.id) ?? 'loop']!;
+    out.set(rgb, i * 3);
+  });
+  return out;
+}
 
 export default function KnitBitmap({ program, reason, marks, hover, onHover, onPick }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -35,8 +55,11 @@ export default function KnitBitmap({ program, reason, marks, hover, onHover, onP
   const image = useRef<HTMLCanvasElement | null>(null);
   const markImage = useRef<HTMLCanvasElement | null>(null);
   const redraw = useRef<() => void>(() => {});
+  const [colourBy, setColourBy] = useState<'operation' | 'role'>('operation');
+  const roles = useMemo(() => (program ? roleColours(program) : null), [program]);
+  const byRole = colourBy === 'role' && !!roles;
 
-  // one pixel per loop, rebuilt when the program changes
+  // one pixel per loop, rebuilt when the program or the colouring changes
   useEffect(() => {
     if (!program) {
       image.current = null;
@@ -48,13 +71,15 @@ export default function KnitBitmap({ program, reason, marks, hover, onHover, onP
     const ctx = off.getContext('2d')!;
     const data = ctx.createImageData(program.w, program.h);
     program.cells.forEach((v, i) => {
-      const rgb = program.key.ops[v]?.rgb ?? [255, 0, 255];
-      data.data.set([rgb[0], rgb[1], rgb[2], 255], i * 4);
+      const rgb = byRole
+        ? roles!.subarray(i * 3, i * 3 + 3)
+        : (program.key.ops[v]?.rgb ?? [255, 0, 255]);
+      data.data.set([rgb[0]!, rgb[1]!, rgb[2]!, 255], i * 4);
     });
     ctx.putImageData(data, 0, 0);
     image.current = off;
     redraw.current();
-  }, [program]);
+  }, [program, byRole, roles]);
 
   useEffect(() => {
     if (!program || !marks) {
@@ -188,6 +213,24 @@ export default function KnitBitmap({ program, reason, marks, hover, onHover, onP
           if (i !== null) onPick(i);
         }}
       />
+      {roles && (
+        <label className="knit-bitmap-colour">
+          Colour by
+          <select
+            aria-label="Bitmap colour by"
+            value={colourBy}
+            onChange={(e) => setColourBy(e.target.value as 'operation' | 'role')}
+          >
+            <option value="operation">Operation</option>
+            <option value="role">Loop role</option>
+          </select>
+          {byRole && (
+            <span className="knit-bitmap-legend">
+              grey loop · blue short-row end · green increase · gold decrease · dark held/unused
+            </span>
+          )}
+        </label>
+      )}
       {!program && (
         <p className="knit-bitmap-empty" role="status">
           {reason}

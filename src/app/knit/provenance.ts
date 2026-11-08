@@ -1,5 +1,6 @@
 // Loop <-> network element links for the linked bitmap and 3D views.
-import type { PatternGraph } from '../../core/types';
+import type { KnitStagePoint, PatternGraph, SurfaceSpec, Vec3 } from '../../core/types';
+import { evaluateSurface } from '../../core/surfaces';
 import type { ViewerSelection } from '../../viewer/types';
 import type { KnitProgram } from '../../knit/program';
 import { SOURCE, SOURCE_NAMES } from '../../knit/rasterize';
@@ -112,6 +113,53 @@ export function shapeOverlay(p: KnitProgram) {
   };
 }
 
+/** Render-only knit graph stage: course stage links, or the loop stage (primal edges, or loops joined
+ * along their courses and to their parents) with loops coloured by role. */
+export function knitGraphOverlay(
+  p: KnitProgram,
+  surface: SurfaceSpec,
+  stage: 'courses' | 'loops'
+): { weft: Vec3[][]; warp: Vec3[][]; loops: { position: Vec3; role: string }[] } | null {
+  const graph = p.shape?.knitGraph?.stages;
+  if (!graph) return null;
+  const at = (q: KnitStagePoint) => evaluateSurface(surface, q.patch ?? 0, q.uv[0], q.uv[1]);
+  if (stage === 'courses') {
+    const c = graph.courses,
+      pos = c.vertices.map(at);
+    return {
+      weft: c.vertices.length
+        ? c.links.map(([a, b]) => [pos[a]!, pos[b]!])
+        : c.courses.map((k) => (k.points ?? []).map(at)),
+      warp: (c.warp ?? []).map(([a, b]) => [pos[a]!, pos[b]!]),
+      loops: [],
+    };
+  }
+  const l = graph.loops;
+  if (!l) return null;
+  const loops = l.loops.map((x) => ({ position: at(x), role: x.role }));
+  if (l.primal) {
+    const pos = l.primal.vertices.map(at);
+    const of = (kind: 'weft' | 'warp') =>
+      l.primal!.edges.filter((e) => e.kind === kind).map((e) => [pos[e.a]!, pos[e.b]!]);
+    return { weft: of('weft'), warp: of('warp'), loops };
+  }
+  const byId = new Map(l.loops.map((x, i) => [x.id, i])),
+    rows = new Map<number, Vec3[]>();
+  l.loops.forEach((x, i) =>
+    rows.set(x.course, [...(rows.get(x.course) ?? []), loops[i]!.position])
+  );
+  return {
+    weft: [...rows.values()],
+    warp: l.loops.flatMap((x, i) =>
+      x.parents.flatMap((id) => {
+        const j = byId.get(id);
+        return j === undefined ? [] : [[loops[j]!.position, loops[i]!.position]];
+      })
+    ),
+    loops,
+  };
+}
+
 /** Filter display layers without rebuilding or editing the computed geometry. */
 export function inspectShapeOverlay(
   overlay: ReturnType<typeof shapeOverlay>,
@@ -119,11 +167,13 @@ export function inspectShapeOverlay(
   shaping: boolean,
   marked: Uint8Array | null,
   hover: number | null,
-  course: number | undefined
+  course: number | undefined,
+  graph: ReturnType<typeof knitGraphOverlay> = null
 ) {
   if (!overlay) return null;
   const selected = (index: number) => index === hover || !!marked?.[index];
   return {
+    graph: layers.graph === 'off' ? null : graph,
     courses: layers.courses ? overlay.courses : [],
     highlightedCourses:
       layers.courses && course !== undefined && overlay.courses[course]

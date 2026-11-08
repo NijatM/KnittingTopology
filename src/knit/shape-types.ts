@@ -1,5 +1,5 @@
 // Design-level shaping contracts. Surface positions and arc lengths are in meters.
-import type { Vec2, Vec3 } from '../core/types';
+import type { KnitGraphStages, Vec2, Vec3 } from '../core/types';
 import type { CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
 
@@ -46,6 +46,8 @@ export interface ShapeGeometry {
   resolution: number;
   method: string;
   issues: string[];
+  /** Open surfaces: contour samples, their links (indices in contour order) and each course's samples. */
+  graph?: { samples: ShapePoint[][]; links: [number, number][]; courses: number[][] };
 }
 export type ShapeRole = 'loop' | 'turn' | 'increase' | 'decrease' | 'edge increase' | 'transfer';
 export interface ShapePlacement {
@@ -79,6 +81,13 @@ export interface ShapeNeedles {
   unresolved: ShapeStep[];
   yarnJumps: number;
 }
+export interface ShapeKnitGraph {
+  /** The stages this layout was built from; the app saves them after an accepted build. */
+  stages: KnitGraphStages;
+  /** Stages reused from the project rather than computed in this build. */
+  saved: { courses: boolean; loops: boolean };
+  checks: { id: string; label: string; source: string; violations: number; examples: string[] }[];
+}
 export interface ShapeResult {
   geometry: ShapeGeometry;
   needles: ShapeNeedles;
@@ -90,4 +99,6 @@ export interface ShapeResult {
   closed?: CubeNetLayout;
   /** Sphere opened by a pole-to-pole cut: counts, short rows, poles and seam loops. */
   sphere?: SphereKnitLayout;
+  /** Saved-stage form of this layout (measured layouts only). */
+  knitGraph?: ShapeKnitGraph;
 }

@@ -263,8 +263,98 @@ export interface KnitCutSettings {
   preset: 'cube-cross' | 'sphere-meridian' | 'manual';
   edgeIds: string[];
 }
+/** `project-alignment`: distance contours, monotone alignment (default). `popescu-2019-rules`: the
+ * connection rules written in Popescu (2019), §§6.2.2–6.2.3, reconstructed from the thesis text. */
+export type KnitCourseMethod = 'project-alignment' | 'popescu-2019-rules';
+/** A saved point in the original surface chart; 3D positions are recomputed from it. */
+export interface KnitStagePoint {
+  uv: Vec2;
+  /** Distance from the needle-1 side, in meters. */
+  across: number;
+  /** Closed surfaces only. */
+  patch?: number;
+  net?: Vec2;
+}
+/** A contour sample with the thesis attributes (§6.2.2, p. 99). */
+export interface KnitStageVertex extends KnitStagePoint {
+  contour: number;
+  position: number;
+  /** First or last sample on its contour. */
+  leaf: boolean;
+  /** On the first or last contour, or a short-row end (valency > 2 or warp-linked). */
+  end: boolean;
+}
+export interface KnitStageCourse {
+  /** Contour samples joined into this course, in needle order (indices into the stage vertices). */
+  vertices: number[];
+  /** Course ends beyond the first and last sample. */
+  start?: KnitStagePoint;
+  end?: KnitStagePoint;
+  /** The full course polyline, when it is not built from contour samples. */
+  points?: KnitStagePoint[];
+  leftBoundary: boolean;
+  rightBoundary: boolean;
+}
+export interface KnitCourseStage {
+  stage: 'courses';
+  /** Noncryptographic fingerprint of the stage inputs; not a security hash. */
+  fingerprint: string;
+  method: string;
+  vertices: KnitStageVertex[];
+  /** Weft links between vertices on adjacent contours. */
+  links: [number, number][];
+  /** Warp links between neighbouring vertices on one contour (Popescu rules only). */
+  warp?: [number, number][];
+  /** Courses in knitting order; empty when the courses are derived from loop faces. */
+  courses: KnitStageCourse[];
+  contourRounding: number[];
+  maxLinkOffset: number;
+  resolution: number;
+  issues: string[];
+}
+/** Thesis feature classes (§6.2.4, p. 103): short-row start/end, increase, decrease. */
+export type KnitLoopRole = 'loop' | 'short-row' | 'increase' | 'decrease';
+export interface KnitStageLoop extends KnitStagePoint {
+  id: string;
+  course: number;
+  role: KnitLoopRole;
+  /** Loop IDs this loop is knitted through, from earlier courses. */
+  parents: string[];
+}
+/** The primal knit graph of the Popescu rules (§6.2.3, pp. 101–103). */
+export interface KnitPrimalGraph {
+  vertices: (KnitStagePoint & { leaf: boolean; end: boolean; contour?: number })[];
+  edges: { a: number; b: number; kind: 'weft' | 'warp' }[];
+  /** Faces in the chart; `loop` is the loop ID of the face, absent when it is not a loop. */
+  faces: {
+    vertices: number[];
+    kind: 'quad' | 'short-row' | 'increase' | 'decrease' | 'other';
+    loop?: string;
+  }[];
+}
+export interface KnitLoopStage {
+  stage: 'loops';
+  fingerprint: string;
+  method: string;
+  loops: KnitStageLoop[];
+  /** Course polylines derived from loop faces (Popescu rules only). */
+  rows?: KnitStageCourse[];
+  primal?: KnitPrimalGraph;
+}
+export interface KnitGraphStages {
+  courseMethod: KnitCourseMethod;
+  courses: KnitCourseStage;
+  /** Absent until a loops stage is built from the courses stage. */
+  loops?: KnitLoopStage;
+}
 export interface KnitSettings {
   mode: KnitMode;
+  /** Missing means `project-alignment`. The Popescu rules apply on open surfaces only. */
+  courseMethod?: KnitCourseMethod;
+  /** Popescu-rule settings (§6.3.1): candidates per side and the tie angle, in degrees. */
+  popescu?: { resultCount: number; angleTolerance: number };
+  /** Knit graph stages of the last measured course layout. */
+  graph?: KnitGraphStages;
   /** Chart side used for the first course. Missing in older projects means v0. */
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   /** Initial action on an opened needle; unconfirmed lab convention, default knit. */

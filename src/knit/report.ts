@@ -5,6 +5,8 @@ import { keyById, meaningName, rgbText } from './keys';
 import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
 import { CALIBRATION_FIELDS, measurementStateLabel, type Gauge } from './gauge';
+import { COURSE_METHODS } from './knit-graph';
+import type { ShapeKnitGraph } from './shape-types';
 
 const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(n - s.length));
 const mm = (m: number) => `${+(m * 1000).toFixed(3)} mm`;
@@ -69,6 +71,7 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
             ),
         ]
       : []),
+    ...(p.shape?.knitGraph ? graphLines(p.shape.knitGraph, p.issues) : []),
     p.exportBlockers.length
       ? `Operation-file export BLOCKED: ${p.exportBlockers.length} unresolved issues.`
       : 'No operation-file export blockers detected; this does not certify knittability.',
@@ -169,6 +172,34 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
     ),
   ];
   return lines.join('\n') + '\n';
+}
+
+/** Course and loop stages: where they came from, their size and the rule checks run on them. */
+function graphLines(g: ShapeKnitGraph, notes: readonly string[]): string[] {
+  const { courses, loops } = g.stages,
+    count = <T extends string>(xs: readonly T[]) => {
+      const n = new Map<T, number>();
+      for (const x of xs) n.set(x, (n.get(x) ?? 0) + 1);
+      return [...n].map(([k, v]) => `${k} ${v}`).join(', ');
+    },
+    from = (saved: boolean) => (saved ? 'reused from the project' : 'computed in this build'),
+    // Choices already listed under Notes are not repeated.
+    choices = courses.issues.filter((t) => !notes.includes(t));
+  return [
+    '',
+    'Knit graph stages (stage separation after Popescu 2019, §§6.2.2–6.2.4, pp. 99–104)',
+    `  Course method: ${COURSE_METHODS[g.stages.courseMethod].label}. ${COURSE_METHODS[g.stages.courseMethod].note}`,
+    `  Courses stage: ${from(g.saved.courses)}; fingerprint ${courses.fingerprint}; ${courses.method}. ${courses.vertices.length} vertices, ${courses.links.length} weft links${courses.warp ? `, ${courses.warp.length} warp links` : ''}, ${courses.courses.length} courses.`,
+    loops
+      ? `  Loops stage: ${from(g.saved.loops)}; fingerprint ${loops.fingerprint}; ${loops.method}. ${loops.loops.length} loops (${count(loops.loops.map((l) => l.role))})${loops.rows ? `, ${loops.rows.length} course rows` : ''}${loops.primal ? `; primal faces: ${count(loops.primal.faces.map((f) => f.kind))}` : ''}.`
+      : '  Loops stage: none.',
+    '  Fingerprints are noncryptographic and only detect changed inputs. Symbolic rule checks, not a machine simulation:',
+    ...g.checks.map(
+      (c) =>
+        `    ${c.label} (${c.source}): ${c.violations ? `${c.violations} violations, e.g. ${c.examples.join('; ')}` : 'passed'}`
+    ),
+    ...(choices.length ? ['  Method choices:', ...choices.map((t) => `    - ${t}`)] : []),
+  ];
 }
 
 function calibrationLines(label: string, gauge: Gauge): string[] {

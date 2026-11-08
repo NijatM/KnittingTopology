@@ -3,6 +3,8 @@ export interface KnitLayers {
   topology: boolean;
   mesh: boolean;
   shaping: 'selected' | 'all' | 'off';
+  /** Saved-stage display: course stage links or the loop stage. */
+  graph: 'off' | 'courses' | 'loops';
 }
 
 export const DEFAULT_KNIT_LAYERS: KnitLayers = {
@@ -10,17 +12,20 @@ export const DEFAULT_KNIT_LAYERS: KnitLayers = {
   topology: true,
   mesh: false,
   shaping: 'selected',
+  graph: 'off',
 };
 
 export default function KnitInspection({
   layers,
   hasCourses,
   shapingApplied,
+  hasGraph,
   onChange,
 }: {
   layers: KnitLayers;
   hasCourses: boolean;
   shapingApplied: boolean;
+  hasGraph: boolean;
   onChange: (next: KnitLayers) => void;
 }) {
   return (
@@ -67,6 +72,19 @@ export default function KnitInspection({
             <option value="off">Hidden</option>
           </select>
         </label>
+        <label>
+          Knit graph
+          <select
+            aria-label="Knit graph layer"
+            value={hasGraph ? layers.graph : 'off'}
+            disabled={!hasGraph}
+            onChange={(e) => onChange({ ...layers, graph: e.target.value as KnitLayers['graph'] })}
+          >
+            <option value="off">Hidden</option>
+            <option value="courses">Courses stage</option>
+            <option value="loops">Loops stage</option>
+          </select>
+        </label>
       </div>
       <div className="knit-layer-legend" aria-label="Knit layer legend">
         {hasCourses && (
@@ -86,6 +104,14 @@ export default function KnitInspection({
         {layers.mesh && <span>Surface mesh: faint triangulation</span>}
         {hasCourses && shapingApplied && layers.shaping !== 'off' && (
           <span>Marks: blue turns · green increases / new edge loops · gold decreases</span>
+        )}
+        {hasGraph && layers.graph !== 'off' && (
+          <span>
+            Knit graph: violet weft (course) edges · teal warp edges
+            {layers.graph === 'loops'
+              ? ' · loops: violet plain, blue short-row ends, green increases, gold decreases'
+              : ''}
+          </span>
         )}
         {!hasCourses && <span>No computed courses in this typed network bitmap.</span>}
       </div>

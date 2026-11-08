@@ -1,7 +1,19 @@
 // Integration of surface geometry, a design-level needle layout and Knit Grammar operations.
-import type { GenerationContext, KnitSettings, ProjectState, SwatchEntry } from '../core/types';
+import type {
+  GenerationContext,
+  KnitGraphStages,
+  KnitSettings,
+  ProjectState,
+  SwatchEntry,
+} from '../core/types';
 import type { KnitBuild } from './program';
-import type { ShapeGeometry, ShapeNeedles, ShapeStep, ShapeResult } from './shape-types';
+import type {
+  ShapeGeometry,
+  ShapeKnitGraph,
+  ShapeNeedles,
+  ShapeStep,
+  ShapeResult,
+} from './shape-types';
 import { buildCutDisk } from './cuts';
 import {
   cubeNetChart,
@@ -20,6 +32,22 @@ import {
 import type { NetworkChart } from './rasterize-surface';
 import { buildShapeGeometry } from './shape-geometry';
 import { placeShapeNeedles } from './shape-needles';
+import { pairShortRowTurns, TURN_PAIRING_NOTE, yarnJumpList } from './turn-pairing';
+import {
+  checkBlockers,
+  checkKnitGraph,
+  courseMethodOf,
+  courseStageFingerprint,
+  courseStageFromGeometry,
+  freshStages,
+  geometryFromStages,
+  knitGraphSignature,
+  loopStageFingerprint,
+  loopStageFromNeedles,
+  popescuSettingsOf,
+  stagePoint,
+} from './knit-graph';
+import { popescuCourseStage, popescuLoopStage } from './popescu-rules';
 import { findOp, floatIndex, meaningName, settingsKey, type Step } from './keys';
 import { structuresForKey, isTwoLayer, tileOp } from './structures';
 import { gaugeOf, GAUGE_REFERENCE, SPACING_RANGE } from './gauge';
@@ -60,9 +88,27 @@ export function buildShapeProgram(
   );
   if (!structure)
     return { ok: false, reason: 'The shape fill structure is not available with this key.' };
+  const method = courseMethodOf(settings);
+  if (
+    method === 'popescu-2019-rules' &&
+    (project.surface.kind === 'cube' || project.surface.kind === 'sphere')
+  )
+    return {
+      ok: false,
+      reason:
+        'The Popescu 2019 rules method works on open surfaces only. Choose the project alignment method for a cube or sphere.',
+    };
+  // Fresh saved stages are authoritative; stale ones never reach a build (Generate leaves them out).
+  const saved = freshStages({ surface: project.surface, knit: settings, swatches: [...swatches] }),
+    expected = courseStageFingerprint(project.surface, settings, gauge),
+    graphMismatch: string[] = [];
+  let stages: KnitGraphStages | undefined;
   try {
     const firstDir = settings.lab.firstPass === 'left-to-right' ? 1 : -1;
     let geometry: ShapeGeometry,
+      // The courses stage is recorded before short-row turn pairing removes any loops.
+      courseGeometry: ShapeGeometry | undefined,
+      paired = { removed: 0, maxPerWale: 0 },
       needles: ShapeNeedles,
       closed: CubeNetLayout | undefined,
       sphere: SphereKnitLayout | undefined,
@@ -129,15 +175,92 @@ export function buildShapeProgram(
       if (settings.mode !== 'shape')
         chart = sphereChart(project.surface, project.graph, cut, built.layout);
     } else {
-      geometry = buildShapeGeometry(
-        project.surface,
-        gauge.stitchWidth,
-        gauge.courseHeight,
-        settings.startEdge ?? 'v0',
-        context
-      );
+      const startEdge = settings.startEdge ?? 'v0';
+      if (method === 'popescu-2019-rules') {
+        const options = popescuSettingsOf(settings);
+        context?.progress?.(0.3, 'Connecting contours by the Popescu 2019 rules');
+        const courses =
+          saved?.courses ??
+          popescuCourseStage(
+            project.surface,
+            gauge.stitchWidth,
+            gauge.courseHeight,
+            startEdge,
+            options,
+            expected,
+            context
+          );
+        context?.progress?.(0.5, 'Dividing courses into loops');
+        const loops =
+          saved?.loops ??
+          popescuLoopStage(
+            project.surface,
+            courses,
+            gauge.stitchWidth,
+            startEdge,
+            options,
+            loopStageFingerprint(courses, settings),
+            context
+          );
+        stages = { courseMethod: method, courses, loops };
+      } else stages = saved;
+      let fixedParents: Map<string, string[]> | undefined;
+      if (stages)
+        ({ geometry, fixedParents } = geometryFromStages(
+          project.surface,
+          stages.courses,
+          stages.loops,
+          gauge.stitchWidth,
+          gauge.courseHeight
+        ));
+      else
+        geometry = buildShapeGeometry(
+          project.surface,
+          gauge.stitchWidth,
+          gauge.courseHeight,
+          startEdge,
+          context
+        );
       context?.progress?.(0.6, 'Placing shaping loops on needles');
-      needles = placeShapeNeedles(geometry, firstDir);
+      if (method === 'project-alignment' && !stages?.loops) {
+        courseGeometry = geometry;
+        ({ geometry, needles, ...paired } = pairShortRowTurns(
+          project.surface,
+          geometry,
+          firstDir,
+          context
+        ));
+      } else needles = placeShapeNeedles(geometry, firstDir, fixedParents);
+    }
+    if (!stages?.loops) {
+      const courses =
+        stages?.courses ?? courseStageFromGeometry(expected, courseGeometry ?? geometry);
+      const loops = loopStageFromNeedles(
+        loopStageFingerprint(courses, settings),
+        geometry,
+        needles
+      );
+      // Paired turns shorten courses; the loops stage keeps the courses as knitted.
+      if (paired.removed)
+        loops.rows = geometry.courses.map((c) => ({
+          vertices: [],
+          points: c.points.map(stagePoint),
+          leftBoundary: c.leftBoundary,
+          rightBoundary: c.rightBoundary,
+        }));
+      const computed: KnitGraphStages = { courseMethod: method, courses, loops };
+      // A cube or sphere is rebuilt from its cut and must reproduce any saved stages exactly.
+      if (
+        (closed || sphere) &&
+        saved &&
+        knitGraphSignature(saved) !==
+          knitGraphSignature(saved.loops ? computed : { ...computed, loops: undefined })
+      ) {
+        graphMismatch.push(
+          'Knit graph: the rebuilt layout differs from the saved stages, which are kept. Discard the saved stages to use the rebuilt layout.'
+        );
+        stages = saved;
+      } else stages = computed;
     }
     const { w, h } = needles;
     const shaping = settings.mode !== 'network';
@@ -230,8 +353,15 @@ export function buildShapeProgram(
       else cells[i] = shift;
     }
     context?.progress?.(0.9, 'Checking shaping connectivity and operations');
+    const checks = checkKnitGraph(stages),
+      knitGraph: ShapeKnitGraph = {
+        stages,
+        saved: { courses: !!saved, loops: !!saved?.loops },
+        checks,
+      };
     const shape: ShapeResult = {
       geometry,
+      knitGraph,
       needles: { ...needles, unresolved: shaping ? unresolved : needles.unresolved },
       placementAt,
       blockers: [],
@@ -239,6 +369,7 @@ export function buildShapeProgram(
       ...(sphere ? { sphere } : {}),
     };
     const violations = shaping ? validateShapeOperations(shape, cells, key) : [];
+    const jumps = shaping ? yarnJumpList(needles, firstDir) : [];
     const blockers = [
       ...new Set([
         ...unresolved.map(
@@ -246,6 +377,16 @@ export function buildShapeProgram(
             `Pass ${s.pass}, needle ${s.needle + 1}: ${s.reason ?? 'Unresolved required shaping step.'}`
         ),
         ...violations,
+        ...jumps.map(
+          (j) =>
+            `Pass ${j.pass}: the yarn ends at needle ${j.from + 1} but this pass starts at needle ${j.to + 1}; short rows must turn where the yarn is.${
+              j.pass === 2
+                ? ' The cast-on course is never trimmed; a first pass in the other direction (Lab rules) may avoid this.'
+                : ''
+            }`
+        ),
+        ...graphMismatch,
+        ...checkBlockers(checks),
       ]),
     ];
     shape.blockers = blockers;
@@ -267,6 +408,11 @@ export function buildShapeProgram(
     const issues = [
       ...geometry.issues,
       ...raster.issues,
+      ...(method === 'project-alignment' && !closed && !sphere && stages.loops?.rows
+        ? [
+            `${TURN_PAIRING_NOTE}${paired.removed ? ` This layout: ${paired.removed} loop${paired.removed === 1 ? '' : 's'} removed, at most ${paired.maxPerWale} from one wale (${(paired.maxPerWale * gauge.courseHeight * 1000).toFixed(1)} mm).` : ''}`,
+          ]
+        : []),
       ...(closed || sphere
         ? []
         : [

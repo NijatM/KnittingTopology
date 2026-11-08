@@ -37,6 +37,8 @@ export interface SurfaceViewerProps {
     courses: Vec3[][];
     highlightedCourses?: Vec3[][];
     marks: { position: Vec3; index: number; role: string; selected?: boolean }[];
+    /** Saved knit graph stage (display only). */
+    graph?: { weft: Vec3[][]; warp: Vec3[][]; loops: { position: Vec3; role: string }[] } | null;
   } | null;
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   pickStartEdge?: boolean;

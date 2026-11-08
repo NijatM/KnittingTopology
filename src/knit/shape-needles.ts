@@ -12,9 +12,22 @@ type Plan = { blocks: Block[]; cost: number; moves: ShapeMove[]; placements: Sha
 /** Bounded monotone alignment planner; this is a design-level layout, not a machine simulation.
  * Conservative search: one minimum-cost alignment per candidate origin is retained.
  * A rejected alignment remains inspectable and explicitly blocks export.
+ * `fixedParents` (saved knit graph stages) restricts every candidate to the saved parent links: the planner
+ * places them or reports them unresolved, and never re-matches them.
  */
-export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1): ShapeNeedles {
+export function placeShapeNeedles(
+  geometry: ShapeGeometry,
+  firstDir: 1 | -1 = 1,
+  fixedParents?: ReadonlyMap<string, readonly string[]>
+): ShapeNeedles {
   const courses = geometry.courses;
+  const fits = (id: string, parents: readonly ShapePlacement[]) => {
+    const saved = fixedParents?.get(id);
+    if (!saved) return true;
+    if (saved.length !== parents.length) return false;
+    const ids = parents.map((p) => p.loop.id).sort();
+    return [...saved].sort().every((x, k) => x === ids[k]);
+  };
   if (firstDir !== 1 && firstDir !== -1) throw new Error('Invalid first pass direction');
   if (
     !Number.isFinite(geometry.stitchWidth) ||
@@ -89,7 +102,11 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
     const capacity = n + 2 + Number(c.leftBoundary) + Number(c.rightBoundary);
     const capacityFailure = contiguous && n > 0 && !boundaryStarts && m > capacity;
     const base = n ? parents[0].needle : Math.round(c.loops[0].across / geometry.stitchWidth);
-    const align = (start: number, constrained: boolean): Plan | undefined => {
+    const align = (
+      start: number,
+      constrained: boolean,
+      filtered = !!fixedParents
+    ): Plan | undefined => {
       const cols = m + 1,
         size = (n + 1) * cols;
       const costs = new Float64Array(size).fill(Infinity),
@@ -152,6 +169,10 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
               )
                 return;
             }
+            if (filtered)
+              for (let k = 0; k < b; k++)
+                if (!fits(c.loops[j + k]!.id, b === 2 && k !== host ? [] : parents.slice(i, i + a)))
+                  return;
             const next = (i + a) * cols + j + b,
               value = costs[at] + cost;
             if (
@@ -253,27 +274,44 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
         parents: [parents[i].loop.id],
       })),
     });
+    const identityFits = c.loops.every((loop, i) => i >= n || fits(loop.id, [parents[i]!]));
     // Exact identity is a global optimum: geometric cost zero and no moves.
     // Do not use a tolerance here; nearby coordinates still require alignment.
-    if (contiguous && n === m && parents.every((p, i) => p.loop.across === c.loops[i].across)) {
+    if (
+      contiguous &&
+      n === m &&
+      identityFits &&
+      parents.every((p, i) => p.loop.across === c.loops[i].across)
+    ) {
       chosen = identityPlan();
     }
-    if (!chosen && !capacityFailure && contiguous && (n || c.index === 0))
+    const search = (filtered: boolean) => {
+      let best: Plan | undefined;
       for (let offset = -2; offset <= 2; offset++) {
-        const p = align(base + offset, true);
+        const p = align(base + offset, true, filtered);
         if (
           p &&
-          (!chosen ||
-            p.cost < chosen.cost ||
-            (p.cost === chosen.cost && p.moves.length < chosen.moves.length))
+          (!best ||
+            p.cost < best.cost ||
+            (p.cost === best.cost && p.moves.length < best.moves.length))
         )
-          chosen = p;
+          best = p;
       }
+      return best;
+    };
+    if (!chosen && !capacityFailure && contiguous && (n || c.index === 0))
+      chosen = search(!!fixedParents);
     // The minimum geometric-cost DP plan can fail the subsequent transfer-age
     // checks even though keeping contiguous parents on their needles is legal.
     // Retain this explicit no-move candidate when the active count is unchanged.
     // Every selected parent is consumed once; held parents outside the span are untouched.
-    if (!chosen && contiguous && n === m) chosen = identityPlan();
+    if (!chosen && contiguous && n === m && identityFits) chosen = identityPlan();
+    // Saved links block a pass that the unrestricted search could place: say so instead of re-matching.
+    const savedLinks =
+      !chosen &&
+      !!fixedParents &&
+      ((contiguous && n === m) ||
+        (!capacityFailure && contiguous && (n > 0 || c.index === 0) && !!search(false)));
     if (!chosen) {
       chosen = align(base, false);
       if (!chosen) {
@@ -289,13 +327,14 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
             needle: base + j,
             role: m >= n ? 'increase' : 'decrease',
             parents:
-              n <= m
+              fixedParents?.get(loop.id)?.slice() ??
+              (n <= m
                 ? n
                   ? parents.filter((_, k) => Math.floor((k * m) / n) === j).map((p) => p.loop.id)
                   : []
                 : parents
                     .slice(Math.floor((j * n) / m), Math.floor(((j + 1) * n) / m))
-                    .map((p) => p.loop.id),
+                    .map((p) => p.loop.id)),
           })),
         };
       }
@@ -304,9 +343,11 @@ export function placeShapeNeedles(geometry: ShapeGeometry, firstDir: 1 | -1 = 1)
           pass: c.index + 1,
           needle: p.needle,
           role: p.role,
-          reason: capacityFailure
-            ? `This pass requests ${m} loops from ${n} live parents; the current one-needle grammar permits at most ${capacity} here. Split the piece into patches or use a different operation schedule; geometric preview only.`
-            : 'No certified placement with one-needle transfers and held-loop constraints; geometric preview only.',
+          reason: savedLinks
+            ? 'Saved parent links cannot be placed with one-needle transfers and held-loop constraints; geometric preview only.'
+            : capacityFailure
+              ? `This pass requests ${m} loops from ${n} live parents; the current one-needle grammar permits at most ${capacity} here. Split the piece into patches or use a different operation schedule; geometric preview only.`
+              : 'No certified placement with one-needle transfers and held-loop constraints; geometric preview only.',
         });
       chosen.moves = [];
     }

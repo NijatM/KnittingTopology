@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-07",
+  "date": "2026-11-08",
   "typecheck": {
     "command": "npm run typecheck",
     "result": "pass"
@@ -7,45 +7,45 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 561,
+    "passed": 577,
     "core": 106,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 239,
-    "duration_seconds": 18.8
+    "knit_program": 255,
+    "duration_seconds": 19.35
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 616.52,
-    "lazy_viewer_js_kb": 583.4,
-    "initial_js_gzip_kb": 198.0,
-    "lazy_viewer_js_gzip_kb": 147.35,
+    "initial_js_kb": 660.87,
+    "lazy_viewer_js_kb": 583.82,
+    "initial_js_gzip_kb": 213.79,
+    "lazy_viewer_js_gzip_kb": 147.5,
     "import_worker_js_kb": 27.85,
     "generation_worker_js_kb": 97.19,
-    "knit_worker_js_kb": 105.11,
+    "knit_worker_js_kb": 133.78,
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/calib-dev -g 'swatch calibration context'",
-    "result": "focused new case only: 1 passed (first attempt failed on a test locator, corrected in the test; no runtime change)",
-    "passed_in_main_run": 1,
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npx playwright test",
+    "result": "pass",
+    "passed_in_main_run": 40,
     "failed_in_main_run": 0,
-    "duration_minutes_reported": 0.24,
+    "duration_minutes_reported": 4.2,
     "page_or_console_errors": 0,
-    "source_scope": "Development server; the full suite was run on the production build only for this milestone."
+    "source_scope": "Development server, full suite, after the last source change."
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/calib-prod",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5183/KnittingTopology/ npx playwright test",
     "result": "pass",
-    "passed": 39,
+    "passed": 40,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 3.9,
-    "source_scope": "Final built runtime; source frozen throughout production verification."
+    "duration_minutes_reported": 4.1,
+    "source_scope": "Final built runtime (vite preview); source frozen throughout production verification."
   },
   "mobile": {
     "viewport_width": 375,
@@ -55,7 +55,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "KnitCrete workflow guide and swatch calibration context",
+  "milestone": "Saved knit graph stages, Popescu connection-rules course method and short-row turn pairing (thesis milestone 2a)",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {

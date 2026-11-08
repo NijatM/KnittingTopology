@@ -25,6 +25,7 @@ import type {
   PatternParameters,
   ProjectState,
   KnitCutSettings,
+  KnitGraphStages,
   TopologyPreset,
 } from '../core/types';
 import { analyzeGraph } from '../core/diagnostics';
@@ -75,6 +76,7 @@ import {
   selectionLoops,
   shapeOverlay,
   inspectShapeOverlay,
+  knitGraphOverlay,
 } from './knit/provenance';
 import { knitSettingsOf, swatchesOf } from '../knit/program';
 import { knitAvailable, knitSupported } from '../knit/mapping';
@@ -686,6 +688,10 @@ export default function App() {
   const cutJob = useCutPlan(project.surface, project.graph, knitSettings.cut, changeCut);
   const showProgram = knitOpen && knitAvailable(project.surface);
   const cutEdgeIds = cutJob.matches ? knitSettings.cut?.edgeIds : undefined;
+  const acceptKnitGraph = useCallback(
+    (graph: KnitGraphStages) => dispatch({ type: 'accept-knit-graph', graph }),
+    []
+  );
   const knitJob = useKnitBuild(
     {
       surface: project.surface,
@@ -694,7 +700,8 @@ export default function App() {
       swatches: project.swatches,
     },
     stale,
-    cutJob.matches
+    cutJob.matches,
+    acceptKnitGraph
   );
   const repairKnit = (id: KnitRequirementId | 'settings') => {
     setPickingKnitEdge(false);
@@ -750,6 +757,13 @@ export default function App() {
     [knitProgram, project.graph, knitMarks, selection]
   );
   const inspectingKnit = showProgram && !!knitProgram;
+  const knitGraphLayer = useMemo(
+    () =>
+      knitOpen && knitProgram && knitLayers.graph !== 'off'
+        ? knitGraphOverlay(knitProgram, project.surface, knitLayers.graph)
+        : null,
+    [knitOpen, knitProgram, project.surface, knitLayers.graph]
+  );
   const knitShapeOverlay = useMemo(() => {
     const index = knitHover !== null ? knitProgram?.shape?.placementAt[knitHover] : undefined;
     const placement =
@@ -763,9 +777,10 @@ export default function App() {
       knitProgram?.settings.mode !== 'network',
       knitMarkCells,
       knitHover,
-      course
+      course,
+      knitGraphLayer
     );
-  }, [baseKnitOverlay, knitLayers, knitProgram, knitMarkCells, knitHover]);
+  }, [baseKnitOverlay, knitLayers, knitProgram, knitMarkCells, knitHover, knitGraphLayer]);
   const inspectionView = inspectingKnit
     ? { ...view, showGraph: knitLayers.topology, wireframe: knitLayers.mesh, showCoarse: false }
     : view;
@@ -1340,6 +1355,7 @@ export default function App() {
             layers={knitLayers}
             hasCourses={!!knitProgram.shape}
             shapingApplied={knitProgram.settings.mode !== 'network'}
+            hasGraph={!!knitProgram.shape?.knitGraph}
             onChange={setKnitLayers}
           />
         )}
@@ -2250,6 +2266,7 @@ export default function App() {
                   swatches={swatches}
                   graph={project.graph}
                   projectName={project.name}
+                  surface={project.surface}
                   surfaceSize={project.surface.size}
                   hover={knitHover}
                   selection={selection}

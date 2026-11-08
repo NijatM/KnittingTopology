@@ -13,16 +13,16 @@ export const KNIT_WORKFLOW = [
     title: 'Construct courses and loops',
     source:
       'Sample contours by course height, connect boundary endpoints first, and choose adjacent-contour connections using direction and continuity. Resample course segments by loop width, then form the primal knit graph and its loop dual.',
-    here: 'Distance contours, boundary anchoring, monotone alignment, needle placement and symbolic parent-loop checks are project adaptations. Shaping includes short rows and increases/decreases within the supported grammar.',
-    gap: 'The original candidate search and editable primal face graph are not reproduced. A passed symbolic check does not establish geometric convergence, native machine feasibility or achieved fabric shape.',
+    here: 'The default course method uses distance contours, boundary anchoring and monotone alignment; needle placement and symbolic parent-loop checks are project adaptations. An opt-in second method reconstructs the written connection rules for open surfaces: candidate search, primal faces and their loop dual. Shaping includes short rows and increases/decreases within the supported grammar; short-row turns are paired so each pass starts where the yarn is (project rule).',
+    gap: 'The second method is reconstructed from the thesis text, not from compas_knit; where it leaves faces that are neither quads nor triangles, the thesis fixes them by editing, which is not available here. A passed symbolic check does not establish geometric convergence, native machine feasibility or achieved fabric shape.',
     locator: '§§6.2.2–6.2.4, pp. 99–104; Figs. 6.4–6.12; shaping background §5.2, pp. 79–81',
   },
   {
     title: 'Edit and assemble patches',
     source:
       'Inspect and edit points and edges at intermediate stages, check connectivity and duplicates, save stages, and combine aligned patterns. Computational patches can outnumber fabricated pieces.',
-    here: 'Project saving, selection and specific cube/sphere cut-and-seam workflows exist. Knit results are derived from inputs rather than saved as editable intermediate graphs.',
-    gap: 'General knit graph editing, patch interfaces and assembly are absent. The thesis itself does not develop automatic subdivision; KnitCandela patch combination still required some manual alignment.',
+    here: 'The course and loop stages are saved with the project and as stage files, with input fingerprints and connectivity and duplicate checks; stale stages and failed checks block operation export. Project saving, selection and specific cube/sphere cut-and-seam workflows exist.',
+    gap: 'Knit graph editing, patch interfaces and assembly are absent. The thesis itself does not develop automatic subdivision; KnitCandela patch combination still required some manual alignment.',
     locator: '§6.3, pp. 105–112; Figs. 6.13–6.17; §7.3.4, p. 153, footnote 9',
   },
   {
@@ -62,17 +62,20 @@ export const THESIS_SETTINGS = [
   ],
   [
     'Result count',
-    'Candidate connections per vertex in the source search. Not a control on the current monotone DP.',
+    'Candidate connections per vertex in the source search. Used by the second course method (4–16, default 4); not a control on the default alignment.',
   ],
   [
     'Angle tolerance',
-    'Allows a straighter continuation among similarly perpendicular candidate connections. Not implemented by the current matcher.',
+    'Allows a straighter continuation among similarly perpendicular candidate connections. Used by the second course method (0–45°, default 5°); not a control on the default alignment.',
   ],
   [
     'Spacing weft / warp',
     'Actual loops/courses within the computational width/height. These expand computational units, not the display aspect ratio.',
   ],
-  ['Path', 'Intermediate JSON storage location, not a machine setting.'],
+  [
+    'Path',
+    'Intermediate JSON storage location, not a machine setting. Here the stages are saved in the project file and as downloadable stage files.',
+  ],
 ] as const;
 
 export const THESIS_FEATURES = [

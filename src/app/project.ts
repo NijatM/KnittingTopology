@@ -1,4 +1,5 @@
 import type {
+  KnitGraphStages,
   ProjectState,
   SurfaceSpec,
   PatternParameters,
@@ -12,6 +13,7 @@ import { validateImportedMesh } from '../import/mesh';
 import { createCitationRecord } from '../adapters/citations';
 import { validateKnitSettings } from '../knit/settings';
 import { validateSwatches } from '../knit/gauge';
+import { knitGraphFreshness, knitGraphSignature } from '../knit/knit-graph';
 import {
   MAX_GRAPH_CELLS,
   MAX_GRAPH_EDGES,
@@ -422,6 +424,7 @@ export interface HistoryState {
 export type HistoryAction =
   | { type: 'commit'; next: ProjectState; coalesceKey?: string }
   | { type: 'accept-result'; signature: string; result: import('../core/types').GenerationResult }
+  | { type: 'accept-knit-graph'; graph: KnitGraphStages }
   | { type: 'end-coalesce' }
   | { type: 'undo' }
   | { type: 'redo' };
@@ -433,12 +436,25 @@ function trimHistory(states: ProjectState[]): ProjectState[] {
     const state = states[i]!;
     const graph = state.graph;
     const mesh = state.surface.kind === 'mesh' ? state.surface.mesh : undefined;
+    const knitGraph = state.knit?.graph;
     const additions = [
       ...(graph
         ? [{ resource: graph, cost: graph.nodes.length + graph.edges.length + graph.cells.length }]
         : []),
       ...(mesh
         ? [{ resource: mesh, cost: mesh.positions.length / 3 + mesh.indices.length / 3 }]
+        : []),
+      ...(knitGraph
+        ? [
+            {
+              resource: knitGraph,
+              cost:
+                knitGraph.courses.vertices.length +
+                knitGraph.courses.links.length +
+                (knitGraph.loops?.loops.length ?? 0) +
+                (knitGraph.loops?.primal?.edges.length ?? 0),
+            },
+          ]
         : []),
     ].filter(({ resource }) => !resources.has(resource));
     const addedCost = additions.reduce((sum, item) => sum + item.cost, 0);
@@ -462,6 +478,18 @@ export function historyReducer(history: HistoryState, action: HistoryAction): Hi
       present: { ...history.present, ...action.result, revision: history.present.revision + 1 },
       future: [],
     };
+  }
+  if (action.type === 'accept-knit-graph') {
+    // Only stages built from the present inputs are saved; anything else is left for the next Generate.
+    const knit = history.present.knit;
+    if (!knit || knitGraphSignature(knit.graph) === knitGraphSignature(action.graph))
+      return history;
+    const next = { ...history.present, knit: { ...knit, graph: action.graph } };
+    const state = knitGraphFreshness(next);
+    if (state?.courses !== 'fresh' || state.loops !== 'fresh') return history;
+    // Saving the stages of a build is bookkeeping, not a user edit: it amends the present state, so Undo
+    // reverts the user's last change rather than the save.
+    return { ...history, present: { ...next, revision: history.present.revision + 1 } };
   }
   if (action.type === 'commit') {
     const coalescing = action.coalesceKey && action.coalesceKey === history.coalesceKey;

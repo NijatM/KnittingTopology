@@ -119,16 +119,36 @@ describe('surface to shape bitmap integration', () => {
     expect(p.shape!.needles.moves.every((x) => Math.abs(x.to - x.needle) === 1)).toBe(true);
     expect(knitReport(p, 'saddle', 0.1)).toContain('Not machine-ready');
   });
+  it('blocks the strong saddle when the first pass leaves the yarn away from the next short row', () => {
+    // Test values, not measured gauges. Pass 2 is a short row that starts 15 needles from where the
+    // cast-on pass ended; pairing it would trim the cast-on course, so the jump stays and blocks export.
+    const r = buildKnitProgram({
+      ...input({ startEdge: 'v1' }, { ...plane, kind: 'saddle', size: 0.18, curvature: 1.5 }),
+      swatches: [{ structure: 'jersey', stitchWidth: 0.005, courseHeight: 0.005 }],
+    });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.program.shape!.needles.yarnJumps).toBeGreaterThan(0);
+    expect(r.program.exportBlockers).toContain(
+      'Pass 2: the yarn ends at needle 49 but this pass starts at needle 34; short rows must turn where the yarn is. The cast-on course is never trimmed; a first pass in the other direction (Lab rules) may avoid this.'
+    );
+    expect(
+      r.program.exportBlockers.every((b) => b.includes('short rows must turn where the yarn is.'))
+    ).toBe(true);
+  });
   it('realizes the strong saddle in one-guide jersey with verified parent arrivals', () => {
     // Reduced analytic reproduction of the supplied example; test values, not measured gauges.
     const r = buildKnitProgram({
-      ...input({ startEdge: 'v1' }, { ...plane, kind: 'saddle', size: 0.18, curvature: 1.5 }),
+      ...input(
+        { startEdge: 'v1', lab: { ...defaultKnitSettings().lab, firstPass: 'right-to-left' } },
+        { ...plane, kind: 'saddle', size: 0.18, curvature: 1.5 }
+      ),
       swatches: [{ structure: 'jersey', stitchWidth: 0.005, courseHeight: 0.005 }],
     });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const p = r.program;
     expect(p.exportBlockers).toEqual([]);
+    expect(p.shape!.needles.yarnJumps).toBe(0);
     expect(p.shape!.geometry.method).toContain('triangle-distance');
     expect(p.shape!.needles.placements.every((s) => s.loop.position.every(Number.isFinite))).toBe(
       true

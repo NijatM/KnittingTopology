@@ -1043,6 +1043,37 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       for (const course of props.shapeOverlay.highlightedCourses ?? [])
         appendPath(highlighted, course);
       lineSegments(state.selectionGroup, highlighted, '#d09a4e');
+      const graph = props.shapeOverlay.graph;
+      if (graph) {
+        for (const [lines, color] of [
+          [graph.weft, '#a678d6'],
+          [graph.warp, '#4fae9c'],
+        ] as const) {
+          const segments: number[] = [];
+          for (const line of lines) appendPath(segments, line);
+          const object = lineSegments(state.selectionGroup, segments, color, 0.9);
+          if (object) object.renderOrder = 3;
+        }
+        const roles = new Map<string, number[]>();
+        for (const loop of graph.loops) {
+          const points = roles.get(loop.role) ?? [];
+          points.push(...loop.position);
+          roles.set(loop.role, points);
+        }
+        for (const [role, points] of roles)
+          pointsObject(
+            state.selectionGroup,
+            points,
+            role === 'short-row'
+              ? '#58a6ff'
+              : role === 'increase'
+                ? '#61c789'
+                : role === 'decrease'
+                  ? '#e2bf62'
+                  : '#a678d6',
+            role === 'loop' ? 4 : 7
+          );
+      }
       const batches = new Map<string, number[]>();
       for (const mark of props.shapeOverlay.marks) {
         const color =

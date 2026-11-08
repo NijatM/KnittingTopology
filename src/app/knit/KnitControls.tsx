@@ -2,7 +2,13 @@
 import { useRef, useState } from 'react';
 import type { KnitRequirement, KnitRequirementId } from '../../knit/requirements';
 import KnitFeedback from './KnitFeedback';
-import type { KnitCellRule, KnitSettings } from '../../core/types';
+import type { KnitCellRule, KnitCourseMethod, KnitSettings } from '../../core/types';
+import {
+  COURSE_METHODS,
+  courseMethodOf,
+  POPESCU_LIMITS,
+  popescuSettingsOf,
+} from '../../knit/knit-graph';
 import { PRESET_KEYS, settingsKey } from '../../knit/keys';
 import { structuresForKey, type Structure } from '../../knit/structures';
 import { MAX_SIDE } from '../../knit/grid';
@@ -245,6 +251,52 @@ export default function KnitControls({
             : closed
               ? 'The validated cut is unfolded into a flat net; the chosen side of the net is knitted first. Sizes come from your measurements.'
               : 'Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts are unmeasured. Click near a chart boundary when picking.'}
+        </p>
+        <label className="select-label">
+          Course method
+          <select
+            aria-label="Course method"
+            value={courseMethodOf(s)}
+            onChange={(e) => set({ courseMethod: e.target.value as KnitCourseMethod })}
+          >
+            {(Object.keys(COURSE_METHODS) as KnitCourseMethod[]).map((id) => (
+              <option key={id} value={id} disabled={!!closed && id === 'popescu-2019-rules'}>
+                {COURSE_METHODS[id].label}
+                {closed && id === 'popescu-2019-rules' ? ' (open surfaces only)' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        {courseMethodOf(s) === 'popescu-2019-rules' && (
+          <div className="boundary-counts knit-pair">
+            <NumberField
+              label="Result count"
+              value={popescuSettingsOf(s).resultCount}
+              min={POPESCU_LIMITS.resultCount[0]}
+              max={POPESCU_LIMITS.resultCount[1]}
+              onChange={(resultCount) =>
+                set({ popescu: { ...popescuSettingsOf(s), resultCount } }, 'knit-result-count')
+              }
+            />
+            <NumberField
+              label="Angle tolerance (°)"
+              value={popescuSettingsOf(s).angleTolerance}
+              min={POPESCU_LIMITS.angleTolerance[0]}
+              max={POPESCU_LIMITS.angleTolerance[1]}
+              onChange={(angleTolerance) =>
+                set(
+                  { popescu: { ...popescuSettingsOf(s), angleTolerance } },
+                  'knit-angle-tolerance'
+                )
+              }
+            />
+          </div>
+        )}
+        <p className="hint">
+          {COURSE_METHODS[courseMethodOf(s)].note}
+          {courseMethodOf(s) === 'popescu-2019-rules'
+            ? ' Result count: nearest candidates per side (thesis minimum 4). Angle tolerance: near-ties go to the straighter course (thesis example 5°).'
+            : ''}
         </p>
       </>
       <label className={`select-label ${missingMeasurement ? 'knit-required-control' : ''}`}>

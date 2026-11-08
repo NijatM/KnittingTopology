@@ -3,7 +3,7 @@
  * Supported subset: a single contour, monotone across chart rows. */
 import type { GenerationContext, SurfaceSpec, Vec2, Vec3 } from '../core/types';
 import { evaluateSurface, validateSurface } from '../core/surfaces';
-import type { ShapeCourse, ShapeGeometry, ShapePoint, StartEdge } from './shape-types';
+import type { ShapeCourse, ShapeGeometry, ShapeLoop, ShapePoint, StartEdge } from './shape-types';
 import { surfaceDistance } from './surface-distance';
 
 export function originalShapeUV(u: number, v: number, edge: StartEdge): Vec2 {
@@ -20,12 +20,58 @@ export function originalShapeUV(u: number, v: number, edge: StartEdge): Vec2 {
 }
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const countCeil = (x: number) => Math.ceil(x - 1e-10 * Math.max(1, x));
-function lengths(p: ShapePoint[]): number[] {
+export function shapeLengths(p: ShapePoint[]): number[] {
   const l = [0];
   for (let i = 1; i < p.length; i++) l.push(l[i - 1] + distance(p[i - 1].position, p[i].position));
   return l;
 }
-export function buildShapeGeometry(
+const lengths = shapeLengths;
+/** Chart coordinates after the start-edge rotation (inverse of `originalShapeUV`). */
+export function rotatedShapeUV(uv: Vec2, edge: StartEdge): Vec2 {
+  return edge === 'v0'
+    ? [uv[0], uv[1]]
+    : edge === 'u1'
+      ? [uv[1], 1 - uv[0]]
+      : edge === 'v1'
+        ? [1 - uv[0], 1 - uv[1]]
+        : [1 - uv[1], uv[0]];
+}
+/** Chart v after the start-edge rotation: the direction along a contour. */
+export function rotatedShapeV(uv: Vec2, edge: StartEdge): number {
+  return edge === 'v0' ? uv[1] : edge === 'v1' ? 1 - uv[1] : edge === 'u1' ? 1 - uv[0] : uv[0];
+}
+/** Point at fraction `t` of the arc length `l` of polyline `p`; chart-linear between samples. */
+export function interpolateShape(
+  surface: SurfaceSpec,
+  p: ShapePoint[],
+  l: number[],
+  t: number
+): ShapePoint {
+  const target = t * l[l.length - 1];
+  let k = 1;
+  while (k < l.length - 1 && l[k] < target) k++;
+  const a = p[k - 1],
+    b = p[k],
+    f = l[k] === l[k - 1] ? 0 : (target - l[k - 1]) / (l[k] - l[k - 1]);
+  const uv: Vec2 = [a.uv[0] + f * (b.uv[0] - a.uv[0]), a.uv[1] + f * (b.uv[1] - a.uv[1])];
+  return {
+    uv,
+    position: evaluateSurface(surface, 0, ...uv),
+    across: a.across + f * (b.across - a.across),
+  };
+}
+/** Sampled distance from the needle-1 side on a rotated (resolution + 1)² chart grid. */
+export interface ShapeField {
+  surface: SurfaceSpec;
+  startEdge: StartEdge;
+  n: number;
+  d: ArrayLike<number>;
+  /** Largest distance on the opposite side. */
+  max: number;
+  at: (u: number, v: number, across: number) => ShapePoint;
+  check: () => void;
+}
+export function shapeDistanceField(
   surface: SurfaceSpec,
   stitchWidth: number,
   courseHeight: number,
@@ -33,7 +79,7 @@ export function buildShapeGeometry(
   context?: GenerationContext,
   /** Numerical comparisons only; not a saved/UI setting. */
   resolution = surface.kind === 'plane' ? 16 : 128
-): ShapeGeometry {
+): ShapeField {
   validateSurface(surface);
   if (
     !['plane', 'saddle', 'mesh'].includes(surface.kind) ||
@@ -77,57 +123,105 @@ export function buildShapeGeometry(
           check
         ).values;
   const max = Math.max(...Array.from({ length: side }, (_, y) => d[y * side + n]));
-  const width = Math.max(1, countCeil(max / stitchWidth));
-  if (width > 600) throw new Error('Shaping exceeds the 600 needle limit.');
+  return { surface, startEdge, n, d, max, at, check };
+}
+export function assertMonotone(field: ShapeField) {
+  const { n, d, surface } = field,
+    side = n + 1;
   for (let y = 0; y <= n; y++)
     for (let x = 1; x <= n; x++)
       if (d[y * side + x] < d[y * side + x - 1] - 1e-10 * surface.size)
         throw new Error('Unsupported nonmonotone distance contour; split the chart into patches.');
-  const interpolate = (p: ShapePoint[], l: number[], t: number): ShapePoint => {
-    const target = t * l[l.length - 1];
-    let k = 1;
-    while (k < l.length - 1 && l[k] < target) k++;
-    const a = p[k - 1],
-      b = p[k],
-      f = l[k] === l[k - 1] ? 0 : (target - l[k - 1]) / (l[k] - l[k - 1]);
-    const uv: Vec2 = [a.uv[0] + f * (b.uv[0] - a.uv[0]), a.uv[1] + f * (b.uv[1] - a.uv[1])];
-    return {
-      uv,
-      position: evaluateSurface(surface, 0, ...uv),
-      across: a.across + f * (b.across - a.across),
-    };
-  };
+}
+/** Level set of the distance field, ordered along the contour; one run only. */
+export function shapeContour(field: ShapeField, level: number): ShapePoint[] {
+  const { n, d, at } = field,
+    side = n + 1;
+  const p: ShapePoint[] = [];
+  let runs = 0,
+    inside = false;
+  for (let y = 0; y <= n; y++) {
+    const right = d[y * side + n],
+      valid = right >= level;
+    if (valid !== inside && y > 0) {
+      const prev = d[(y - 1) * side + n],
+        f = (level - prev) / (right - prev);
+      p.push(at(1, (y - 1 + f) / n, level));
+    }
+    if (valid) {
+      if (!inside) runs++;
+      let x = 1;
+      while (x < n && d[y * side + x] < level) x++;
+      const a = d[y * side + x - 1],
+        b = d[y * side + x];
+      p.push(at((x - 1 + (level - a) / (b - a)) / n, y / n, level));
+    }
+    inside = valid;
+  }
+  if (runs !== 1 || p.length < 2)
+    throw new Error(
+      'Unsupported disconnected or degenerate contour; split the chart into patches.'
+    );
+  return p;
+}
+/** The chart side opposite needle 1, with its sampled distances. */
+export function shapeFarSide(field: ShapeField): ShapePoint[] {
+  const { n, d, at } = field;
+  return Array.from({ length: n + 1 }, (_, y) => at(1, y / n, d[y * (n + 1) + n]));
+}
+/** The needle-1 chart side, at distance zero. */
+export function shapeNearSide(field: ShapeField): ShapePoint[] {
+  const { n, at } = field;
+  return Array.from({ length: n + 1 }, (_, y) => at(0, y / n, 0));
+}
+/** Loops at the centres of equal parts of a course polyline; the count is the measured stitch width, rounded up. */
+export function shapeCourseLoops(
+  surface: SurfaceSpec,
+  points: ShapePoint[],
+  stitchWidth: number,
+  index: number
+): { loops: ShapeLoop[]; length: number } {
+  const l = lengths(points),
+    length = l.at(-1)!;
+  const count = Math.max(1, countCeil(length / stitchWidth));
+  if (count > 600) throw new Error('Shaping exceeds the 600 needle limit.');
+  const loops = Array.from({ length: count }, (_, i) => ({
+    ...interpolateShape(surface, points, l, (i + 0.5) / count),
+    id: `shape:${index}:${i}`,
+  }));
+  return { loops, length };
+}
+export function buildShapeGeometry(
+  surface: SurfaceSpec,
+  stitchWidth: number,
+  courseHeight: number,
+  startEdge: StartEdge = 'v0',
+  context?: GenerationContext,
+  /** Numerical comparisons only; not a saved/UI setting. */
+  resolution = surface.kind === 'plane' ? 16 : 128
+): ShapeGeometry {
+  const field = shapeDistanceField(
+    surface,
+    stitchWidth,
+    courseHeight,
+    startEdge,
+    context,
+    resolution
+  );
+  const { n, d, max, at, check } = field,
+    side = n + 1;
+  const width = Math.max(1, countCeil(max / stitchWidth));
+  if (width > 600) throw new Error('Shaping exceeds the 600 needle limit.');
+  assertMonotone(field);
+  const interpolate = (p: ShapePoint[], l: number[], t: number) =>
+    interpolateShape(surface, p, l, t);
   const contours: ShapePoint[][] = [],
     samples: ShapePoint[][] = [],
     rounding: number[] = [];
   for (let j = 0; j < width; j++) {
     check();
     const level = Math.min((j + 0.5) * stitchWidth, max * (1 - 1e-12));
-    const p: ShapePoint[] = [];
-    let runs = 0,
-      inside = false;
-    for (let y = 0; y <= n; y++) {
-      const right = d[y * side + n],
-        valid = right >= level;
-      if (valid !== inside && y > 0) {
-        const prev = d[(y - 1) * side + n],
-          f = (level - prev) / (right - prev);
-        p.push(at(1, (y - 1 + f) / n, level));
-      }
-      if (valid) {
-        if (!inside) runs++;
-        let x = 1;
-        while (x < n && d[y * side + x] < level) x++;
-        const a = d[y * side + x - 1],
-          b = d[y * side + x];
-        p.push(at((x - 1 + (level - a) / (b - a)) / n, y / n, level));
-      }
-      inside = valid;
-    }
-    if (runs !== 1 || p.length < 2)
-      throw new Error(
-        'Unsupported disconnected or degenerate contour; split the chart into patches.'
-      );
+    const p = shapeContour(field, level);
     const l = lengths(p),
       len = l[l.length - 1],
       m = Math.max(1, Math.round(len / courseHeight));
@@ -153,7 +247,9 @@ export function buildShapeGeometry(
       }
       return a;
     };
+  const links: [number, number][] = [];
   const union = (a: number, b: number) => {
+    links.push([a, b]);
     a = find(a);
     b = find(b);
     if (a !== b) parent[b] = a;
@@ -293,12 +389,12 @@ export function buildShapeGeometry(
       maxLinkOffset = Math.max(maxLinkOffset, Math.sqrt(cost(ai, bj)));
     }
   }
-  const groups = new Map<number, { p: ShapePoint; col: number }[]>();
+  const groups = new Map<number, { p: ShapePoint; col: number; index: number }[]>();
   samples.forEach((s, col) =>
     s.forEach((p, i) => {
       const key = find(offsets[col] + i),
         g = groups.get(key) ?? [];
-      g.push({ p, col });
+      g.push({ p, col, index: offsets[col] + i });
       groups.set(key, g);
     })
   );
@@ -333,11 +429,13 @@ export function buildShapeGeometry(
   if (order.length !== groups.size) throw new Error('Cyclic shaping course order.');
   if (order.length > 600) throw new Error('Shaping exceeds the 600 pass limit.');
   const courseRounding: number[] = [],
+    courseVertices: number[][] = [],
     courses: ShapeCourse[] = order.map((key, index) => {
       const g = groups.get(key)!,
         first = g[0],
         last = g.at(-1)!;
       const points = g.map((x) => x.p);
+      courseVertices.push(g.map((x) => x.index));
       const extend = (p: ShapePoint, u: number, across: number) => {
         const uv = p.uv;
         const v =
@@ -395,15 +493,8 @@ export function buildShapeGeometry(
       points.push(
         rightBoundary ? extend(last.p, 1, sideDistance(last.p)) : midpoint(last.p, last.col + 1)
       );
-      const l = lengths(points),
-        length = l.at(-1)!;
-      const count = Math.max(1, countCeil(length / stitchWidth));
-      if (count > 600) throw new Error('Shaping exceeds the 600 needle limit.');
-      const loops = Array.from({ length: count }, (_, i) => ({
-        ...interpolate(points, l, (i + 0.5) / count),
-        id: `shape:${index}:${i}`,
-      }));
-      courseRounding.push(length - count * stitchWidth);
+      const { loops, length } = shapeCourseLoops(surface, points, stitchWidth, index);
+      courseRounding.push(length - loops.length * stitchWidth);
       return {
         id: `course:${index}`,
         index,
@@ -428,6 +519,7 @@ export function buildShapeGeometry(
     courseRounding,
     maxLinkOffset,
     resolution: n,
+    graph: { samples, links, courses: courseVertices },
     method:
       'Popescu 2019 §§6.2.2–6.2.3 stages; project triangle-distance and endpoint-anchored monotone alignment v3',
     issues: [

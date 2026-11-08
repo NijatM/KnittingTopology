@@ -1670,6 +1670,23 @@ kbd {
   display: block;
   cursor: crosshair;
 }
+.knit-bitmap-colour {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  color: var(--dim);
+  font-size: 11px;
+}
+.knit-bitmap-legend {
+  flex-basis: 100%;
+  text-align: right;
+}
 .knit-bitmap-empty {
   position: absolute;
   inset: 0;
