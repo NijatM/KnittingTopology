@@ -294,6 +294,16 @@ export interface KnitSettings {
     travel: 'same-stroke' | 'two-strokes';
   };
 }
+/** User-reported measurement conditions, not machine configuration or a material model. */
+export interface SwatchCalibration {
+  /** Omitted on legacy/unspecified records; never inferred from dimensions. */
+  state?: 'relaxed' | 'tensioned' | 'biaxial-locked';
+  machine?: string;
+  knitPoint?: string;
+  yarnTension?: string;
+  knittingSpeed?: string;
+  protocol?: string;
+}
 /** One swatch measurement. Lengths in meters (millimeters in the UI); text fields as entered. */
 export interface SwatchEntry {
   structure: string;
@@ -306,6 +316,7 @@ export interface SwatchEntry {
   yarn?: string;
   stitchLength?: string;
   note?: string;
+  calibration?: SwatchCalibration;
 }
 export interface GenerationContext {
   cancelled?: () => boolean;

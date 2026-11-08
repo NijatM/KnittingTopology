@@ -7,50 +7,44 @@
   "unit_tests": {
     "command": "npm test",
     "result": "pass",
-    "passed": 546,
+    "passed": 561,
     "core": 106,
     "project_and_persistence": 32,
     "learning_and_citations": 33,
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
-    "knit_program": 224,
-    "duration_seconds": 19.04
+    "knit_program": 239,
+    "duration_seconds": 18.8
   },
   "production_build": {
     "command": "npm run build",
     "result": "pass",
     "base": "/KnittingTopology/",
     "worker": "separate ES module",
-    "initial_js_kb": 601.56,
+    "initial_js_kb": 616.52,
     "lazy_viewer_js_kb": 583.4,
-    "initial_js_gzip_kb": 192.85,
+    "initial_js_gzip_kb": 198.0,
     "lazy_viewer_js_gzip_kb": 147.35,
     "import_worker_js_kb": 27.85,
-    "generation_worker_js_kb": 96.99,
-    "knit_worker_js_kb": 105.0,
+    "generation_worker_js_kb": 97.19,
+    "knit_worker_js_kb": 105.11,
     "cut_worker_js_kb": 28.28
   },
   "development_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/course-anchors-development",
-    "result": "37 passed; one interrupted by a source-comment HMR reload, then passed on focused rerun",
-    "passed_in_main_run": 37,
-    "failed_in_main_run": 1,
-    "duration_minutes_reported": 4.3,
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/calib-dev -g 'swatch calibration context'",
+    "result": "focused new case only: 1 passed (first attempt failed on a test locator, corrected in the test; no runtime change)",
+    "passed_in_main_run": 1,
+    "failed_in_main_run": 0,
+    "duration_minutes_reported": 0.24,
     "page_or_console_errors": 0,
-    "followup": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'supported N-sided patches and pattern transformations' --output=tmp/qa/course-anchors-development-followup",
-      "passed": 1,
-      "duration_seconds_reported": 19.1,
-      "result": "pass"
-    },
-    "source_scope": "Runtime unchanged. Editing one comment in shape-geometry.ts triggered a logged Vite page reload during the N-sided workspace test. Source frozen and the affected case rerun; no test assertions or numerical behavior changed."
+    "source_scope": "Development server; the full suite was run on the production build only for this milestone."
   },
   "production_browser_tests": {
-    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/course-anchors-production",
+    "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/calib-prod",
     "result": "pass",
-    "passed": 38,
+    "passed": 39,
     "page_or_console_errors": 0,
-    "duration_minutes_reported": 4.2,
+    "duration_minutes_reported": 3.9,
     "source_scope": "Final built runtime; source frozen throughout production verification."
   },
   "mobile": {
@@ -61,7 +55,7 @@
   },
   "physical_or_manufacturing_validation": false,
   "remote_deployment_tested": false,
-  "milestone": "Endpoint-anchored courses and unchanged-needle candidate",
+  "milestone": "KnitCrete workflow guide and swatch calibration context",
   "prior_baseline_only": {
     "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
     "production_network": {
@@ -1123,5 +1117,37 @@
     "physical_shape_validated": false,
     "remote_deployment_tested": false,
     "boundary_course_loops": 47
+  },
+  "thesis_workflow_calibration": {
+    "status": "Local verification complete: 561 unit tests, production browser 39/39. Teaching content and user-reported measurement context only.",
+    "source": "Popescu (2019) thesis reviewed in extracted text with enlarged figure checks; printed-page locators spot-checked against the text for section 6.3.1 settings (pp. 105-107), section 6.5 footnote 13 (p. 117), Fig. 7.34 j-k (p. 152), the KnitCandela 7 mm x 12 mm unit with spacing 2/6 (p. 153) and Table D.2 (p. 205).",
+    "available": [
+      "KnitCrete workflow guide in the Knit and Learn tabs: six stages (thesis / this app / still needed), section 6.3.1 settings, operation and feature gaps, thesis BibTeX, CSL JSON and method note downloads",
+      "optional swatch calibration context: measurement state relaxed / tensioned / biaxial-locked (user-declared), machine, knit point, yarn tension, knitting speed, test protocol (text, at most 500 characters each)",
+      "measurement context section in the knit report, following the measurement actually used, including the jersey fallback"
+    ],
+    "no_change": [
+      "stitch width and course height numerics",
+      "operation alphabet and class colours",
+      "export gates",
+      "project schema version (optional field; older records stay readable, state unspecified)",
+      "scientific input signature"
+    ],
+    "checks": [
+      "three states round-trip through the measurement table and project files with exact user text",
+      "legacy records stay unspecified; no state inferred",
+      "8 malformed calibration values rejected on table and project import",
+      "gauge context follows the measurement used, including jersey fallback",
+      "context-only edit keeps the scientific signature; undo and redo restore it",
+      "context leaves shape, cells, BMP bytes and export blockers unchanged; report carries every field",
+      "browser: add with context, report and table downloads, context-only edit keeps program size, undo restores the form, guide stage and BibTeX download at 375px without overflow"
+    ],
+    "not_claimed": [
+      "machine configuration or native symbols",
+      "lab machine specification (Libra 3.130 / Model 9 is the thesis setup, not the target)",
+      "material model, calibration certificate or physical validation",
+      "thesis patch editing, feature recipes, compound or diagonal transfers, drops"
+    ],
+    "remote_deployment_tested": false
   }
 }

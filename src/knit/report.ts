@@ -4,6 +4,7 @@ import type { KnitProgram } from './program';
 import { keyById, meaningName, rgbText } from './keys';
 import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
+import { CALIBRATION_FIELDS, measurementStateLabel, type Gauge } from './gauge';
 
 const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(n - s.length));
 const mm = (m: number) => `${+(m * 1000).toFixed(3)} mm`;
@@ -130,6 +131,16 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
     ...(p.findings.length ? p.findings.map((f) => `  - ${f.title}: ${f.text}`) : ['  none']),
     ...(p.issues.length ? ['', 'Notes', ...p.issues.map((t) => `  - ${t}`)] : []),
     '',
+    'Measurement context (user-reported; not machine settings or physical validation)',
+    'Source context: Popescu (2019), section 6.5, pp. 116–117, https://doi.org/10.3929/ethz-b-000408640. The thesis measures biaxially tensioned samples for a tensioned target; no state is inferred here.',
+    ...(jersey
+      ? calibrationLines('Layout measurement', jersey)
+      : ['  Layout: typed / no measurement.']),
+    ...p.structures.flatMap((x) =>
+      x.gauge ? calibrationLines(x.id, x.gauge) : [`  ${x.id}: no measurement; state unspecified.`]
+    ),
+    'Machine model, needle allocation, bed width, software and symbol library must be confirmed with the lab. Thesis Libra/Model 9 examples are not the target specification.',
+    '',
     'Lab rules to confirm',
     `  first pass: ${s.lab.firstPass}`,
     `  transfer timing: ${s.lab.transferTiming}`,
@@ -158,6 +169,16 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
     ),
   ];
   return lines.join('\n') + '\n';
+}
+
+function calibrationLines(label: string, gauge: Gauge): string[] {
+  const context = gauge.calibration;
+  return [
+    `  ${label}: state ${measurementStateLabel(context)}; measured on ${gauge.measuredOn}${gauge.assumed ? ' (fallback, not measured on this structure)' : ''}.`,
+    ...CALIBRATION_FIELDS.flatMap(({ id, label: field }) =>
+      context?.[id] ? [`    ${field}: ${context[id]!.replace(/\r?\n/g, '\n      ')}`] : []
+    ),
+  ];
 }
 
 function closedLines(c: CubeNetLayout, p: KnitProgram): string[] {

@@ -54,9 +54,9 @@ export const REFERENCES: Record<ReferenceId, ScientificReference> = {
     doi: '10.3929/ethz-b-000408640',
     url: 'https://doi.org/10.3929/ethz-b-000408640',
     accessed: '2026-11-06',
-    note: 'Implementation evidence: sections 5.2 and 6.2; independent project adaptations are documented separately',
+    note: 'Workflow evidence: chapters 5 and 6; KnitCandela section 7.3.4 and appendices A and D. Project adaptations and missing native recipes are documented separately',
     verificationNote:
-      'User-supplied thesis title page and sections 5.2 and 6.2 read directly. The distance source, monotone alignment, needle placement and bitmap checks are project adaptations. The thesis pattern diagram is not machine instructions.',
+      'User-supplied thesis reviewed directly in text, with enlarged checks of method diagrams, symbols, feature zones, Figure 7.34 and Appendix D tables. The distance source, monotone alignment, needle placement and bitmap checks are project adaptations. Native libraries are not reproduced; source machine settings are not lab specifications. Workflow review: 2026-11-07.',
   },
   popescu2018automated: {
     id: 'popescu2018automated',

@@ -273,3 +273,13 @@ The exact saved project in uniform one-guide Shape mode now gives 50 needles × 
 Counts and interior course distributions still vary under refinement. A passing symbolic graph is not a geometric-spacing, knittability or physical-shape certificate. No new machine operations, calibration defaults, simulation or remote deployment checks were introduced.
 
 Build assets: 601.56 kB initial JavaScript (192.85 kB gzip), 583.40 kB lazy viewer (147.35 kB gzip), 96.99 kB generation worker and 105.00 kB knit worker.
+
+## KnitCrete workflow guide and swatch calibration context — 7 November 2026
+
+The Knit and Learn tabs include a read-only guide to the thesis workflow, with printed-page locators, thesis settings, operation and feature gaps, and citation downloads. Measurements can carry optional calibration context: a declared state (relaxed, tensioned or biaxial-locked), machine, knit point, yarn tension, knitting speed and test protocol, stored as the user's text. See the [thesis workflow audit](popescu-workflow-audit.md). Locators for the §6.3.1 settings, §6.5 footnote 13, Fig. 7.34 j–k, the KnitCandela unit (p. 153) and Table D.2 were checked against the thesis text.
+
+All **561/561 unit tests across 28 files** passed in 18.80 seconds, including 239 knit cases. The 15 new calibration cases cover round trips of all three states through the measurement table and the project file, legacy records staying unspecified, eight malformed values rejected on both imports, context following the measurement actually used (including the jersey fallback), an unchanged scientific signature with undo and redo, and identical shape, cells, BMP bytes and export blockers when only the context changes. Type checking, formatting and the production build passed. A new browser case adds a measurement with context, checks the report and table downloads, confirms that a context-only edit keeps the program size and that undo restores the form, and opens the guide at 375px without page overflow. It passed on the development server (1/1). The final production browser run passed **39/39 in 3.9 minutes** with zero page/console errors. Both owned servers were stopped.
+
+The context does not change loop numerics, configure a machine or certify calibration. Thesis Libra 3.130 / Model 9 settings remain a historical example; the lab's machine, needle allocation, bed width, software and symbol library are unconfirmed. Patch editing, feature recipes, compound and diagonal transfers and drops are not implemented.
+
+Build assets: 616.52 kB initial JavaScript (198.00 kB gzip), 583.40 kB lazy viewer (147.35 kB gzip), 97.19 kB generation worker and 105.11 kB knit worker.

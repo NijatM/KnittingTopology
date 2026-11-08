@@ -8,13 +8,22 @@ import { structuresForKey, type Structure } from '../../knit/structures';
 import { SOURCE } from '../../knit/rasterize';
 import { bmpBytes, grammarJson } from '../../knit/files';
 import { knitReport } from '../../knit/report';
-import { parseSwatchFile, SPACING_RANGE, swatchFileText, validateSwatches } from '../../knit/gauge';
+import {
+  CALIBRATION_FIELDS,
+  MEASUREMENT_STATES,
+  measurementStateLabel,
+  parseSwatchFile,
+  SPACING_RANGE,
+  swatchFileText,
+  validateSwatches,
+} from '../../knit/gauge';
 import { download, projectFilename } from '../../adapters/export';
 import { loopText } from './provenance';
 import { referencesBibtex, referencesCSL } from '../../learning/citations';
 import KeyEditor from './KeyEditor';
 import TileEditor from './TileEditor';
 import KnitAssessment from './KnitAssessment';
+import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
 
 interface Props {
   build: KnitBuild;
@@ -62,6 +71,12 @@ function SwatchForm({
     yarn: '',
     stitchLength: '',
     note: '',
+    state: '',
+    machine: '',
+    knitPoint: '',
+    yarnTension: '',
+    knittingSpeed: '',
+    protocol: '',
   };
   const [d, setD] = useState(
     entry
@@ -74,6 +89,12 @@ function SwatchForm({
           yarn: entry.yarn ?? '',
           stitchLength: entry.stitchLength ?? '',
           note: entry.note ?? '',
+          state: entry.calibration?.state ?? '',
+          machine: entry.calibration?.machine ?? '',
+          knitPoint: entry.calibration?.knitPoint ?? '',
+          yarnTension: entry.calibration?.yarnTension ?? '',
+          knittingSpeed: entry.calibration?.knittingSpeed ?? '',
+          protocol: entry.calibration?.protocol ?? '',
         }
       : blank
   );
@@ -109,8 +130,10 @@ function SwatchForm({
     target?.focus();
     target?.scrollIntoView({ block: 'center' });
   }, [request]);
-  const field = (k: keyof typeof d) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setD({ ...d, [k]: e.target.value });
+  const field =
+    (k: keyof typeof d) =>
+    (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+      setD({ ...d, [k]: e.target.value });
   const save = () => {
     setSubmitted(true);
     if (widthMissing || heightMissing) {
@@ -127,6 +150,11 @@ function SwatchForm({
     };
     for (const k of ['date', 'gauge', 'yarn', 'stitchLength', 'note'] as const)
       if (d[k].trim()) next[k] = d[k].trim();
+    const context: NonNullable<SwatchEntry['calibration']> = {};
+    const state = MEASUREMENT_STATES.find((x) => x.id === d.state);
+    if (state) context.state = state.id;
+    for (const { id } of CALIBRATION_FIELDS) if (d[id].trim()) context[id] = d[id].trim();
+    if (Object.keys(context).length) next.calibration = context;
     const message = onSave(next);
     setError(message ?? '');
     if (!message && !entry) setD(blank);
@@ -226,6 +254,51 @@ function SwatchForm({
           />
         </label>
       </div>
+      <details className="swatch-calibration">
+        <summary>Calibration context (optional)</summary>
+        <p className="hint" id={`${id}-calibration-hint`}>
+          Record the conditions in which you measured these loop dimensions. No state or machine
+          setting is inferred. This context does not configure a machine or predict fabric shape.
+        </p>
+        <label className="select-label">
+          Measurement state
+          <select
+            aria-label="Measurement state"
+            aria-describedby={`${id}-calibration-hint`}
+            value={d.state}
+            onChange={field('state')}
+          >
+            <option value="">Unspecified</option>
+            {MEASUREMENT_STATES.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {CALIBRATION_FIELDS.map(({ id: key, label }) => (
+          <label className="select-label" key={key}>
+            {label}
+            {key === 'protocol' ? '' : ' (include units where needed)'}
+            {key === 'protocol' ? (
+              <textarea
+                rows={3}
+                aria-label={label}
+                value={d[key]}
+                maxLength={500}
+                onChange={field(key)}
+              />
+            ) : (
+              <input aria-label={label} value={d[key]} maxLength={500} onChange={field(key)} />
+            )}
+          </label>
+        ))}
+        <p className="hint">
+          Popescu (2019), §6.5, pp. 116–117 measures samples under biaxial tension for a tensioned
+          target. A relaxed swatch describes a different state. Keep loads, directions, supports and
+          conditioning in the test protocol; a declared locked state is not independently verified.
+        </p>
+      </details>
       <label className="select-label">
         Note
         <input aria-label="Note" value={d.note} onChange={field('note')} />
@@ -620,6 +693,7 @@ export default function KnitPanel(props: Props) {
 
       <KeyEditor settings={s} onChange={props.onSettings} />
       <TileEditor key={key.id} settings={s} swatches={swatches} onChange={props.onSettings} />
+      <KnitWorkflowLesson />
       <h3 className="knit-heading">
         Measurement table{' '}
         {props.needsMeasurement && <span className="knit-required-label">Required</span>}
@@ -629,11 +703,13 @@ export default function KnitPanel(props: Props) {
         values and are flagged.
       </p>
       {swatches.map((x) => (
-        <details className="swatch-entry" key={`${x.structure}:${x.stitchWidth}:${x.courseHeight}`}>
+        <details className="swatch-entry" key={x.structure}>
           <summary>
-            {nameOf(x.structure)} · {mm(x.stitchWidth)} × {mm(x.courseHeight)} mm
+            {nameOf(x.structure)} · {mm(x.stitchWidth)} × {mm(x.courseHeight)} mm ·{' '}
+            {measurementStateLabel(x.calibration)}
           </summary>
           <SwatchForm
+            key={JSON.stringify(x)}
             structures={STRUCTURES}
             entry={x}
             taken={taken}

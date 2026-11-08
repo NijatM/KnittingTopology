@@ -4,6 +4,8 @@ Shape mode takes a plane, saddle or supplied rectangular OBJ chart and measured 
 
 ## Source and attribution
 
+The [workflow audit](popescu-workflow-audit.md) compares the thesis's stages, settings, operations and missing capabilities. The Knit and Learn tabs include an interactive guide with printed-page locators and citation downloads. Swatch calibration context records user-reported measurement state and machine/test conditions; it does not alter loop dimensions, configure machinery or simulate textile tension.
+
 Mariana Adriana Popescu, _KnitCrete: Stay-in-place knitted formworks for complex concrete structures_, doctoral thesis, ETH Zurich, 2019, DOI [10.3929/ethz-b-000408640](https://doi.org/10.3929/ethz-b-000408640), §§5.2 and 6.2.
 
 Section 6.2 describes course generation, subdivision into loops, and translation of the dual graph into a square diagram. Triangular exceptions represent short-row endpoints or increases/decreases. Section 5.2 explains edge activation and transfers to make room for interior increases. The thesis diagram does not contain final machine instructions (§6.2.4); this app's operation mapping is an additional project method.

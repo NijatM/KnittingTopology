@@ -12,6 +12,7 @@ import {
 } from './citations';
 import type { LearningExample, LessonId, MethodLesson } from './types';
 import MethodDiagram from './MethodDiagram';
+import KnitWorkflowLesson from './KnitWorkflowLesson';
 import './learning.css';
 
 interface LearningPanelProps {
@@ -83,6 +84,7 @@ export default function LearningPanel({
           relationship.
         </p>
       </div>
+      <KnitWorkflowLesson />
       <label className="learning-topic">
         Reading topic
         <select

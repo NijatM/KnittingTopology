@@ -1,6 +1,6 @@
 // Swatch measurement table: per structure, the measured needle (wale) spacing and pass (course) spacing. Values
 // come only from the user's swatches. A structure without its own entry uses the jersey entry and is flagged.
-import type { SwatchEntry } from '../core/types';
+import type { SwatchCalibration, SwatchEntry } from '../core/types';
 
 export const SWATCH_FORMAT = 'knitting-topology-swatches';
 export const MAX_SWATCHES = 200;
@@ -15,6 +15,8 @@ export interface Gauge {
   courseHeight: number;
   /** True when the structure has no entry and jersey values stand in. */
   assumed: boolean;
+  /** Describes the measurement actually used, including a jersey fallback. */
+  calibration?: SwatchCalibration;
 }
 
 /** Measured gauge of a structure, the jersey fallback (flagged), or null without a jersey entry. */
@@ -26,6 +28,7 @@ export function gaugeOf(structure: string, swatches: readonly SwatchEntry[]): Ga
       stitchWidth: own.stitchWidth,
       courseHeight: own.courseHeight,
       assumed: false,
+      ...(own.calibration ? { calibration: { ...own.calibration } } : {}),
     };
   const ref = swatches.find((s) => s.structure === GAUGE_REFERENCE);
   return ref
@@ -34,11 +37,49 @@ export function gaugeOf(structure: string, swatches: readonly SwatchEntry[]): Ga
         stitchWidth: ref.stitchWidth,
         courseHeight: ref.courseHeight,
         assumed: true,
+        ...(ref.calibration ? { calibration: { ...ref.calibration } } : {}),
       }
     : null;
 }
 
 const TEXT_FIELDS = ['date', 'gauge', 'yarn', 'stitchLength', 'note'] as const;
+export const CALIBRATION_FIELDS = [
+  { id: 'machine', label: 'Machine' },
+  { id: 'knitPoint', label: 'Knit point' },
+  { id: 'yarnTension', label: 'Yarn tension' },
+  { id: 'knittingSpeed', label: 'Knitting speed' },
+  { id: 'protocol', label: 'Test protocol' },
+] as const;
+
+export const MEASUREMENT_STATES = [
+  { id: 'relaxed', label: 'Relaxed' },
+  { id: 'tensioned', label: 'Tensioned' },
+  { id: 'biaxial-locked', label: 'Biaxial locked (user-declared)' },
+] as const;
+
+export function measurementStateLabel(context?: SwatchCalibration): string {
+  return MEASUREMENT_STATES.find((x) => x.id === context?.state)?.label ?? 'Unspecified';
+}
+
+function validateCalibration(value: unknown, structure: string): SwatchCalibration | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    throw new Error(`${structure} calibration must be an object.`);
+  const raw = value as Record<string, unknown>;
+  const result: SwatchCalibration = {};
+  if (raw.state !== undefined) {
+    const state = MEASUREMENT_STATES.find((x) => x.id === raw.state);
+    if (!state) throw new Error(`${structure} calibration measurement state is not supported.`);
+    result.state = state.id;
+  }
+  for (const { id, label } of CALIBRATION_FIELDS) {
+    const text = raw[id];
+    if (text === undefined || text === '') continue;
+    if (typeof text !== 'string' || text.length > 500)
+      throw new Error(`${structure} calibration ${label} must be text of at most 500 characters.`);
+    result[id] = text;
+  }
+  return Object.keys(result).length ? result : undefined;
+}
 
 /** Validated copy of a measurement table; throws a descriptive Error. */
 export function validateSwatches(value: unknown): SwatchEntry[] {
@@ -66,6 +107,10 @@ export function validateSwatches(value: unknown): SwatchEntry[] {
         throw new Error(`${e.structure} ${f} must be text of at most 500 characters.`);
       out[f] = v;
     }
+    if (e.calibration !== undefined) {
+      const calibration = validateCalibration(e.calibration, e.structure);
+      if (calibration) out.calibration = calibration;
+    }
     return out;
   });
 }
@@ -89,8 +134,10 @@ export function swatchFileText(swatches: readonly SwatchEntry[]): string {
           stitchWidth: 'measured needle (wale) spacing of the structure',
           courseHeight: 'measured pass (course) spacing of the structure',
           fallback: 'structures without an entry use the jersey entry and are flagged as assumed',
+          calibration:
+            'optional user-reported measurement state and machine/test context; omitted state means unspecified; not machine instructions or physical validation',
         },
-        swatches,
+        swatches: validateSwatches(swatches),
       },
       null,
       2

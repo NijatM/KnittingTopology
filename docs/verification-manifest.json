@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-11-07T23:21:33.273Z",
+  "generated_at_utc": "2026-11-07T23:52:44.253Z",
   "node": "v26.11.1",
   "checks": {
     "date": "2026-11-07",
@@ -10,50 +10,44 @@
     "unit_tests": {
       "command": "npm test",
       "result": "pass",
-      "passed": 546,
+      "passed": 561,
       "core": 106,
       "project_and_persistence": 32,
       "learning_and_citations": 33,
       "import_parsing_and_projects": 84,
       "mapping_kernel_generation_and_projects": 67,
-      "knit_program": 224,
-      "duration_seconds": 19.04
+      "knit_program": 239,
+      "duration_seconds": 18.8
     },
     "production_build": {
       "command": "npm run build",
       "result": "pass",
       "base": "/KnittingTopology/",
       "worker": "separate ES module",
-      "initial_js_kb": 601.56,
+      "initial_js_kb": 616.52,
       "lazy_viewer_js_kb": 583.4,
-      "initial_js_gzip_kb": 192.85,
+      "initial_js_gzip_kb": 198,
       "lazy_viewer_js_gzip_kb": 147.35,
       "import_worker_js_kb": 27.85,
-      "generation_worker_js_kb": 96.99,
-      "knit_worker_js_kb": 105,
+      "generation_worker_js_kb": 97.19,
+      "knit_worker_js_kb": 105.11,
       "cut_worker_js_kb": 28.28
     },
     "development_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/course-anchors-development",
-      "result": "37 passed; one interrupted by a source-comment HMR reload, then passed on focused rerun",
-      "passed_in_main_run": 37,
-      "failed_in_main_run": 1,
-      "duration_minutes_reported": 4.3,
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/calib-dev -g 'swatch calibration context'",
+      "result": "focused new case only: 1 passed (first attempt failed on a test locator, corrected in the test; no runtime change)",
+      "passed_in_main_run": 1,
+      "failed_in_main_run": 0,
+      "duration_minutes_reported": 0.24,
       "page_or_console_errors": 0,
-      "followup": {
-        "command": "KNITTING_BASE_URL=http://127.0.0.1:5182/KnittingTopology/ npm run test:browser -- --grep 'supported N-sided patches and pattern transformations' --output=tmp/qa/course-anchors-development-followup",
-        "passed": 1,
-        "duration_seconds_reported": 19.1,
-        "result": "pass"
-      },
-      "source_scope": "Runtime unchanged. Editing one comment in shape-geometry.ts triggered a logged Vite page reload during the N-sided workspace test. Source frozen and the affected case rerun; no test assertions or numerical behavior changed."
+      "source_scope": "Development server; the full suite was run on the production build only for this milestone."
     },
     "production_browser_tests": {
-      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/course-anchors-production",
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4182/KnittingTopology/ npm run test:browser -- --output=tmp/qa/calib-prod",
       "result": "pass",
-      "passed": 38,
+      "passed": 39,
       "page_or_console_errors": 0,
-      "duration_minutes_reported": 4.2,
+      "duration_minutes_reported": 3.9,
       "source_scope": "Final built runtime; source frozen throughout production verification."
     },
     "mobile": {
@@ -64,7 +58,7 @@
     },
     "physical_or_manufacturing_validation": false,
     "remote_deployment_tested": false,
-    "milestone": "Endpoint-anchored courses and unchanged-needle candidate",
+    "milestone": "KnitCrete workflow guide and swatch calibration context",
     "prior_baseline_only": {
       "note": "Executed before the Learn and Cite milestone; retained as historical hardware/network evidence, not rerun against this source snapshot.",
       "production_network": {
@@ -1126,6 +1120,38 @@
       "physical_shape_validated": false,
       "remote_deployment_tested": false,
       "boundary_course_loops": 47
+    },
+    "thesis_workflow_calibration": {
+      "status": "Local verification complete: 561 unit tests, production browser 39/39. Teaching content and user-reported measurement context only.",
+      "source": "Popescu (2019) thesis reviewed in extracted text with enlarged figure checks; printed-page locators spot-checked against the text for section 6.3.1 settings (pp. 105-107), section 6.5 footnote 13 (p. 117), Fig. 7.34 j-k (p. 152), the KnitCandela 7 mm x 12 mm unit with spacing 2/6 (p. 153) and Table D.2 (p. 205).",
+      "available": [
+        "KnitCrete workflow guide in the Knit and Learn tabs: six stages (thesis / this app / still needed), section 6.3.1 settings, operation and feature gaps, thesis BibTeX, CSL JSON and method note downloads",
+        "optional swatch calibration context: measurement state relaxed / tensioned / biaxial-locked (user-declared), machine, knit point, yarn tension, knitting speed, test protocol (text, at most 500 characters each)",
+        "measurement context section in the knit report, following the measurement actually used, including the jersey fallback"
+      ],
+      "no_change": [
+        "stitch width and course height numerics",
+        "operation alphabet and class colours",
+        "export gates",
+        "project schema version (optional field; older records stay readable, state unspecified)",
+        "scientific input signature"
+      ],
+      "checks": [
+        "three states round-trip through the measurement table and project files with exact user text",
+        "legacy records stay unspecified; no state inferred",
+        "8 malformed calibration values rejected on table and project import",
+        "gauge context follows the measurement used, including jersey fallback",
+        "context-only edit keeps the scientific signature; undo and redo restore it",
+        "context leaves shape, cells, BMP bytes and export blockers unchanged; report carries every field",
+        "browser: add with context, report and table downloads, context-only edit keeps program size, undo restores the form, guide stage and BibTeX download at 375px without overflow"
+      ],
+      "not_claimed": [
+        "machine configuration or native symbols",
+        "lab machine specification (Libra 3.130 / Model 9 is the thesis setup, not the target)",
+        "material model, calibration certificate or physical validation",
+        "thesis patch editing, feature recipes, compound or diagonal transfers, drops"
+      ],
+      "remote_deployment_tested": false
     }
   },
   "source_sha256": {
@@ -1135,7 +1161,7 @@
     "playwright.config.ts": "371a037b42004cbe6e28d97e8efa0f0ada9cd6e0b46411f7bd87dcc59e6113dc",
     "public/examples/bent-rectangle-uv.obj": "fb60c86f2cd1ee101d8a0f83ad414eed16e942baf7173abc6338f58bd1f39fb9",
     "public/favicon.svg": "2c74fd69b769adfb4e007383fbbb51116f528783adbc72a98c66c130b72a4c43",
-    "research/references.bib": "2e55c0b3eacd4a731280257558a65db9097658cd2ae3e99fa89179bfb1df7029",
+    "research/references.bib": "d3fa11548d12dff2dfd110b47912cf71cb7ab7a2d003edf98a82ffc85987e943",
     "scripts/snapshot-verification.mjs": "245dabcec4e2bbf900d474ce67bfcf7992c390df9d2210c81af0069d0db09967",
     "src/adapters/citations.ts": "c6fe9f4ba64d0ec0d7e746d77283cf5904bff16c0991669ffb3b62ce19811027",
     "src/adapters/export.ts": "a8a60110e72e49f7ae2270d4b161af083f21bef2f847f971042f439c90a1cd67",
@@ -1148,7 +1174,7 @@
     "src/app/knit/KnitControls.tsx": "87bf3dea3ac13496cac3633e6e13b4da988bc4e75b7e4e7184fe07bc084f9218",
     "src/app/knit/KnitFeedback.tsx": "8cd49c9cb95c2d6ca271ff315304526815f94ac93b06a65ff958116784f01ab5",
     "src/app/knit/KnitInspection.tsx": "ca2acdc8b3c99ca1c61a6b3950265cd5c23fb790f156aa9dc5f596b6fe83b905",
-    "src/app/knit/KnitPanel.tsx": "2c7f6fe7a0ced4bd90388ba844af19f008896b82f2c3f8df7de9a15a9834b304",
+    "src/app/knit/KnitPanel.tsx": "5ee46619e4933e813f2ccdb8ab7e97f8809fa2fbfaea402c2d9a1fbbe23cf0e5",
     "src/app/knit/KnitThumb.tsx": "76c02d2c29bdf0ac742fe63c564f12c2b3ffdd15fe20e9a4e450d3de43d76e82",
     "src/app/knit/KnitVariant.tsx": "6b856d304ef9be340d988caf9913e787166e6019d12605cef01785e2cfb79c29",
     "src/app/knit/TileEditor.tsx": "7395652482d87dc0e9a0c79820e54618eb2702deb715897a77ed6480617c5656",
@@ -1165,7 +1191,7 @@
     "src/core/strips.ts": "cf1e459385a447eb62f21145a3918126551dec28546a3199487d9378b97cdeb5",
     "src/core/surfaces.ts": "bb1a908db2519544eb9a9d0accd548bd4933e1b50f38236e57242a8f4b0f1f3e",
     "src/core/topology.ts": "9c53a8af1562170686bdd5ede6f10352c73f50c47981f2508e0bdb35af3f7af5",
-    "src/core/types.ts": "24afc89cec15815d97842323407f02044bf29ae3273e8ec5c754a5862802eb41",
+    "src/core/types.ts": "9a6e6ceeb2b501eb7b4e53b0b403a16b29e4091cb8cb04d3f9b83313ac264877",
     "src/import/ImportControls.tsx": "eee65fefad14425f149dd2568f6d9e70069b1be3c06146e9b96a0a8d5dd7a578",
     "src/import/MeshInspector.tsx": "60d84def5b5651e5960c3fe9fc7e83fa1bead2f9505f7b3405e69bbcafb77b3b",
     "src/import/generate-mapped.ts": "492dff440b1a54277d5c92b8d458858a17f27d16beff350aa5b58d8b823992d6",
@@ -1183,7 +1209,7 @@
     "src/knit/cut-types.ts": "067b8f6b9091b17e4f6b59f676dcc08e7848b888498ef4d9a9df3b0508e9f9e7",
     "src/knit/cuts.ts": "f363ee85966a8d183fe917d2980f2b3ad5b3d13ad6c7ef74ea14ca315f5994b9",
     "src/knit/files.ts": "044160f23f42c78015919561f3d34dc3071890ae5162ad7d330d83d360d4f01d",
-    "src/knit/gauge.ts": "4ecf343551b6d7272b82446586a730b72697ac24f42ea1d47a52a55d465a7078",
+    "src/knit/gauge.ts": "a8f1200a7a5594d817a749efbe67459c4bbac126e5fb8ce3feb1f786871de9f3",
     "src/knit/grid.ts": "8feda1ed1f76f0f82e02c47b372c4026122a808435c7b8675744659020ca78fa",
     "src/knit/inspection.ts": "06cf69c1f7c4587f4cc1ee0cc94536557d87d6c179208e4d91c6cc33472fdd48",
     "src/knit/keys.ts": "ddd8c1459af3f8212fce7f07fd1afe8087933ece08329532582f050a8d67be5e",
@@ -1191,7 +1217,7 @@
     "src/knit/program.ts": "7cb9ac87ce616f2dc35cf27e685ee54dabdab9a452aa9990c1efc5f74e4f6754",
     "src/knit/rasterize-surface.ts": "1fdc3f180492d04993506fc067bc23a44f2720c5b4cad9e435d091c622afd9e0",
     "src/knit/rasterize.ts": "88e913a679c887f266e076ec7bdcb5dc33ccea9fb40d2b116d3a9afb2f22c799",
-    "src/knit/report.ts": "924c5d74e4b4fb7b4046af7183fe353ad76cd19ceadef531bdcb497ee5e233f0",
+    "src/knit/report.ts": "b1e5ed64f7d432021bef600ed97234b4360cd6dd591838985204a5cf028025d3",
     "src/knit/requirements.ts": "aa8f6bc1ab4f6a95bde2f942f2543e473b76aca960f2e467a6c8374d926a93d5",
     "src/knit/settings.ts": "bb0151c606da93b5f62fdd57de769631dd9ffd5eb5ac822b9af790556d378e72",
     "src/knit/shape-geometry.ts": "2f5cb802efd6b6047bbb2190cc988020f2a3578db4e33ce45f1267489343dcdd",
@@ -1205,13 +1231,15 @@
     "src/knit/tiles.ts": "7ac052501854e5d405fae34dbe15433c3147612dc8809f74bb48851177c0009e",
     "src/knit/transfers.ts": "92552650fe5ef919847c6cb33104e470d755d1a8f254f93caaf3f7d0aa23a17a",
     "src/knit/typed-program.ts": "8feed79f21362112e877b26f72f3f635b40fcc81ec32fa6a7fb5dec65493c27e",
-    "src/learning/LearningPanel.tsx": "c58e41e15562a775c6e50ff7f28b96da7e030b74dda1b704af9b550d73f0edd1",
+    "src/learning/KnitWorkflowLesson.tsx": "b7b8fbda5d40b1ee1e64562ec1296dd231c194a84a605174b85e462da28a1686",
+    "src/learning/LearningPanel.tsx": "f0e5699e5435aa53ef0995186586a4edf44e1b4fa5d102b04a856753a7ff77bb",
     "src/learning/MappedChartLesson.tsx": "0c3c4974305a20fb4b137e72c0865b87caae09587908b4e4df9ad7c50cf4bec9",
     "src/learning/MethodDiagram.tsx": "804db46da9ec66f499aba1e60eea9e025f5a47503620129f04207b3e77ef5250",
     "src/learning/catalog.ts": "e783e2f889147d4834487a5967aa511a5549eb880da3c3571730ba3baa8b4319",
     "src/learning/citations.ts": "637d3301aad2bf9b1b5df146be999a00c1f209de9b8898ae66dc3e3a3d6369ac",
-    "src/learning/learning.css": "413f54a2d5e805808d2391361712dc4ad27d0bf1a0da9eddfaa0d7f3839053d6",
-    "src/learning/references.ts": "25fb6c43ed0d28717beed9e864f45126f260d416ae75fb416091fda1e706fa68",
+    "src/learning/knit-workflow.ts": "d270f87d8585c68056966f6a4d32e737e41558eb6c12d07e177962d026250d1e",
+    "src/learning/learning.css": "4c20b64c5f80e474992ff2d7aa3d71e0787ef02e7aed6b552eea6ab2d8966122",
+    "src/learning/references.ts": "3fd1df9e97e9dc6f9da654dae826577483c25f3fc6e0bd5629d7a33fa2c87345",
     "src/learning/types.ts": "40f18d9c78d00882ca3df2ce74f509e3267d5b0904ca6350de801a6459657730",
     "src/main.tsx": "2e321c8d93adfc7e6c1616ebd55e6d2f35d7a114d701bb010172aaeb3e2cab19",
     "src/styles.css": "f2bdc1a99637086fb1a577659919e13fa5318edd8e1684e90e6a4900fabc6b51",
@@ -1230,7 +1258,7 @@
     "tests/browser/camera-check.mjs": "9c45d94d3f6f1de6ff8939c599f95de2624254941cf9f98613b0847e58c256cb",
     "tests/browser/cuts.spec.ts": "42beb15ff4544122f02a3c19c4c215726e6268d2e3f7dc5ce86308744e808fee",
     "tests/browser/import.spec.ts": "e4bf91ed8f0fc8fe47e5a15e3aca78fa9860daaeaed3b801267f2efb17d424bd",
-    "tests/browser/knit.spec.ts": "b1601f531e70afd570fb381c698da8e4c6938dbd71bb07fca1e731e706960a3e",
+    "tests/browser/knit.spec.ts": "501941c094fb8de265ecb0cbde6ce14be5fefb79cba9ba07f628ceff88e35878",
     "tests/browser/learning.spec.ts": "626654c1d63fc3de8584a45ff87b1d85f89b57a10806ff8ef9c4574bb7d54ab4",
     "tests/browser/mapping.spec.ts": "1230fb5074444fad69cb40aa83361e8f5c8cce49d5e49dda23a15cf7e02eea84",
     "tests/browser/workspace.spec.ts": "a3d31e347e6154edc18172a0164d6a7ae6a486c498779c0019885dcdfb6b52fd",
@@ -1257,6 +1285,7 @@
     "tests/fixtures/knit/two-guide.json": "3351431b0456e0933a332ffab0167b86dcc22053d5880fd9f0de5da9e7a73d19",
     "tests/import/mesh.test.ts": "c29fe4fec88059a954f3c3029bd7b3c1ec58eaaec5ff927ed1e02fdc5cc1f5c2",
     "tests/import/project-import.test.ts": "89fffae2c7ddb6446c601acb8b7fabedd0fa2e31f7802c2d0790155a008753b8",
+    "tests/knit/calibration.test.ts": "9c571ceeea87df43e1129f01e2907772a520a20f791a54a22f7b7b6129356180",
     "tests/knit/client.test.ts": "b02217827defb39cd783fb6627d08d94c65054de7d1ec7b41198112d01057c7f",
     "tests/knit/compare.test.ts": "6292fabd4958b338f53451e97ddb935829dfdc7233c6bcef000cc5480852bb01",
     "tests/knit/cube-net.test.ts": "c23c33aab2e1b0b0266bca909f20d5d9c61964e1e80394c3948dd0c9de0bafb6",

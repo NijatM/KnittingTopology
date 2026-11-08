@@ -962,3 +962,70 @@ test('measured network inspection labels reference courses and jersey assumption
   await expect(controls.getByRole('combobox', { name: 'Shaping marks' })).toBeDisabled();
   await page.screenshot({ path: 'tmp/qa/knit-inspection-reference.png', fullPage: true });
 });
+
+test('swatch calibration context persists, survives undo, and the thesis guide cites at 375px', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Plane / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+
+  // test values, not measured gauges or a lab machine
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByText('Calibration context (optional)', { exact: true }).click();
+  await page.getByRole('combobox', { name: 'Measurement state' }).selectOption('tensioned');
+  await page.getByRole('textbox', { name: 'Machine', exact: true }).fill('test machine only');
+  await page
+    .getByRole('textbox', { name: 'Test protocol', exact: true })
+    .fill('synthetic record\nnot a measurement');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  const saved = page.locator('details.swatch-entry').first();
+  await expect(saved.locator('summary').first()).toContainText('10 × 8 mm · Tensioned');
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  const bitmap = page.getByRole('img', { name: /Knit program bitmap/ });
+  await expect(bitmap).toBeVisible();
+  const size = await bitmap.getAttribute('aria-label');
+
+  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(report).toContain('Layout measurement: state Tensioned; measured on jersey.');
+  expect(report).toContain('Machine: test machine only');
+  expect(report).toContain('Test protocol: synthetic record\n      not a measurement');
+  const table = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Save table')));
+  expect(table.swatches[0].calibration).toEqual({
+    state: 'tensioned',
+    machine: 'test machine only',
+    protocol: 'synthetic record\nnot a measurement',
+  });
+
+  // changing only the context keeps the program size; undo restores the earlier context
+  await saved.locator('summary').first().click();
+  await saved.getByText('Calibration context (optional)', { exact: true }).click();
+  await saved.getByRole('combobox', { name: 'Measurement state' }).selectOption('relaxed');
+  await saved.getByRole('button', { name: 'Save measurement', exact: true }).click();
+  await expect(saved.locator('summary').first()).toContainText('· Relaxed');
+  await page.getByRole('button', { name: 'Generate shape', exact: true }).click();
+  await expect(bitmap).toHaveAttribute('aria-label', size!);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(saved.locator('summary').first()).toContainText('· Tensioned');
+  // the restored form shows the restored state (its collapsed context section hides the select from roles)
+  await expect(saved.locator('select[aria-label="Measurement state"]')).toHaveValue('tensioned');
+
+  // the guide is read-only teaching content, in the Knit and Learn tabs, without page overflow
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.getByRole('tab', { name: 'Learn', exact: true }).click();
+  const guide = page.locator('details.knit-workflow:visible');
+  await expect(guide).toHaveCount(1);
+  await guide.getByText('KnitCrete workflow · understand and cite', { exact: true }).click();
+  const symbols = guide.getByRole('button', { name: /Expand operation symbols/ });
+  await symbols.click();
+  await expect(symbols).toHaveAttribute('aria-pressed', 'true');
+  await expect(guide.locator('.knit-workflow-stage')).toContainText('Fig. 7.34g–k, p. 152');
+  await guide.getByText('Citation and method wording', { exact: true }).click();
+  const bib = new TextDecoder().decode(await downloadOf(page, 'Download thesis BibTeX'));
+  expect(bib).toContain('10.3929/ethz-b-000408640');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375);
+  await page.screenshot({ path: 'tmp/qa/knit-workflow-guide.png', fullPage: true });
+});
