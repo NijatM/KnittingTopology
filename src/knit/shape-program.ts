@@ -8,6 +8,7 @@ import type {
 } from '../core/types';
 import type { KnitBuild } from './program';
 import type {
+  ChartWindow,
   ShapeGeometry,
   ShapeKnitGraph,
   ShapeNeedles,
@@ -63,7 +64,9 @@ export function buildShapeProgram(
   project: Pick<ProjectState, 'surface' | 'graph'>,
   settings: KnitSettings,
   swatches: readonly SwatchEntry[],
-  context?: GenerationContext
+  context?: GenerationContext,
+  /** One computational patch of an open-surface chart (§6.3.2); absent for the whole chart. */
+  window?: ChartWindow
 ): KnitBuild {
   const jersey = gaugeOf(GAUGE_REFERENCE, swatches),
     gauge = gaugeOf(settings.cells.fill, swatches);
@@ -99,8 +102,11 @@ export function buildShapeProgram(
         'The Popescu 2019 rules method works on open surfaces only. Choose the project alignment method for a cube or sphere.',
     };
   // Fresh saved stages are authoritative; stale ones never reach a build (Generate leaves them out).
-  const saved = freshStages({ surface: project.surface, knit: settings, swatches: [...swatches] }),
-    expected = courseStageFingerprint(project.surface, settings, gauge),
+  const saved = freshStages(
+      { surface: project.surface, knit: settings, swatches: [...swatches] },
+      window
+    ),
+    expected = courseStageFingerprint(project.surface, settings, gauge, window),
     graphMismatch: string[] = [];
   let stages: KnitGraphStages | undefined;
   try {
@@ -188,7 +194,8 @@ export function buildShapeProgram(
             startEdge,
             options,
             expected,
-            context
+            context,
+            window
           );
         context?.progress?.(0.5, 'Dividing courses into loops');
         const loops =
@@ -200,7 +207,8 @@ export function buildShapeProgram(
             startEdge,
             options,
             loopStageFingerprint(courses, settings),
-            context
+            context,
+            window
           );
         stages = { courseMethod: method, courses, loops };
       } else stages = saved;
@@ -219,7 +227,9 @@ export function buildShapeProgram(
           gauge.stitchWidth,
           gauge.courseHeight,
           startEdge,
-          context
+          context,
+          undefined,
+          window
         );
       context?.progress?.(0.6, 'Placing shaping loops on needles');
       if (method === 'project-alignment' && !stages?.loops) {

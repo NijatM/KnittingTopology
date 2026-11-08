@@ -1176,5 +1176,35 @@
       "browser: delete a course on the saddle by clicking the surface, automatic rebuild, Undo restores the byte-identical bitmap, Redo, stale edited stage kept by Generate with export blocked, download with its edits, discard and regenerate"
     ],
     "not_implemented": ["loops-stage editing", "editing cube and sphere stages"]
+  },
+  "computational_patches": {
+    "status": "Local verification complete: 591 unit tests, production browser 42/42. Seams only (every shared edge a seam); combining patches into one piece is not implemented. No physical knitting result is claimed.",
+    "source": "Popescu (2019), section 6.3.2 'Computational patches', pp. 109-110 and Fig. 6.16: geometry split by hand before pattern generation; knitting direction and loop size per patch; courses aligned to the start and end edges; patches may outnumber fabricated pieces. Section 6.2.1 footnote 4 (one loop size per patch); section 7.3.4 p. 153 footnote 9 (manual alignment when combining). The thesis gives no subdivision strategy and no combine algorithm.",
+    "available": [
+      "shape mode on open surfaces: split lines at constant chart u or v, added by clicking the surface, dragged or typed; one undo step each",
+      "per patch: start edge (a side of the patch rectangle), fill structure (its measured loop size), course method, saved and editable knit graph stages",
+      "each patch generated as its own piece: bitmap, Knit Grammar JSON, report and stage files with -P<n> names",
+      "knit-patch-seam-map JSON v1 and report seams: 3D length, each side's role in its patch frame, loops or course ends with needle, pass and position along the edge, pairs and unpaired elements"
+    ],
+    "project_rules": [
+      "grid of full-length split lines (no T-junctions); at most 8 per direction, at least 0.02 chart units apart and from the chart sides",
+      "patches numbered P1... row by row from chart corner u = 0, v = 0",
+      "a new split copies the divided patch's settings without stages; moving a split drops the stages of the patches beside it; removing a split keeps the patch below or left; removing the last split returns its settings to the whole chart",
+      "stage fingerprints include the patch rectangle only when splits exist",
+      "seam pairing: each element on the side with more elements is paired with the nearest element on the other side by position along the edge",
+      "seam count and length differences are reported, never blocking",
+      "clicked split values rounded to 0.001"
+    ],
+    "evidence": [
+      "plane split at u = 0.5 (test values 6 x 4 mm): each half exactly 9 needles x 25 passes, 50 mm across; seam pairs 25 course ends with 25; seam length 100 mm",
+      "saddle: per-patch start edge and fill give different needle counts; a stage is fresh only for its own patch rectangle; rebuild from saved patch stages gives a byte-identical bitmap",
+      "split rules, layout validation, edits clamped to the patch rectangle, worker transfer of piece programs, blocked message in other modes, whole-chart window equal to the unsplit build",
+      "browser: saddle split by clicking, typed move with Undo/Redo, P2 start edge, both pieces generated, -P2/-P1 bitmaps and -P2 report, seam map JSON, removing the split returns P1's settings to the whole chart"
+    ],
+    "not_implemented": [
+      "knitted-through joins (one piece from several patches)",
+      "free-curve or quad-layout patch boundaries",
+      "automatic subdivision (not developed in the thesis either)"
+    ]
   }
 }

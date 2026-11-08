@@ -2123,3 +2123,30 @@ details.knit-required-control,
 .cut-controls > button {
   margin-bottom: 6px;
 }
+.knit-splits {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+.knit-splits li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 9px;
+}
+.knit-splits label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+}
+.knit-splits input,
+.inline-actions input[type='number'] {
+  flex: 1;
+  min-width: 0;
+}
+.knit-splits button {
+  padding: 5px 8px;
+  font-size: 9px;
+}

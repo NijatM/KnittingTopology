@@ -367,6 +367,23 @@ export interface KnitGraphStages {
   /** Absent until a loops stage is built from the courses stage. */
   loops?: KnitLoopStage;
 }
+/** One computational patch (Popescu 2019, §6.3.2): its own direction, fill, course method and stages. */
+export interface KnitPatch {
+  startEdge: 'v0' | 'u1' | 'v1' | 'u0';
+  /** Fill structure; the patch's loop dimensions come from its swatch. */
+  fill: string;
+  courseMethod?: KnitCourseMethod;
+  popescu?: { resultCount: number; angleTolerance: number };
+  graph?: KnitGraphStages;
+}
+/** Full-length split lines at constant chart u and v; patches numbered row by row from (0, 0). */
+export interface KnitPatchLayout {
+  kind: 'chart-grid';
+  u: number[];
+  v: number[];
+  /** (u.length + 1) × (v.length + 1) patches, index = row (v) × (u.length + 1) + column (u). */
+  patches: KnitPatch[];
+}
 export interface KnitSettings {
   mode: KnitMode;
   /** Missing means `project-alignment`. The Popescu rules apply on open surfaces only. */
@@ -375,6 +392,9 @@ export interface KnitSettings {
   popescu?: { resultCount: number; angleTolerance: number };
   /** Knit graph stages of the last measured course layout. */
   graph?: KnitGraphStages;
+  /** Computational patches for shape mode on open surfaces; while present, the top-level start edge,
+   *  course method, settings and graph are not used for shaping. */
+  patches?: KnitPatchLayout;
   /** Chart side used for the first course. Missing in older projects means v0. */
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   /** Initial action on an opened needle; unconfirmed lab convention, default knit. */

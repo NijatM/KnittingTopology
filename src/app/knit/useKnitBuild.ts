@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { KnitGraphStages, ProjectState } from '../../core/types';
+import type { KnitGraphStages, KnitSettings, ProjectState } from '../../core/types';
 import { buildKnitProgram, type KnitBuild } from '../../knit/program';
 import { generateKnitInWorker } from '../../knit/client';
 import { knitRequirements } from '../../knit/requirements';
@@ -10,14 +10,33 @@ import {
   knitGraphSignature,
   staleStagesBlocker,
 } from '../../knit/knit-graph';
+import { chartParts, pieceBuild, withoutStages } from '../../knit/patches';
 
 type Input = Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>;
-/** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. */
+/** Saved stages of the whole chart, or of each patch, in patch order. */
+const savedStages = (knit: KnitSettings | undefined) =>
+  knit ? chartParts(knit).map((part) => part.settings.graph) : [];
+/** The stages of an accepted build, part by part; a patch without a result keeps its saved stages. */
+function builtStages(build: KnitBuild, knit: KnitSettings | undefined) {
+  if (!build.ok) return [];
+  const pieces = build.program.patches?.pieces;
+  if (!pieces) {
+    const stages = build.program.shape?.knitGraph?.stages;
+    return stages ? [stages] : [];
+  }
+  const saved = savedStages(knit);
+  return pieces.map((p, i) =>
+    p.build.ok ? (p.build.program.shape?.knitGraph?.stages ?? saved[i]) : saved[i]
+  );
+}
+/** Explicit shape jobs preserve the last accepted preview and reject superseded inputs. With computational
+ * patches, `piece` selects the patch whose program is shown and exported. */
 export function useKnitBuild(
   input: Input,
   staleNetwork: boolean,
   cutMatchesSource = true,
-  onKnitGraph?: (graph: KnitGraphStages) => void
+  onKnitGraph?: (graph: KnitGraphStages, patch?: number) => void,
+  piece = 0
 ) {
   const shape = input.knit?.mode === 'shape';
   // Shape generation has no graph input, except on a cube or sphere, whose layout comes from the cut network.
@@ -32,14 +51,24 @@ export function useKnitBuild(
   const surfaceSignature = useMemo(() => JSON.stringify(input.surface), [input.surface]);
   // Saved knit graph stages enter by content hash, so saving them after a build does not restale it.
   const settingsSignature = useMemo(
-    () => JSON.stringify([input.knit && { ...input.knit, graph: undefined }, input.swatches]),
+    () => JSON.stringify([input.knit && withoutStages(input.knit), input.swatches]),
     [input.knit, input.swatches]
   );
-  const signatureWith = (graph: KnitGraphStages | undefined) =>
-    `${surfaceSignature}:${settingsSignature}:${knitGraphSignature(graph)}:${graphFree ? '' : graphSignature}`;
-  const signature = signatureWith(input.knit?.graph);
+  const signatureWith = (stages: (KnitGraphStages | undefined)[]) =>
+    `${surfaceSignature}:${settingsSignature}:${stages.map(knitGraphSignature).join('|')}:${graphFree ? '' : graphSignature}`;
+  const signature = signatureWith(savedStages(input.knit));
+  // Stale saved stages block export of the whole chart, or of their own patch.
   const staleStages = useMemo(
-    () => staleStagesBlocker(input),
+    () =>
+      input.knit
+        ? chartParts(input.knit).map((part) =>
+            staleStagesBlocker(
+              { surface: input.surface, knit: part.settings, swatches: input.swatches },
+              part.window,
+              part.label || undefined
+            )
+          )
+        : [],
     [input.surface, input.knit, input.swatches]
   );
   const [accepted, setAccepted] = useState<{
@@ -71,36 +100,45 @@ export function useKnitBuild(
   );
   if (!usesWorker) build = networkBuild!;
   else if (accepted && accepted.surface === surfaceSignature) {
+    const shown =
+      accepted.build.ok && accepted.build.program.patches
+        ? pieceBuild(accepted.build.program.patches, piece)
+        : accepted.build;
     build =
-      accepted.build.ok && outdated
+      shown.ok && outdated
         ? {
             ok: true,
             program: {
-              ...accepted.build.program,
+              ...shown.program,
               staleNetwork: !graphFree && staleNetwork,
               exportBlockers: [
-                ...accepted.build.program.exportBlockers,
+                ...shown.program.exportBlockers,
                 'Program preview is stale. Generate the current settings before operation export.',
               ],
             },
           }
-        : accepted.build.ok
+        : shown.ok
           ? {
-              ...accepted.build,
-              program: { ...accepted.build.program, staleNetwork: !graphFree && staleNetwork },
+              ...shown,
+              program: { ...shown.program, staleNetwork: !graphFree && staleNetwork },
             }
-          : accepted.build;
+          : shown;
   } else
     build = {
       ok: false,
       reason: 'Generate the knit program after entering measurements or a typed network size.',
     };
-  if (build.ok && staleStages)
+  const stalePart = build.ok
+    ? build.program.patches
+      ? staleStages[build.program.patches.piece]
+      : staleStages[0]
+    : null;
+  if (build.ok && stalePart)
     build = {
       ...build,
       program: {
         ...build.program,
-        exportBlockers: [...build.program.exportBlockers, staleStages],
+        exportBlockers: [...build.program.exportBlockers, stalePart],
       },
     };
   const preflight = requirements[0]?.message ?? '';
@@ -119,7 +157,23 @@ export function useKnitBuild(
     setProgress('Starting knit program generation');
     try {
       // Generate replaces stale stages: only fresh saved stages reach the build.
-      const knit = input.knit && { ...input.knit, graph: freshStages(input) };
+      const fresh = (knit: KnitSettings, window?: Parameters<typeof freshStages>[1]) =>
+        freshStages({ surface: input.surface, knit, swatches: input.swatches }, window);
+      const knit =
+        input.knit &&
+        (input.knit.patches
+          ? {
+              ...input.knit,
+              patches: {
+                ...input.knit.patches,
+                patches: chartParts(input.knit).map((part, i) => {
+                  const { graph: _g, ...patch } = input.knit!.patches!.patches[i]!,
+                    graph = fresh(part.settings, part.window);
+                  return graph ? { ...patch, graph } : patch;
+                }),
+              },
+            }
+          : { ...input.knit, graph: fresh(input.knit) });
       const result = await generateKnitInWorker(
         { ...input, knit, ...(graphFree ? { graph: null } : {}) },
         job.signal,
@@ -128,15 +182,19 @@ export function useKnitBuild(
         }
       );
       if (!job.signal.aborted && latest.current === signature) {
-        const stages = result.ok ? result.program.shape?.knitGraph?.stages : undefined;
+        const stages = builtStages(result, input.knit);
         if (result.ok)
           setAccepted({
-            signature: stages ? signatureWith(stages) : signature,
+            signature: stages.length ? signatureWith(stages) : signature,
             surface: surfaceSignature,
             build: result,
           });
         else setFailure({ signature, message: result.reason });
-        if (stages) onKnitGraph?.(stages);
+        if (result.ok && result.program.patches)
+          stages.forEach((graph, i) => {
+            if (graph) onKnitGraph?.(graph, i);
+          });
+        else if (stages[0]) onKnitGraph?.(stages[0]);
       }
     } catch (cause) {
       if (!job.signal.aborted && latest.current === signature)
@@ -145,20 +203,36 @@ export function useKnitBuild(
       if (controller.current === job) setProgress(null);
     }
   }
-  // An edit of the courses stage, undoing one or discarding edits rebuilds the layout and its checks.
-  const graph = input.knit?.graph,
-    coursesKey = courseStageKey(graph),
-    edited = !!graph?.courses.edits?.length,
+  // An edit of a courses stage, undoing one or discarding edits rebuilds the layout and its checks.
+  const parts = input.knit ? chartParts(input.knit) : [],
+    coursesKey = parts.map((part) => courseStageKey(part.settings.graph)).join('|'),
+    edited = parts.some((part) => !!part.settings.graph?.courses.edits?.length),
     lastCourses = useRef({ key: coursesKey, edited });
   useEffect(() => {
     const previous = lastCourses.current;
     lastCourses.current = { key: coursesKey, edited };
     if (coursesKey === previous.key || !(edited || previous.edited) || !usesWorker) return;
-    if (graph && knitGraphFreshness(input)?.courses !== 'fresh') return;
-    void generate();
+    const before = previous.key.split('|');
+    // Each changed stage must be fresh or gone; a stale one waits for the user's choice.
+    const ready = parts.every(
+      (part, i) =>
+        courseStageKey(part.settings.graph) === before[i] ||
+        !part.settings.graph ||
+        knitGraphFreshness(
+          { surface: input.surface, knit: part.settings, swatches: input.swatches },
+          part.window
+        )?.courses === 'fresh'
+    );
+    if (ready) void generate();
   }, [coursesKey]);
+  // Every patch's piece and the seams of the accepted build, whichever piece is shown.
+  const patches =
+    accepted?.surface === surfaceSignature && accepted.build.ok
+      ? accepted.build.program.patches
+      : undefined;
   return {
     build,
+    patches,
     outdated,
     progress,
     requirements,

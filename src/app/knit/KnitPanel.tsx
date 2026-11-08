@@ -25,6 +25,10 @@ import TileEditor from './TileEditor';
 import KnitAssessment from './KnitAssessment';
 import KnitGraphStages from './KnitGraphStages';
 import type { GraphEditState } from './graph-edit';
+import KnitPatches from './KnitPatches';
+import type { PatchLayoutState } from './patch-layout';
+import type { ChartWindow } from '../../knit/shape-types';
+import { patchLabel, type PatchBuild } from '../../knit/patches';
 import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
 
 interface Props {
@@ -45,6 +49,11 @@ interface Props {
   onSwatches: (next: SwatchEntry[]) => void;
   onMark: (cells: number[] | null) => void;
   graphEdit?: GraphEditState;
+  /** Computational patches: the layout state, every piece and seam of the accepted build, and the
+   * selected patch's chart rectangle (`settings` is then that patch's view). */
+  patches?: PatchLayoutState;
+  patchBuild?: Omit<PatchBuild, 'piece'>;
+  window?: ChartWindow;
 }
 
 const mm = (m: number) => +(m * 1000).toFixed(4);
@@ -338,6 +347,9 @@ export default function KnitPanel(props: Props) {
   const [importError, setImportError] = useState('');
   const program = build.ok ? build.program : null;
   const file = projectFilename(props.projectName);
+  // Each patch is its own piece: its files carry the patch label.
+  const pieceLabel = props.patches?.layout ? patchLabel(props.patches.patch) : '';
+  const pieceFile = pieceLabel ? `${file}-${pieceLabel}` : file;
   const set = (change: Partial<KnitSettings>, coalesceKey?: string) =>
     props.onSettings({ ...s, ...change }, coalesceKey);
   const saveSwatch = (entry: SwatchEntry, replace: boolean): string | null => {
@@ -618,7 +630,7 @@ export default function KnitPanel(props: Props) {
               type="button"
               disabled={program.exportBlockers.length > 0}
               onClick={() =>
-                download(bmpBytes(program).slice().buffer, `${file}-knit.bmp`, 'image/bmp')
+                download(bmpBytes(program).slice().buffer, `${pieceFile}-knit.bmp`, 'image/bmp')
               }
             >
               Bitmap BMP
@@ -633,7 +645,7 @@ export default function KnitPanel(props: Props) {
                     name: props.projectName,
                     note: `Knit program from the Knitting Topology project "${props.projectName}". Design-level; not verified until knitted.`,
                   }),
-                  `${file}-knit-grammar.json`,
+                  `${pieceFile}-knit-grammar.json`,
                   'application/json'
                 )
               }
@@ -645,7 +657,7 @@ export default function KnitPanel(props: Props) {
               onClick={() =>
                 download(
                   knitReport(program, props.projectName, props.surfaceSize),
-                  `${file}-knit-report.txt`,
+                  `${pieceFile}-knit-report.txt`,
                   'text/plain'
                 )
               }
@@ -656,14 +668,26 @@ export default function KnitPanel(props: Props) {
         </>
       )}
 
+      {props.patches && (
+        <KnitPatches
+          state={props.patches}
+          build={props.patchBuild}
+          surface={props.surface}
+          file={file}
+          outdated={props.previewOutdated}
+        />
+      )}
+
       <KnitGraphStages
         surface={props.surface}
         settings={s}
         swatches={swatches}
         program={program}
-        file={file}
+        file={pieceFile}
         onSettings={(next) => props.onSettings(next)}
         edit={props.graphEdit}
+        window={props.window}
+        label={pieceLabel || undefined}
       />
 
       {selectedCell && s.mode !== 'shape' && (

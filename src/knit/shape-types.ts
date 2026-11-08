@@ -4,6 +4,12 @@ import type { CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
 
 export type StartEdge = 'v0' | 'u1' | 'v1' | 'u0';
+/** A rectangle of the surface chart: one computational patch (Popescu 2019, §6.3.2). Without one,
+ * shaping uses the whole chart. */
+export interface ChartWindow {
+  u: [number, number];
+  v: [number, number];
+}
 export interface ShapePoint {
   /** Original surface-chart coordinates (before the start-edge rotation). */
   uv: Vec2;

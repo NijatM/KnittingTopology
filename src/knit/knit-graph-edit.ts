@@ -13,7 +13,13 @@ import type {
 } from '../core/types';
 import { evaluateSurface } from '../core/surfaces';
 import { MAX_STAGE_EDITS } from './knit-graph';
-import { rotatedShapeUV, rotatedShapeV, shapeDistanceField } from './shape-geometry';
+import {
+  originalShapeUV,
+  rotatedShapeUV,
+  rotatedShapeV,
+  shapeDistanceField,
+} from './shape-geometry';
+import type { ChartWindow } from './shape-types';
 
 type StartEdge = 'v0' | 'u1' | 'v1' | 'u0';
 export type LinkKind = 'weft' | 'warp';
@@ -59,32 +65,47 @@ export type StagePlacer = (uv: Vec2) => KnitStagePoint;
 export interface EditContext {
   surface: SurfaceSpec;
   startEdge: StartEdge;
+  /** The patch being edited; absent for the whole chart. */
+  window?: ChartWindow;
   place: StagePlacer;
 }
-export const editContext = (surface: SurfaceSpec, startEdge: StartEdge): EditContext => ({
+export const editContext = (
+  surface: SurfaceSpec,
+  startEdge: StartEdge,
+  window?: ChartWindow
+): EditContext => ({
   surface,
   startEdge,
-  place: stagePlacer(surface, startEdge),
+  ...(window ? { window } : {}),
+  place: stagePlacer(surface, startEdge, window),
 });
 const fields = new Map<string, ReturnType<typeof shapeDistanceField>>();
-export function stagePlacer(surface: SurfaceSpec, startEdge: StartEdge): StagePlacer {
-  const key = JSON.stringify([surface, startEdge]);
+export function stagePlacer(
+  surface: SurfaceSpec,
+  startEdge: StartEdge,
+  window?: ChartWindow
+): StagePlacer {
+  const key = JSON.stringify([surface, startEdge, window ?? null]);
   let field = fields.get(key);
   if (!field) {
     // The loop dimensions only enter validation; the distance field depends on the chart alone.
-    field = shapeDistanceField(surface, 1, 1, startEdge);
+    field = shapeDistanceField(surface, 1, 1, startEdge, undefined, undefined, window);
     if (fields.size > 8) fields.clear();
     fields.set(key, field);
   }
   const { n, d } = field,
     side = n + 1;
   return (input) => {
-    const clamp = (x: number) => Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0));
-    let uv: Vec2 = [clamp(input[0]), clamp(input[1])];
-    let [x, y] = rotatedShapeUV(uv, startEdge);
+    // Points stay inside the chart, or inside the patch being edited.
+    const clamp = (x: number, [lo, hi]: [number, number]) =>
+      Math.min(hi, Math.max(lo, Number.isFinite(x) ? x : lo));
+    let uv: Vec2 = [clamp(input[0], window?.u ?? [0, 1]), clamp(input[1], window?.v ?? [0, 1])];
+    let [x, y] = rotatedShapeUV(uv, startEdge, window);
+    x = Math.min(1, Math.max(0, x));
+    y = Math.min(1, Math.max(0, y));
     if (x < SIDE_SNAP || x > 1 - SIDE_SNAP) {
       x = x < SIDE_SNAP ? 0 : 1;
-      uv = unrotate([x, y], startEdge);
+      uv = originalShapeUV(x, y, startEdge, window);
     }
     const gx = Math.min(n - 1, Math.floor(x * n)),
       gy = Math.min(n - 1, Math.floor(y * n)),
@@ -98,18 +119,14 @@ export function stagePlacer(surface: SurfaceSpec, startEdge: StartEdge): StagePl
     return { uv, across: x === 0 ? 0 : across };
   };
 }
-function unrotate([x, y]: Vec2, edge: StartEdge): Vec2 {
-  return edge === 'v0'
-    ? [x, y]
-    : edge === 'u1'
-      ? [1 - y, x]
-      : edge === 'v1'
-        ? [1 - x, 1 - y]
-        : [y, 1 - x];
-}
 /** Project rule: a course end on the needle-1 side or the opposite side is a boundary end; elsewhere a turn. */
-export function onSide(p: KnitStagePoint, startEdge: StartEdge, which: 'near' | 'far'): boolean {
-  const x = rotatedShapeUV(p.uv, startEdge)[0];
+export function onSide(
+  p: KnitStagePoint,
+  startEdge: StartEdge,
+  which: 'near' | 'far',
+  window?: ChartWindow
+): boolean {
+  const x = rotatedShapeUV(p.uv, startEdge, window)[0];
   return which === 'near' ? x <= 1e-9 : x >= 1 - 1e-9;
 }
 export function coursePoints(stage: KnitCourseStage, k: number): KnitStagePoint[] {
@@ -122,12 +139,16 @@ const copyPoint = (p: KnitStagePoint): KnitStagePoint => ({
   ...(p.patch !== undefined ? { patch: p.patch } : {}),
   ...(p.net ? { net: [p.net[0], p.net[1]] as Vec2 } : {}),
 });
-function polyline(points: KnitStagePoint[], startEdge: StartEdge): KnitStageCourse {
+function polyline(
+  points: KnitStagePoint[],
+  startEdge: StartEdge,
+  window?: ChartWindow
+): KnitStageCourse {
   return {
     vertices: [],
     points: points.map(copyPoint),
-    leftBoundary: onSide(points[0]!, startEdge, 'near'),
-    rightBoundary: onSide(points.at(-1)!, startEdge, 'far'),
+    leftBoundary: onSide(points[0]!, startEdge, 'near', window),
+    rightBoundary: onSide(points.at(-1)!, startEdge, 'far', window),
   };
 }
 function fail(message: string): never {
@@ -185,7 +206,7 @@ export function applyCourseEdit(
   stage: KnitCourseStage,
   method: KnitCourseMethod,
   edit: CourseEdit,
-  { surface, startEdge, place }: EditContext
+  { surface, startEdge, place, window }: EditContext
 ): KnitCourseStage {
   if (!EDIT_TOOLS[method].includes(edit.op))
     fail(`This course method does not edit ${edit.op.replace('-', ' ')}s.`);
@@ -233,9 +254,9 @@ export function applyCourseEdit(
         if (dist < best) [best, nearest] = [dist, i];
       });
       const contour = s.vertices[nearest]!.contour,
-        along = rotatedShapeV(p.uv, startEdge);
+        along = rotatedShapeV(p.uv, startEdge, window);
       const before = s.vertices.filter(
-        (v) => v.contour === contour && rotatedShapeV(v.uv, startEdge) < along
+        (v) => v.contour === contour && rotatedShapeV(v.uv, startEdge, window) < along
       ).length;
       for (const v of s.vertices) if (v.contour === contour && v.position >= before) v.position++;
       if (s.vertices.filter((v) => v.contour === contour).length >= MAX_CONTOUR)
@@ -329,7 +350,7 @@ export function applyCourseEdit(
       }
       // Project rule: the points of a course are kept in needle order (the layout needs it).
       points.sort((a, b) => a.across - b.across);
-      s.courses[edit.course] = polyline(points, startEdge);
+      s.courses[edit.course] = polyline(points, startEdge, window);
       break;
     }
     case 'delete-course': {
@@ -347,7 +368,7 @@ export function applyCourseEdit(
         fail('A new course needs 2 to 2000 points.');
       // Project rule: the points of a new course are put in needle order.
       const points = edit.points.map(place).sort((a, b) => a.across - b.across);
-      s.courses.splice(edit.after + 1, 0, polyline(points, startEdge));
+      s.courses.splice(edit.after + 1, 0, polyline(points, startEdge, window));
       target = `course ${edit.after + 2} (${points.length} points)`;
       break;
     }

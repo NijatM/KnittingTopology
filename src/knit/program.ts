@@ -3,7 +3,13 @@
 import type { GenerationContext, KnitSettings, ProjectState, SwatchEntry } from '../core/types';
 import { defaultFill, settingsKey, type Key } from './keys';
 import { isTwoLayer, tileOp } from './structures';
-import { knitAvailable, planeMapping, programSize, type KnitMapping } from './mapping';
+import {
+  knitAvailable,
+  knitSupported,
+  planeMapping,
+  programSize,
+  type KnitMapping,
+} from './mapping';
 import { rasterizeNetwork, type Raster } from './rasterize';
 import { insertTransfers, type SkippedTransfer, type TransferChange } from './transfers';
 import { runChecks, type Finding } from './checks';
@@ -13,6 +19,7 @@ import { defaultKnitSettings } from './settings';
 import type { ShapeResult } from './shape-types';
 import { buildShapeProgram } from './shape-program';
 import { buildTypedSurfaceProgram } from './typed-program';
+import { buildPatchedProgram, type PatchBuild } from './patches';
 
 export interface StructureUse {
   id: string;
@@ -44,6 +51,8 @@ export interface KnitProgram {
   /** Required shaping or operation failures. Reports/preview remain available. */
   exportBlockers: string[];
   shape?: ShapeResult;
+  /** Computational patches: every piece's build and the seams; this program is piece `patches.piece`. */
+  patches?: PatchBuild;
   /** Network-only fills cells without reference-surface loops. */
   rectification?: { addedCells: number; maxAddedPasses: number; maxAddedCourseLengthM: number };
 }
@@ -78,6 +87,14 @@ export function buildKnitProgram(
         project.surface.kind === 'cube'
           ? 'On a cube, the flat net is sized from your measurements; typed sizes are not used.'
           : 'On a sphere, the layout is sized from your measurements; typed sizes are not used.',
+    };
+  if (settings.patches && settings.mode === 'shape' && knitSupported(project.surface))
+    return buildPatchedProgram(project, settings, swatches, context);
+  if (settings.patches)
+    return {
+      ok: false,
+      reason:
+        'Computational patches apply to shape mode on open surfaces. Remove the splits or choose shape mode.',
     };
   if (settings.mode === 'shape') return buildShapeProgram(project, settings, swatches, context);
   if (!project.graph) return { ok: false, reason: 'Generate a network first.' };

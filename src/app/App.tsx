@@ -26,6 +26,7 @@ import type {
   ProjectState,
   KnitCutSettings,
   KnitGraphStages,
+  KnitSettings,
   TopologyPreset,
 } from '../core/types';
 import { analyzeGraph } from '../core/diagnostics';
@@ -67,6 +68,8 @@ import { seedMeshReport, useMeshReport } from '../import/useMeshReport';
 import KnitControls from './knit/KnitControls';
 import { useKnitBuild } from './knit/useKnitBuild';
 import { useGraphEdit } from './knit/graph-edit';
+import { usePatchLayout } from './knit/patch-layout';
+import { fromPatchView, patchSettings, patchWindow } from '../knit/patches';
 import type { KnitRequirementId } from '../knit/requirements';
 import KnitBitmap from './knit/KnitBitmap';
 import KnitPanel from './knit/KnitPanel';
@@ -684,13 +687,29 @@ export default function App() {
       : undefined;
   const knitSettings = knitSettingsOf(project);
   const swatches = swatchesOf(project);
+  const changeKnit = (next: KnitSettings, coalesceKey?: string) => {
+    setKnitMarks(null);
+    commit({ ...projectRef.current, knit: next }, coalesceKey);
+  };
+  // Computational patches: the panel, the start-edge pick and the courses editor work on the selected
+  // patch through its settings view; shared settings go back to the whole layout.
+  const patchLayout = usePatchLayout(project.surface, knitSettings, changeKnit);
+  const piece = patchLayout.patch;
+  const knitView = knitSettings.patches ? patchSettings(knitSettings, piece) : knitSettings;
+  const knitWindow = knitSettings.patches ? patchWindow(knitSettings.patches, piece) : undefined;
+  const changeView = (next: KnitSettings, coalesceKey?: string) =>
+    changeKnit(
+      knitSettings.patches ? fromPatchView(knitSettingsOf(projectRef.current), piece, next) : next,
+      coalesceKey
+    );
   const changeCut = (cut: KnitCutSettings) =>
     commit({ ...projectRef.current, knit: { ...knitSettingsOf(projectRef.current), cut } });
   const cutJob = useCutPlan(project.surface, project.graph, knitSettings.cut, changeCut);
   const showProgram = knitOpen && knitAvailable(project.surface);
   const cutEdgeIds = cutJob.matches ? knitSettings.cut?.edgeIds : undefined;
   const acceptKnitGraph = useCallback(
-    (graph: KnitGraphStages) => dispatch({ type: 'accept-knit-graph', graph }),
+    (graph: KnitGraphStages, patch?: number) =>
+      dispatch({ type: 'accept-knit-graph', graph, patch }),
     []
   );
   const knitJob = useKnitBuild(
@@ -702,7 +721,8 @@ export default function App() {
     },
     stale,
     cutJob.matches,
-    acceptKnitGraph
+    acceptKnitGraph,
+    piece
   );
   const repairKnit = (id: KnitRequirementId | 'settings') => {
     setPickingKnitEdge(false);
@@ -758,24 +778,36 @@ export default function App() {
     [knitProgram, project.graph, knitMarks, selection]
   );
   const inspectingKnit = showProgram && !!knitProgram;
-  const graphEdit = useGraphEdit(project.surface, knitSettings, swatches, (next) =>
-    changeKnit(next)
-  );
+  const graphEdit = useGraphEdit(project.surface, knitView, swatches, changeView, knitWindow);
+  // The patch tool and the courses editor share the viewer's edit mode: one at a time.
+  const editingPatches = patchLayout.active;
   // While editing, the courses layer shows the saved (edited) stage before the rebuild finishes.
   const graphLayerKind = graphEdit.active ? 'courses' : knitLayers.graph;
-  const knitGraphLayer = useMemo(
-    () =>
-      knitOpen && knitProgram && graphLayerKind !== 'off'
-        ? knitGraphOverlay(
-            graphEdit.active
-              ? { courses: knitSettings.graph!.courses }
-              : knitProgram.shape?.knitGraph?.stages,
-            project.surface,
-            graphLayerKind
-          )
-        : null,
-    [knitOpen, knitProgram, project.surface, graphLayerKind, graphEdit.active, knitSettings.graph]
-  );
+  // With patches, the knit graph layer shows every patch's stages, so courses can be compared across seams.
+  const knitGraphLayer = useMemo(() => {
+    if (!knitOpen || !knitProgram || graphLayerKind === 'off') return null;
+    if (graphEdit.active)
+      return knitGraphOverlay(
+        { courses: knitView.graph!.courses },
+        project.surface,
+        graphLayerKind
+      );
+    const stages = knitProgram.patches
+      ? knitProgram.patches.pieces.map((p) =>
+          p.build.ok ? p.build.program.shape?.knitGraph?.stages : undefined
+        )
+      : [knitProgram.shape?.knitGraph?.stages];
+    const layers = stages.flatMap(
+      (g) => knitGraphOverlay(g, project.surface, graphLayerKind) ?? []
+    );
+    return layers.length
+      ? {
+          weft: layers.flatMap((l) => l.weft),
+          warp: layers.flatMap((l) => l.warp),
+          loops: layers.flatMap((l) => l.loops),
+        }
+      : null;
+  }, [knitOpen, knitProgram, project.surface, graphLayerKind, graphEdit.active, knitView.graph]);
   const knitShapeOverlay = useMemo(() => {
     const index = knitHover !== null ? knitProgram?.shape?.placementAt[knitHover] : undefined;
     const placement =
@@ -809,10 +841,6 @@ export default function App() {
     : !knitBuild.ok
       ? knitBuild.reason
       : '';
-  const changeKnit = (next: import('../core/types').KnitSettings, coalesceKey?: string) => {
-    setKnitMarks(null);
-    commit({ ...projectRef.current, knit: next }, coalesceKey);
-  };
   const displayParameters = project.graph?.provenance.parameters ?? project.parameters;
   const activeFamily = FAMILIES.find((f) => f.key === displayParameters.family)!;
   const graphDiagnosticList = project.diagnostics.filter(
@@ -1204,13 +1232,14 @@ export default function App() {
                   }
                   pickingEdge={pickingKnitEdge}
                   onToggleEdgePicking={() => setPickingKnitEdge((v) => !v)}
-                  settings={knitSettings}
+                  settings={knitView}
+                  patch={knitSettings.patches ? `P${piece + 1}` : undefined}
                   open={knitOpen}
                   status={`${knitStatus}${knitJob.outdated ? ' · Program settings pending generation' : ''}`}
                   shapeJob={knitJob.usesWorker ? knitJob : undefined}
                   requirements={knitJob.requirements}
                   onRepair={repairKnit}
-                  onChange={changeKnit}
+                  onChange={changeView}
                   onToggleOpen={() => setKnitOpen((v) => !v)}
                 />
               ) : (
@@ -1411,16 +1440,23 @@ export default function App() {
                   setSelection({ kind: 'edge', id });
                 }}
                 startEdge={
-                  knitSupported(project.surface) ? (knitSettings.startEdge ?? 'v0') : undefined
+                  knitSupported(project.surface) ? (knitView.startEdge ?? 'v0') : undefined
                 }
+                startEdgeWindow={knitWindow}
                 pickStartEdge={knitSupported(project.surface) && pickingKnitEdge}
                 onStartEdge={(edge) => {
-                  changeKnit({ ...knitSettings, startEdge: edge });
+                  changeView({ ...knitView, startEdge: edge });
                   setPickingKnitEdge(false);
                 }}
                 shapeOverlay={knitShapeOverlay}
-                graphEdit={graphEdit.handles}
-                onGraphEdit={graphEdit.onIntent}
+                patchLines={tab === 'knit' || knitOpen ? patchLayout.lines : null}
+                graphEdit={editingPatches ? patchLayout.handles : graphEdit.handles}
+                onGraphEdit={editingPatches ? patchLayout.onIntent : graphEdit.onIntent}
+                graphEditLabel={
+                  editingPatches
+                    ? 'Patch layout. Click the surface to add a split line or choose a patch; drag a split line to move it; turn the patch tool off to rotate.'
+                    : undefined
+                }
                 onShapePick={(index) => {
                   setKnitHover(index);
                   setKnitMarks([index]);
@@ -2284,7 +2320,16 @@ export default function App() {
                       target?.scrollIntoView({ block: 'nearest' });
                     })
                   }
-                  settings={knitSettings}
+                  settings={knitView}
+                  window={knitWindow}
+                  patchBuild={knitJob.patches}
+                  patches={{
+                    ...patchLayout,
+                    setOn: (on: boolean) => {
+                      patchLayout.setOn(on);
+                      if (on) graphEdit.setOn(false);
+                    },
+                  }}
                   swatches={swatches}
                   graph={project.graph}
                   projectName={project.name}
@@ -2292,12 +2337,15 @@ export default function App() {
                   surfaceSize={project.surface.size}
                   hover={knitHover}
                   selection={selection}
-                  onSettings={changeKnit}
+                  onSettings={changeView}
                   graphEdit={{
                     ...graphEdit,
                     setOn: (on) => {
                       graphEdit.setOn(on);
-                      if (on) setKnitOpen(true);
+                      if (on) {
+                        setKnitOpen(true);
+                        patchLayout.setOn(false);
+                      }
                     },
                   }}
                   onSwatches={(next) => {

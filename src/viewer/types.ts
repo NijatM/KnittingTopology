@@ -66,12 +66,18 @@ export interface SurfaceViewerProps {
     graph?: { weft: Vec3[][]; warp: Vec3[][]; loops: { position: Vec3; role: string }[] } | null;
   } | null;
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
+  /** The chart rectangle whose side `startEdge` names (a computational patch); the whole chart if unset. */
+  startEdgeWindow?: { u: [number, number]; v: [number, number] };
   pickStartEdge?: boolean;
   onStartEdge?: (edge: 'v0' | 'u1' | 'v1' | 'u0') => void;
   onShapePick?: (index: number) => void;
   /** Courses-stage editing on the surface; orbit is off while it is set. */
   graphEdit?: GraphEditHandles | null;
   onGraphEdit?: (intent: GraphEditIntent) => void;
+  /** Accessible name of the canvas while `graphEdit` is set, when the editor is not the courses editor. */
+  graphEditLabel?: string;
+  /** Computational patch layout (display only): seams drawn double, the selected patch or seam. */
+  patchLines?: { seams: Vec3[][]; selected: Vec3[][] } | null;
   cutEdgeIds?: readonly string[];
   pickCutEdge?: boolean;
   onCutEdgePick?: (edgeId: string) => void;

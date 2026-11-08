@@ -18,7 +18,13 @@ import { evaluateSurface } from '../core/surfaces';
 import { gaugeOf, GAUGE_REFERENCE } from './gauge';
 import { knitAvailable } from './mapping';
 import { shapeCourseLoops, shapeLengths } from './shape-geometry';
-import type { ShapeCourse, ShapeGeometry, ShapeNeedles, ShapePoint } from './shape-types';
+import type {
+  ChartWindow,
+  ShapeCourse,
+  ShapeGeometry,
+  ShapeNeedles,
+  ShapePoint,
+} from './shape-types';
 import { TURN_PAIRING_RULE } from './turn-pairing';
 
 export const COURSE_METHODS: Record<KnitCourseMethod, { label: string; note: string }> = {
@@ -98,7 +104,9 @@ const closedSurface = (surface: Pick<SurfaceSpec, 'kind'>) =>
 export function courseStageFingerprint(
   surface: SurfaceSpec,
   settings: KnitSettings,
-  gauge: { stitchWidth: number; courseHeight: number }
+  gauge: { stitchWidth: number; courseHeight: number },
+  /** A computational patch's chart rectangle; unsplit charts keep their fingerprints. */
+  window?: ChartWindow
 ): string {
   const method = courseMethodOf(settings),
     closed = closedSurface(surface);
@@ -116,6 +124,7 @@ export function courseStageFingerprint(
       gauge.courseHeight,
       method === 'popescu-2019-rules' ? popescuSettingsOf(settings) : null,
       closed ? settings.lab.firstPass : null,
+      ...(window ? [window] : []),
     ])
   )}`;
 }
@@ -142,7 +151,8 @@ export interface KnitGraphFreshness {
 }
 /** Null when the current settings do not use a measured course layout. */
 export function knitGraphFreshness(
-  project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>
+  project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>,
+  window?: ChartWindow
 ): KnitGraphFreshness | null {
   const settings = project.knit;
   if (!settings || !knitAvailable(project.surface)) return null;
@@ -151,7 +161,7 @@ export function knitGraphFreshness(
     jersey = gaugeOf(GAUGE_REFERENCE, swatches),
     gauge = gaugeOf(settings.cells.fill, swatches);
   if (!jersey || jersey.assumed || !gauge) return null;
-  const expectedCourses = courseStageFingerprint(project.surface, settings, gauge),
+  const expectedCourses = courseStageFingerprint(project.surface, settings, gauge, window),
     graph = settings.graph,
     method = courseMethodOf(settings);
   if (!graph) return { method, courses: 'missing', loops: 'missing', expectedCourses };
@@ -169,9 +179,10 @@ export function knitGraphFreshness(
 }
 /** Saved stages without the stale ones: a stale courses stage also invalidates its loops. */
 export function freshStages(
-  project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>
+  project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>,
+  window?: ChartWindow
 ): KnitGraphStages | undefined {
-  const state = knitGraphFreshness(project),
+  const state = knitGraphFreshness(project, window),
     graph = project.knit?.graph;
   if (!state || !graph || state.courses !== 'fresh') return undefined;
   return state.loops === 'fresh'
@@ -181,13 +192,16 @@ export function freshStages(
 /** Export blocker for saved stages whose inputs changed. Generate replaces them, except an edited
  * courses stage, which is kept until the user discards its edits. */
 export function staleStagesBlocker(
-  project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>
+  project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>,
+  window?: ChartWindow,
+  /** Patch label, such as P2. */
+  label?: string
 ): string | null {
-  const state = project.knit?.graph ? knitGraphFreshness(project) : null;
+  const state = project.knit?.graph ? knitGraphFreshness(project, window) : null;
   if (!state || (state.courses !== 'stale' && state.loops !== 'stale')) return null;
   return state.courses === 'stale' && project.knit?.graph?.courses.edits?.length
-    ? 'Knit graph: the edited courses stage is stale (its inputs changed); download it or discard its edits.'
-    : 'Saved knit graph stages are stale: their inputs changed. Generate to replace them.';
+    ? `Knit graph${label ? ` ${label}` : ''}: the edited courses stage is stale (its inputs changed); download it or discard its edits.`
+    : `Saved knit graph stages${label ? ` of ${label}` : ''} are stale: their inputs changed. Generate to replace them.`;
 }
 /** Identity of the saved courses stage: method, inputs and content (edits change it). */
 export function courseStageKey(graph: KnitGraphStages | undefined): string {
@@ -604,9 +618,10 @@ export function parseStageFile(text: string): {
 /** Replace one saved stage with a loaded one; it must match the current inputs. */
 export function loadStage(
   project: Pick<ProjectState, 'surface' | 'knit' | 'swatches'>,
-  loaded: ReturnType<typeof parseStageFile>
+  loaded: ReturnType<typeof parseStageFile>,
+  window?: ChartWindow
 ): KnitGraphStages {
-  const state = knitGraphFreshness(project),
+  const state = knitGraphFreshness(project, window),
     settings = project.knit;
   if (!state || !settings) fail('the current settings do not use a measured course layout.');
   if (loaded.courseMethod !== state.method) fail('the file was made with another course method.');

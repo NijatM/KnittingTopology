@@ -4,8 +4,8 @@ export const KNIT_WORKFLOW = [
     title: 'Calibrate and orient',
     source:
       'Choose a knitting direction, start/end curves, loop width and course height for each patch. For a tensioned target, the thesis measures physical samples under biaxial tension in a locked state.',
-    here: 'Enter your stitch width and course height and select a rectangular start edge. Optional calibration context records the state and test conditions of those measurements.',
-    gap: 'Arbitrary curve pairs, per-patch directions and a material or prestress model are absent. Unspecified or relaxed measurements are not silently treated as tensioned calibration.',
+    here: 'Enter your stitch width and course height and select a rectangular start edge, for the whole chart or for each computational patch. Optional calibration context records the state and test conditions of those measurements.',
+    gap: 'Arbitrary curve pairs and a material or prestress model are absent; patches are a grid of split lines at constant u or v. Unspecified or relaxed measurements are not silently treated as tensioned calibration.',
     locator:
       '§6.2.1, pp. 97–99; §6.5, pp. 116–117 (including footnote 13); Appendix D, pp. 204–205',
   },
@@ -21,8 +21,8 @@ export const KNIT_WORKFLOW = [
     title: 'Edit and assemble patches',
     source:
       'Inspect and edit points and edges at intermediate stages, check connectivity and duplicates, save stages, and combine aligned patterns. Computational patches can outnumber fabricated pieces.',
-    here: 'The course and loop stages are saved with the project and as stage files, with input fingerprints and connectivity and duplicate checks; stale stages and failed checks block operation export. The courses stage can be edited on the surface: vertices and links (connection-rules method) or course polylines and turns (project method); each edit is recorded and the layout is rebuilt and rechecked. Project saving, selection and specific cube/sphere cut-and-seam workflows exist.',
-    gap: 'Loops-stage editing, patch interfaces and assembly are absent. The thesis itself does not develop automatic subdivision; KnitCandela patch combination still required some manual alignment.',
+    here: 'The course and loop stages are saved with the project and as stage files, with input fingerprints and connectivity and duplicate checks; stale stages and failed checks block operation export. The courses stage can be edited on the surface: vertices and links (connection-rules method) or course polylines and turns (project method); each edit is recorded and the layout is rebuilt and rechecked. In shape mode on open surfaces the chart can be split into a grid of computational patches, each with its own direction, loop size, course method and stages; every shared edge is a seam with a seam map paired by position (project rule). Project saving, selection and specific cube/sphere cut-and-seam workflows exist.',
+    gap: 'Loops-stage editing and combining patches into one knitted piece are absent; patch boundaries are full-length grid lines, not free curves. The thesis itself does not develop automatic subdivision; KnitCandela patch combination still required some manual alignment.',
     locator: '§6.3, pp. 105–112; Figs. 6.13–6.17; §7.3.4, p. 153, footnote 9',
   },
   {

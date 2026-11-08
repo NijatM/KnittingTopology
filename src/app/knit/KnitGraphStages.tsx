@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { KnitSettings, SurfaceSpec, SwatchEntry } from '../../core/types';
 import type { KnitProgram } from '../../knit/program';
+import type { ChartWindow } from '../../knit/shape-types';
 import {
   COURSE_METHODS,
   knitGraphFreshness,
@@ -22,6 +23,9 @@ interface Props {
   file: string;
   onSettings: (next: KnitSettings) => void;
   edit?: GraphEditState;
+  /** The selected computational patch: its chart rectangle and label. */
+  window?: ChartWindow;
+  label?: string;
 }
 
 const STATE_TEXT: Record<StageState, string> = {
@@ -38,9 +42,11 @@ export default function KnitGraphStages({
   file,
   onSettings,
   edit,
+  window,
+  label,
 }: Props) {
   const [error, setError] = useState('');
-  const state = knitGraphFreshness({ surface, knit: settings, swatches });
+  const state = knitGraphFreshness({ surface, knit: settings, swatches }, window);
   if (!state) return null;
   const graph = settings.graph;
   const courses = graph?.courses,
@@ -75,7 +81,7 @@ export default function KnitGraphStages({
 
   return (
     <section aria-label="Knit graph stages">
-      <h3 className="knit-heading">Knit graph stages</h3>
+      <h3 className="knit-heading">Knit graph stages{label ? ` · patch ${label}` : ''}</h3>
       <p className="hint">
         {COURSE_METHODS[state.method].label}. Courses stage, then loops stage (Popescu 2019, §6.3).
         Saved stages are reused by Generate while they match their inputs; they are never replaced
@@ -198,7 +204,8 @@ export default function KnitGraphStages({
               try {
                 const next = loadStage(
                   { surface, knit: settings, swatches },
-                  parseStageFile(await f.text())
+                  parseStageFile(await f.text()),
+                  window
                 );
                 onSettings({ ...settings, graph: next });
                 setError('');

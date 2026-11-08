@@ -3,20 +3,39 @@
  * Supported subset: a single contour, monotone across chart rows. */
 import type { GenerationContext, SurfaceSpec, Vec2, Vec3 } from '../core/types';
 import { evaluateSurface, validateSurface } from '../core/surfaces';
-import type { ShapeCourse, ShapeGeometry, ShapeLoop, ShapePoint, StartEdge } from './shape-types';
+import type {
+  ChartWindow,
+  ShapeCourse,
+  ShapeGeometry,
+  ShapeLoop,
+  ShapePoint,
+  StartEdge,
+} from './shape-types';
 import { surfaceDistance } from './surface-distance';
 
-export function originalShapeUV(u: number, v: number, edge: StartEdge): Vec2 {
+const toChart = (w: ChartWindow | undefined, u: number, v: number): Vec2 =>
+  w ? [w.u[0] + u * (w.u[1] - w.u[0]), w.v[0] + v * (w.v[1] - w.v[0])] : [u, v];
+const fromChart = (w: ChartWindow | undefined, uv: Vec2): Vec2 =>
+  w ? [(uv[0] - w.u[0]) / (w.u[1] - w.u[0]), (uv[1] - w.v[0]) / (w.v[1] - w.v[0])] : [uv[0], uv[1]];
+/** Chart coordinates of rotated coordinates (u from the needle-1 side, v along it), inside `window`. */
+export function originalShapeUV(u: number, v: number, edge: StartEdge, window?: ChartWindow): Vec2 {
   switch (edge) {
     case 'v0':
-      return [u, v];
+      return toChart(window, u, v);
     case 'u1':
-      return [1 - v, u];
+      return toChart(window, 1 - v, u);
     case 'v1':
-      return [1 - u, 1 - v];
+      return toChart(window, 1 - u, 1 - v);
     case 'u0':
-      return [v, 1 - u];
+      return toChart(window, v, 1 - u);
   }
+}
+/** Chart extent of one rotated unit: [across the needles, along the needle-1 side]. */
+export function rotatedSpan(edge: StartEdge, window?: ChartWindow): Vec2 {
+  if (!window) return [1, 1];
+  const du = window.u[1] - window.u[0],
+    dv = window.v[1] - window.v[0];
+  return edge === 'v0' || edge === 'v1' ? [du, dv] : [dv, du];
 }
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const countCeil = (x: number) => Math.ceil(x - 1e-10 * Math.max(1, x));
@@ -27,7 +46,8 @@ export function shapeLengths(p: ShapePoint[]): number[] {
 }
 const lengths = shapeLengths;
 /** Chart coordinates after the start-edge rotation (inverse of `originalShapeUV`). */
-export function rotatedShapeUV(uv: Vec2, edge: StartEdge): Vec2 {
+export function rotatedShapeUV(chart: Vec2, edge: StartEdge, window?: ChartWindow): Vec2 {
+  const uv = fromChart(window, chart);
   return edge === 'v0'
     ? [uv[0], uv[1]]
     : edge === 'u1'
@@ -37,7 +57,8 @@ export function rotatedShapeUV(uv: Vec2, edge: StartEdge): Vec2 {
         : [1 - uv[1], uv[0]];
 }
 /** Chart v after the start-edge rotation: the direction along a contour. */
-export function rotatedShapeV(uv: Vec2, edge: StartEdge): number {
+export function rotatedShapeV(chart: Vec2, edge: StartEdge, window?: ChartWindow): number {
+  const uv = fromChart(window, chart);
   return edge === 'v0' ? uv[1] : edge === 'v1' ? 1 - uv[1] : edge === 'u1' ? 1 - uv[0] : uv[0];
 }
 /** Point at fraction `t` of the arc length `l` of polyline `p`; chart-linear between samples. */
@@ -68,6 +89,8 @@ export interface ShapeField {
   d: ArrayLike<number>;
   /** Largest distance on the opposite side. */
   max: number;
+  /** The patch rectangle of the chart; absent for the whole chart. */
+  window?: ChartWindow;
   at: (u: number, v: number, across: number) => ShapePoint;
   check: () => void;
 }
@@ -78,7 +101,8 @@ export function shapeDistanceField(
   startEdge: StartEdge = 'v0',
   context?: GenerationContext,
   /** Numerical comparisons only; not a saved/UI setting. */
-  resolution = surface.kind === 'plane' ? 16 : 128
+  resolution = surface.kind === 'plane' ? 16 : 128,
+  window?: ChartWindow
 ): ShapeField {
   validateSurface(surface);
   if (
@@ -102,7 +126,7 @@ export function shapeDistanceField(
   const n = resolution,
     side = n + 1;
   const at = (u: number, v: number, across: number): ShapePoint => {
-    const uv = originalShapeUV(u, v, startEdge),
+    const uv = originalShapeUV(u, v, startEdge, window),
       position = evaluateSurface(surface, 0, ...uv);
     if (!position.every(Number.isFinite)) throw new Error('Nonfinite shaping surface evaluation.');
     return { uv, position, across };
@@ -116,14 +140,17 @@ export function shapeDistanceField(
   // The field remains a sampled first-order approximation, not an exact geodesic.
   const d =
     surface.kind === 'plane'
-      ? Float64Array.from(grid, (_, i) => ((i % side) * surface.size) / n)
+      ? Float64Array.from(
+          grid,
+          (_, i) => ((i % side) * surface.size * rotatedSpan(startEdge, window)[0]) / n
+        )
       : surfaceDistance(
           grid.map((p) => p.position),
           n,
           check
         ).values;
   const max = Math.max(...Array.from({ length: side }, (_, y) => d[y * side + n]));
-  return { surface, startEdge, n, d, max, at, check };
+  return { surface, startEdge, n, d, max, at, check, ...(window ? { window } : {}) };
 }
 export function assertMonotone(field: ShapeField) {
   const { n, d, surface } = field,
@@ -198,7 +225,8 @@ export function buildShapeGeometry(
   startEdge: StartEdge = 'v0',
   context?: GenerationContext,
   /** Numerical comparisons only; not a saved/UI setting. */
-  resolution = surface.kind === 'plane' ? 16 : 128
+  resolution = surface.kind === 'plane' ? 16 : 128,
+  window?: ChartWindow
 ): ShapeGeometry {
   const field = shapeDistanceField(
     surface,
@@ -206,8 +234,11 @@ export function buildShapeGeometry(
     courseHeight,
     startEdge,
     context,
-    resolution
+    resolution,
+    window
   );
+  // One course height in rotated chart units along the needle-1 side.
+  const courseStep = courseHeight / (surface.size * rotatedSpan(startEdge, window)[1]);
   const { n, d, max, at, check } = field,
     side = n + 1;
   const width = Math.max(1, countCeil(max / stitchWidth));
@@ -272,14 +303,7 @@ export function buildShapeGeometry(
       costs = new Float64Array((a.length + 1) * h).fill(Infinity),
       step = new Uint8Array(costs.length);
     costs[0] = 0;
-    const unrotateV = (p: ShapePoint) =>
-      startEdge === 'v0'
-        ? p.uv[1]
-        : startEdge === 'v1'
-          ? 1 - p.uv[1]
-          : startEdge === 'u1'
-            ? 1 - p.uv[0]
-            : p.uv[0];
+    const unrotateV = (p: ShapePoint) => rotatedShapeV(p.uv, startEdge, window);
     const boundaryTrimmed =
       Math.abs(unrotateV(contours[col][0]) - unrotateV(contours[col - 1][0])) > 1e-8 ||
       Math.abs(unrotateV(contours[col].at(-1)!) - unrotateV(contours[col - 1].at(-1)!)) > 1e-8;
@@ -332,30 +356,23 @@ export function buildShapeGeometry(
         }
         // Boundary-trimmed terminal intervals may straddle the adjacent contour endpoint.
         // The one-course chart tolerance below is a project discretization choice.
-        const uvV = (p: ShapePoint) =>
-          startEdge === 'v0'
-            ? p.uv[1]
-            : startEdge === 'v1'
-              ? 1 - p.uv[1]
-              : startEdge === 'u1'
-                ? 1 - p.uv[0]
-                : p.uv[0];
+        const uvV = (p: ShapePoint) => rotatedShapeV(p.uv, startEdge, window);
         if (
           i < a.length &&
           (j === 0 || j === b.length) &&
           ((uvV(contours[col][0]) > uvV(contours[col - 1][0]) + 1e-8 &&
-            uvV(a[i]) < uvV(contours[col][0]) + courseHeight / surface.size) ||
+            uvV(a[i]) < uvV(contours[col][0]) + courseStep) ||
             (uvV(contours[col].at(-1)!) < uvV(contours[col - 1].at(-1)!) - 1e-8 &&
-              uvV(a[i]) > uvV(contours[col].at(-1)!) - courseHeight / surface.size))
+              uvV(a[i]) > uvV(contours[col].at(-1)!) - courseStep))
         )
           set(1, 0, 0, 4);
         if (
           j < b.length &&
           (i === 0 || i === a.length) &&
           ((uvV(contours[col - 1][0]) > uvV(contours[col][0]) + 1e-8 &&
-            uvV(b[j]) < uvV(contours[col - 1][0]) + courseHeight / surface.size) ||
+            uvV(b[j]) < uvV(contours[col - 1][0]) + courseStep) ||
             (uvV(contours[col - 1].at(-1)!) < uvV(contours[col].at(-1)!) - 1e-8 &&
-              uvV(b[j]) > uvV(contours[col - 1].at(-1)!) - courseHeight / surface.size))
+              uvV(b[j]) > uvV(contours[col - 1].at(-1)!) - courseStep))
         )
           set(0, 1, 0, 5);
       }
@@ -438,24 +455,10 @@ export function buildShapeGeometry(
       courseVertices.push(g.map((x) => x.index));
       const extend = (p: ShapePoint, u: number, across: number) => {
         const uv = p.uv;
-        const v =
-          startEdge === 'v0'
-            ? uv[1]
-            : startEdge === 'v1'
-              ? 1 - uv[1]
-              : startEdge === 'u1'
-                ? 1 - uv[0]
-                : uv[0];
+        const v = rotatedShapeV(uv, startEdge, window);
         return at(u, v, across);
       };
-      const rotatedV = (p: ShapePoint) =>
-        startEdge === 'v0'
-          ? p.uv[1]
-          : startEdge === 'v1'
-            ? 1 - p.uv[1]
-            : startEdge === 'u1'
-              ? 1 - p.uv[0]
-              : p.uv[0];
+      const rotatedV = (p: ShapePoint) => rotatedShapeV(p.uv, startEdge, window);
       const sideDistance = (p: ShapePoint) => {
         const y = rotatedV(p) * n,
           k = Math.min(n - 1, Math.floor(y)),
@@ -466,8 +469,8 @@ export function buildShapeGeometry(
       const next = contours[last.col + 1];
       const outsideNext =
         next &&
-        (rotatedV(last.p) < rotatedV(next[0]) + courseHeight / surface.size ||
-          rotatedV(last.p) > rotatedV(next.at(-1)!) - courseHeight / surface.size) &&
+        (rotatedV(last.p) < rotatedV(next[0]) + courseStep ||
+          rotatedV(last.p) > rotatedV(next.at(-1)!) - courseStep) &&
         sideDistance(last.p) - last.p.across < stitchWidth * 1.5;
       const rightBoundary = last.col === width - 1 || !!outsideNext;
       const midpoint = (p: ShapePoint, col: number) => {

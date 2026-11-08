@@ -55,6 +55,20 @@ Each edit is one undo step and is recorded in the stage (`edits`: operation and 
 
 Editing is available on open surfaces (plane, saddle, OBJ meshes with a rectangular chart); cube and sphere stages carry net coordinates and are not edited. The loops stage is not edited yet.
 
+## Computational patches
+
+The thesis splits the target geometry by hand into computational patches before generating patterns; the user chooses the knitting direction for each patch and may change the loop size (Popescu 2019, §6.3.2, pp. 109–110; Fig. 6.16; §6.2.1, footnote 4). The thesis develops no subdivision strategy and does not describe how patterns are combined; KnitCandela still needed some manual alignment (§7.3.4, p. 153, footnote 9).
+
+In shape mode on open surfaces (plane, saddle, OBJ meshes with a rectangular chart), _Computational patches_ in the Knit tab divides the chart:
+
+- **Layout (project restriction).** Split lines run across the whole chart at constant u or v, so the patches form a grid of rectangles with no T-junctions. Up to 8 lines per direction, at least 0.02 chart units apart and from the chart sides (project limits). Lines are added by clicking the surface with _Split along u_ or _Split along v_, dragged to move them, or typed in the panel; clicked values are rounded to 0.001. Patches are numbered P1, P2, … row by row from the chart corner u = 0, v = 0.
+- **Per patch.** Each patch has its own start edge, fill structure (its measured loop size) and course method, and its own saved, editable knit graph stages. The start edge names a side of the patch's rectangle. A stage's input fingerprint includes the patch rectangle, so a stage is fresh only for its own patch; a project without splits keeps its fingerprints.
+- **Changing the layout (project rules).** A new split gives both halves the settings of the divided patch; their stages are dropped because their region changed. Moving a split drops the stages of the patches beside it. Removing a split keeps the settings of the patch below or to the left; removing the last split returns them to the whole chart.
+- **Pieces.** In this version every shared edge is a seam: each patch is generated as its own piece, with its own bitmap, Knit Grammar JSON, report and stage files (file names end in `-P1`, `-P2`, …). The preview and the exports show the patch chosen under _Patch_; a patch that fails to build does not stop the others. Combining patches into one knitted piece is not implemented yet.
+- **Seams.** For each segment of a split line between two patches, the seam map (`knit-patch-seam-map` JSON) and the report give the 3D length and, for each side, its role in that patch's knitting frame and its elements: the loops of the first or last course on a course edge, or the course ends on a needle-1 or far side, with their needle, pass and position along the edge. Each element on the side with more elements is paired with the nearest element on the other side by position along the edge (project rule). Count and length differences are reported as sewing guidance; they never block export.
+
+Patches apply only to shape mode on open surfaces; other modes with splits are blocked with a message. Topology network patches are never used as knit patches. Cube and sphere programs keep their own cut-and-seam constructions.
+
 ## Measurements, settings and provenance
 
 Shape mode requires a measured jersey entry. The selected fill's measured stitch width and course height set the loop dimensions; an unmeasured fill uses jersey values and is flagged **assumed = jersey**. No machine gauge or loop dimensions are supplied as defaults. The single loop size per piece follows the thesis restriction (§6.2.1, footnote 4).
@@ -67,7 +81,7 @@ Shape generation runs in a disposable worker. Cancel terminates it; changed inpu
 
 ## Limits and evidence
 
-- A level must form one contour monotone across chart rows. Disconnected or nonmonotone levels are rejected and need patching.
+- A level must form one contour monotone across chart rows. Disconnected or nonmonotone levels are rejected and need patching (see [computational patches](#computational-patches)).
 - Boundary-trimmed adjacent contours use terminal gaps without interior triangle blocks. Mixed boundary truncation and curved short rows in the same pair are outside the verified subset.
 - The distance source is asymmetric. Sampled-face geometry, first-order distance and chart interpolation errors have no certified bound. An algebraic stopping tolerance is not a geometric error estimate. Highly skew charts can have substantial finite-resolution error even after relaxation converges; refinement tests are required. No universal accuracy percentage is claimed.
 - Geometric lengths are sampled approximations. Contour/course rounding and maximum alignment offset are reported. Swatch dimensions do not account for tension, anisotropic mechanics or yarn interactions.

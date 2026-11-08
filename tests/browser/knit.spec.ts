@@ -1180,3 +1180,93 @@ test('knit graph editing: edit the courses stage on the surface, undo, keep a st
   await expect(panel).toContainText('Popescu connection rules');
   await page.screenshot({ path: 'tmp/qa/2b-stage-editing.png', fullPage: true });
 });
+
+test('computational patches: split lines, per-patch start edge, one bitmap per piece and a seam map', async ({
+  page,
+}) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: /^Saddle / }).click();
+  await page.getByRole('combobox', { name: 'Knit mode' }).selectOption('shape');
+  await page.getByRole('button', { name: 'Show program beside the surface' }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  // Test values, not lab measurements.
+  await page.getByRole('textbox', { name: 'Stitch width (mm)' }).fill('10');
+  await page.getByRole('textbox', { name: 'Course height (mm)' }).fill('8');
+  await page.getByRole('button', { name: 'Add measurement', exact: true }).click();
+  const patches = page.getByRole('region', { name: 'Computational patches' });
+
+  // The patch tool adds a split line at constant u through the clicked point.
+  const toggle = patches.getByRole('button', { name: 'Lay out patches on the surface' });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await expect(patches.getByRole('combobox', { name: 'Patch tool' })).toHaveValue('split-u');
+  const canvas = page.getByTestId('surface-viewer').locator('canvas');
+  await expect(canvas).toHaveAttribute('aria-label', /Patch layout/);
+  const box = (await canvas.boundingBox())!;
+  // Off centre: the saddle view is symmetric, so the centre lies near u = 0.5.
+  await page.mouse.click(box.x + box.width * 0.35, box.y + box.height / 2);
+  const split = patches.getByRole('spinbutton', { name: 'u split 1' });
+  await expect(split).toBeVisible();
+  const clicked = Number(await split.inputValue());
+  expect(clicked).toBeGreaterThan(0.02);
+  expect(clicked).toBeLessThan(0.98);
+  expect(clicked).not.toBe(0.5);
+  // A typed value moves it exactly; Undo returns to the clicked value.
+  await split.fill('0.5');
+  await split.press('Enter');
+  await expect(split).toHaveValue('0.5');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(split).toHaveValue(String(clicked));
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(split).toHaveValue('0.5');
+  await toggle.click();
+  await expect(canvas).not.toHaveAttribute('aria-label', /Patch layout/);
+
+  // Each patch has its own start edge.
+  const choose = patches.getByRole('combobox', { name: 'Patch' });
+  await expect(choose.locator('option')).toHaveCount(2);
+  await choose.selectOption('1');
+  await expect(page.getByTestId('knit-controls-patch')).toContainText('patch P2');
+  await page.getByRole('combobox', { name: 'Start edge' }).selectOption('u1');
+  await expect(choose.locator('option').nth(0)).toContainText('P1 · u 0–0.5 · v 0–1 · start v0');
+  await expect(choose.locator('option').nth(1)).toContainText('P2 · u 0.5–1 · v 0–1 · start u1');
+
+  // Generate builds every patch as its own piece; the shown piece is the selected patch.
+  await page.getByRole('button', { name: /^(Generate|Regenerate) shape$/ }).click();
+  const pieces = patches.getByRole('list', { name: 'Patch pieces' });
+  await expect(pieces).toContainText(/P1: \d+ needles × \d+ passes/);
+  await expect(pieces).toContainText(/P2: \d+ needles × \d+ passes/);
+  const stages = page.getByRole('region', { name: 'Knit graph stages' });
+  await expect(stages.getByRole('heading')).toHaveText('Knit graph stages · patch P2');
+  await expect(stages.getByRole('list', { name: 'Stage status' })).toContainText(
+    'Courses: saved, matches the current inputs'
+  );
+  const named = async (scope: typeof page | typeof patches, button: string) => {
+    const pending = page.waitForEvent('download');
+    await scope.getByRole('button', { name: button, exact: true }).click();
+    const download = await pending;
+    return { name: download.suggestedFilename(), download };
+  };
+  const bmp2 = await named(page, 'Bitmap BMP');
+  expect(bmp2.name).toMatch(/-P2-knit\.bmp$/);
+  const report = await named(page, 'Report TXT');
+  expect(report.name).toMatch(/-P2-knit-report\.txt$/);
+  expect(new TextDecoder().decode(await bytes(report.download))).toContain('piece P2 of 2');
+  await choose.selectOption('0');
+  expect((await named(page, 'Bitmap BMP')).name).toMatch(/-P1-knit\.bmp$/);
+
+  // The seam map lists both sides of the one seam, paired by position (project rule).
+  const seamMap = await named(patches, 'Seam map JSON');
+  expect(seamMap.name).toMatch(/-seam-map\.json$/);
+  const map = JSON.parse(new TextDecoder().decode(await bytes(seamMap.download)));
+  expect(map).toMatchObject({ format: 'knit-patch-seam-map', version: 1 });
+  expect(map.seams).toHaveLength(1);
+  expect(map.patches.map((p: { startEdge: string }) => p.startEdge)).toEqual(['v0', 'u1']);
+  await page.screenshot({ path: 'tmp/qa/2c1-patches.png', fullPage: true });
+
+  // Removing the last split returns the whole chart to the settings of the patch on the left.
+  await patches.getByRole('button', { name: 'Remove u split 1', exact: true }).click();
+  await expect(choose).toHaveCount(0);
+  await expect(page.getByTestId('knit-controls-patch')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Start edge' })).toHaveValue('v0');
+});

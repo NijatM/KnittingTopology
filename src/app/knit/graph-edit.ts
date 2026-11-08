@@ -21,6 +21,7 @@ import {
   type LinkKind,
 } from '../../knit/knit-graph-edit';
 import { rotatedShapeUV } from '../../knit/shape-geometry';
+import type { ChartWindow } from '../../knit/shape-types';
 import type { GraphEditHandles, GraphEditIntent, GraphEditTarget } from '../../viewer/types';
 
 type StartEdge = 'v0' | 'u1' | 'v1' | 'u0';
@@ -169,10 +170,11 @@ export function editFromIntent(
 export function newCourse(
   stage: KnitCourseStage,
   points: Vec2[],
-  startEdge: StartEdge
+  startEdge: StartEdge,
+  window?: ChartWindow
 ): CourseEdit {
   const wale = (uvs: Vec2[]) =>
-    uvs.reduce((s, uv) => s + rotatedShapeUV(uv, startEdge)[1], 0) / uvs.length;
+    uvs.reduce((s, uv) => s + rotatedShapeUV(uv, startEdge, window)[1], 0) / uvs.length;
   const own = wale(points);
   let after = -1;
   stage.courses.forEach((_, k) => {
@@ -181,18 +183,20 @@ export function newCourse(
   return { op: 'add-course', after, points };
 }
 
-/** Editing state for the panel and the viewer; edits are committed as settings (one undo step each). */
+/** Editing state for the panel and the viewer; edits are committed as settings (one undo step each).
+ * With computational patches, `settings` is the selected patch's view and `window` its rectangle. */
 export function useGraphEdit(
   surface: SurfaceSpec,
   settings: KnitSettings,
   swatches: SwatchEntry[],
-  onSettings: (next: KnitSettings) => void
+  onSettings: (next: KnitSettings) => void,
+  window?: ChartWindow
 ) {
   const [on, setOn] = useState(false);
   const [chosen, setTool] = useState<EditTool | null>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
   const [error, setError] = useState('');
-  const state = knitGraphFreshness({ surface, knit: settings, swatches });
+  const state = knitGraphFreshness({ surface, knit: settings, swatches }, window);
   const stage = state?.courses === 'fresh' ? settings.graph?.courses : undefined,
     method = state?.method ?? 'project-alignment',
     startEdge = settings.startEdge ?? 'v0';
@@ -208,7 +212,7 @@ export function useGraphEdit(
   const apply = (edit: CourseEdit) => {
     if (!stage) return false;
     try {
-      const courses = applyCourseEdit(stage, method, edit, editContext(surface, startEdge));
+      const courses = applyCourseEdit(stage, method, edit, editContext(surface, startEdge, window));
       onSettings({ ...settings, graph: { courseMethod: method, courses } });
       setError('');
       return true;
@@ -247,7 +251,8 @@ export function useGraphEdit(
       } else apply(step.edit);
     },
     addCourse: () => {
-      if (stage && draft.length >= 2 && apply(newCourse(stage, draft, startEdge))) setDraft([]);
+      if (stage && draft.length >= 2 && apply(newCourse(stage, draft, startEdge, window)))
+        setDraft([]);
     },
     clearDraft: () => setDraft([]),
   };

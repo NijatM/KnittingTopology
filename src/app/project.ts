@@ -14,6 +14,7 @@ import { createCitationRecord } from '../adapters/citations';
 import { validateKnitSettings } from '../knit/settings';
 import { validateSwatches } from '../knit/gauge';
 import { courseStageKey, knitGraphFreshness, knitGraphSignature } from '../knit/knit-graph';
+import { patchSettings, patchWindow, withPatchSettings } from '../knit/patches';
 import {
   MAX_GRAPH_CELLS,
   MAX_GRAPH_EDGES,
@@ -424,10 +425,15 @@ export interface HistoryState {
 export type HistoryAction =
   | { type: 'commit'; next: ProjectState; coalesceKey?: string }
   | { type: 'accept-result'; signature: string; result: import('../core/types').GenerationResult }
-  | { type: 'accept-knit-graph'; graph: KnitGraphStages }
+  | { type: 'accept-knit-graph'; graph: KnitGraphStages; patch?: number }
   | { type: 'end-coalesce' }
   | { type: 'undo' }
   | { type: 'redo' };
+const graphCost = (g: KnitGraphStages) =>
+  g.courses.vertices.length +
+  g.courses.links.length +
+  (g.loops?.loops.length ?? 0) +
+  (g.loops?.primal?.edges.length ?? 0);
 function trimHistory(states: ProjectState[]): ProjectState[] {
   const selected: ProjectState[] = [];
   const resources = new Set<object>();
@@ -436,7 +442,8 @@ function trimHistory(states: ProjectState[]): ProjectState[] {
     const state = states[i]!;
     const graph = state.graph;
     const mesh = state.surface.kind === 'mesh' ? state.surface.mesh : undefined;
-    const knitGraph = state.knit?.graph;
+    const knitGraph = state.knit?.graph,
+      patches = state.knit?.patches;
     const additions = [
       ...(graph
         ? [{ resource: graph, cost: graph.nodes.length + graph.edges.length + graph.cells.length }]
@@ -444,15 +451,13 @@ function trimHistory(states: ProjectState[]): ProjectState[] {
       ...(mesh
         ? [{ resource: mesh, cost: mesh.positions.length / 3 + mesh.indices.length / 3 }]
         : []),
-      ...(knitGraph
+      ...(knitGraph ? [{ resource: knitGraph, cost: graphCost(knitGraph) }] : []),
+      // Patch stages count as one resource per layout.
+      ...(patches?.patches.some((p) => p.graph)
         ? [
             {
-              resource: knitGraph,
-              cost:
-                knitGraph.courses.vertices.length +
-                knitGraph.courses.links.length +
-                (knitGraph.loops?.loops.length ?? 0) +
-                (knitGraph.loops?.primal?.edges.length ?? 0),
+              resource: patches,
+              cost: patches.patches.reduce((n, p) => n + (p.graph ? graphCost(p.graph) : 0), 0),
             },
           ]
         : []),
@@ -481,18 +486,28 @@ export function historyReducer(history: HistoryState, action: HistoryAction): Hi
   }
   if (action.type === 'accept-knit-graph') {
     // Only stages built from the present inputs are saved; anything else is left for the next Generate.
-    const knit = history.present.knit;
-    if (!knit || knitGraphSignature(knit.graph) === knitGraphSignature(action.graph))
+    const present = history.present.knit,
+      patch = action.patch,
+      layout = present?.patches;
+    if (!present || (patch === undefined) !== !layout || (layout && !layout.patches[patch!]))
       return history;
+    // A patch's stages are judged in its own whole-chart view, with its rectangle.
+    const knit = layout ? patchSettings(present, patch!) : present,
+      window = layout ? patchWindow(layout, patch!) : undefined;
+    if (knitGraphSignature(knit.graph) === knitGraphSignature(action.graph)) return history;
     // An edited courses stage is never replaced by a build; a build from it may add its loops.
     if (
       knit.graph?.courses.edits?.length &&
       courseStageKey(knit.graph) !== courseStageKey(action.graph)
     )
       return history;
-    const next = { ...history.present, knit: { ...knit, graph: action.graph } };
-    const state = knitGraphFreshness(next);
+    const view = { ...knit, graph: action.graph };
+    const state = knitGraphFreshness({ ...history.present, knit: view }, window);
     if (state?.courses !== 'fresh' || state.loops !== 'fresh') return history;
+    const next = {
+      ...history.present,
+      knit: layout ? withPatchSettings(present, patch!, view) : view,
+    };
     // Saving the stages of a build is bookkeeping, not a user edit: it amends the present state, so Undo
     // reverts the user's last change rather than the save.
     return { ...history, present: { ...next, revision: history.present.revision + 1 } };

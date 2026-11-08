@@ -1,5 +1,5 @@
 // Knit program settings: defaults and bounded validation for project files.
-import type { KnitCellRule, KnitSettings } from '../core/types';
+import type { KnitCellRule, KnitPatch, KnitPatchLayout, KnitSettings } from '../core/types';
 import { MAX_GRAPH_CELLS, MAX_GRAPH_EDGES } from '../core/limits';
 import { PRESET_KEYS, settingsKey, validateKeys } from './keys';
 import { structuresForKey } from './structures';
@@ -7,6 +7,7 @@ import { DEFAULT_LIMITS } from './checks';
 import { MAX_SIDE } from './grid';
 import { validateTiles } from './tiles';
 import { POPESCU_LIMITS, validateKnitGraph } from './knit-graph';
+import { MAX_SPLITS, patchCount, splitProblem } from './patches';
 
 export const MAX_LINE_LOOPS = 40;
 export const MAX_PALETTE = 8;
@@ -69,6 +70,67 @@ function rule(v: unknown): KnitCellRule {
   return { kind, palette: palette(r.palette, `${kind} palette`) };
 }
 
+function popescuOf(value: unknown): NonNullable<KnitSettings['popescu']> {
+  const popescu = obj(value, 'Popescu rule settings'),
+    angleTolerance = popescu.angleTolerance;
+  if (
+    typeof angleTolerance !== 'number' ||
+    !Number.isFinite(angleTolerance) ||
+    angleTolerance < POPESCU_LIMITS.angleTolerance[0] ||
+    angleTolerance > POPESCU_LIMITS.angleTolerance[1]
+  )
+    throw new Error(
+      `angle tolerance must be ${POPESCU_LIMITS.angleTolerance[0]}–${POPESCU_LIMITS.angleTolerance[1]} degrees.`
+    );
+  return {
+    resultCount: int(popescu.resultCount, 'result count', ...POPESCU_LIMITS.resultCount),
+    angleTolerance,
+  };
+}
+const COURSE_METHODS = ['project-alignment', 'popescu-2019-rules'] as const;
+const START_EDGES = ['v0', 'u1', 'v1', 'u0'] as const;
+/** Computational patch layout (§6.3.2): bounded split lists and one entry per grid patch. */
+function patchLayoutOf(value: unknown): KnitPatchLayout {
+  const layout = obj(value, 'patch layout');
+  pick(layout.kind, 'patch layout kind', ['chart-grid'] as const);
+  const splits = (v: unknown, axis: string) => {
+    if (!Array.isArray(v) || v.length > MAX_SPLITS)
+      throw new Error(`${axis} splits must be a list of at most ${MAX_SPLITS} values.`);
+    const out: number[] = [];
+    for (const x of v) {
+      const problem = typeof x === 'number' ? splitProblem(out, x) : 'A split must be a number.';
+      if (problem) throw new Error(`${axis} splits: ${problem}`);
+      if (out.length && x <= out.at(-1)!) throw new Error(`${axis} splits must increase.`);
+      out.push(x as number);
+    }
+    return out;
+  };
+  const u = splits(layout.u, 'u'),
+    v = splits(layout.v, 'v');
+  if (!u.length && !v.length) throw new Error('a patch layout needs at least one split.');
+  if (!Array.isArray(layout.patches) || layout.patches.length !== patchCount({ u, v }))
+    throw new Error('the patch list does not match the split lines.');
+  return {
+    kind: 'chart-grid',
+    u,
+    v,
+    patches: layout.patches.map((value, i): KnitPatch => {
+      const p = obj(value, `patch P${i + 1}`);
+      return {
+        startEdge: pick(p.startEdge, `patch P${i + 1} start edge`, START_EDGES),
+        fill: id(p.fill, `patch P${i + 1} fill`),
+        ...(p.courseMethod === undefined
+          ? {}
+          : {
+              courseMethod: pick(p.courseMethod, `patch P${i + 1} course method`, COURSE_METHODS),
+            }),
+        ...(p.popescu === undefined ? {} : { popescu: popescuOf(p.popescu) }),
+        ...(p.graph === undefined ? {} : { graph: validateKnitGraph(p.graph) }),
+      };
+    }),
+  };
+}
+
 /** Validated copy of knit settings; throws a descriptive Error. */
 export function validateKnitSettings(value: unknown): KnitSettings {
   const s = obj(value, 'knit settings');
@@ -104,18 +166,7 @@ export function validateKnitSettings(value: unknown): KnitSettings {
     )
       throw new Error('cut edge IDs must be unique bounded source IDs.');
   }
-  const popescu = s.popescu === undefined ? undefined : obj(s.popescu, 'Popescu rule settings');
-  const angleTolerance = popescu?.angleTolerance;
-  if (
-    popescu &&
-    (typeof angleTolerance !== 'number' ||
-      !Number.isFinite(angleTolerance) ||
-      angleTolerance < POPESCU_LIMITS.angleTolerance[0] ||
-      angleTolerance > POPESCU_LIMITS.angleTolerance[1])
-  )
-    throw new Error(
-      `angle tolerance must be ${POPESCU_LIMITS.angleTolerance[0]}–${POPESCU_LIMITS.angleTolerance[1]} degrees.`
-    );
+  const popescu = s.popescu === undefined ? undefined : popescuOf(s.popescu);
   if (typeof s.autoTransfers !== 'boolean')
     throw new Error('automatic transfers must be on or off.');
   if (typeof edges.boundary !== 'boolean') throw new Error('boundary lines must be on or off.');
@@ -135,15 +186,9 @@ export function validateKnitSettings(value: unknown): KnitSettings {
             'popescu-2019-rules',
           ] as const),
         }),
-    ...(popescu
-      ? {
-          popescu: {
-            resultCount: int(popescu.resultCount, 'result count', ...POPESCU_LIMITS.resultCount),
-            angleTolerance: angleTolerance as number,
-          },
-        }
-      : {}),
+    ...(popescu ? { popescu } : {}),
     ...(s.graph === undefined ? {} : { graph: validateKnitGraph(s.graph) }),
+    ...(s.patches === undefined ? {} : { patches: patchLayoutOf(s.patches) }),
     keyId,
     ...(cut
       ? {

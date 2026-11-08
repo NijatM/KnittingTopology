@@ -8,6 +8,7 @@ import { CALIBRATION_FIELDS, measurementStateLabel, type Gauge } from './gauge';
 import { COURSE_METHODS } from './knit-graph';
 import { editSummary } from './knit-graph-edit';
 import type { ShapeKnitGraph } from './shape-types';
+import { PATCH_PAIRING_RULE, patchLabel, type PatchBuild, type SeamSide } from './patches';
 
 const pad = (s: string, n: number) => (s.length >= n ? s + ' ' : s + ' '.repeat(n - s.length));
 const mm = (m: number) => `${+(m * 1000).toFixed(3)} mm`;
@@ -40,6 +41,7 @@ export function knitReport(p: KnitProgram, projectName: string, surfaceSize: num
         ? `Size from the jersey measurement (${mm(jersey.stitchWidth)} per needle, ${mm(jersey.courseHeight)} per pass) over the ${mm(surfaceSize)} plane.`
         : 'Size typed by the user; it is not derived from a measurement.',
     `Mapping: ${p.mapping.method}.`,
+    ...(p.patches ? patchLines(p.patches) : []),
     ...(p.rectification
       ? [
           `Network-only reference layout: ${p.rectification.addedCells} filled cells; maximum ${p.rectification.maxAddedPasses} added passes per needle, ${mm(p.rectification.maxAddedCourseLengthM)} nominal course-height accumulation. Shaping transfers are not applied. This is not physical shape error or a shape prediction.`,
@@ -286,5 +288,33 @@ function sphereLines(c: SphereKnitLayout, p: KnitProgram): string[] {
       return `  pass ${x.index + 1}: needles ${l + 1}-${l + x.loops.length}`;
     }),
     ...(early.length > LIST_LIMIT ? [`  … ${early.length - LIST_LIMIT} more`] : []),
+  ];
+}
+
+function patchLines(b: PatchBuild): string[] {
+  const span = ([a, z]: [number, number]) => `${a}-${z}`,
+    shown = b.pieces[b.piece]!;
+  const side = (x: SeamSide) =>
+    `${patchLabel(x.patch)} ${x.side} side ${
+      x.elements
+        ? `${x.elements.length} ${x.side === 'start' || x.side === 'end' ? 'loops' : 'course ends'}`
+        : 'not built'
+    }`;
+  return [
+    'Computational patches: Mariana Adriana Popescu (2019), KnitCrete, section 6.3.2, pp. 109-110. The chart is split by hand into patches, each with its own knitting direction, fill structure (loop size) and course method. Split lines across the whole chart at constant u or v are a project restriction.',
+    `This report and its bitmap are piece ${shown.label} of ${b.pieces.length}: chart u ${span(shown.window.u)}, v ${span(shown.window.v)}. Every shared edge is a seam in this version: each patch is knitted as its own piece. Combining patches into one piece is not implemented.`,
+    'Patches:',
+    ...b.pieces.map((x) => {
+      if (!x.build.ok)
+        return `  ${x.label}: chart u ${span(x.window.u)}, v ${span(x.window.v)}; not built: ${x.build.reason}`;
+      const q = x.build.program,
+        method = q.settings.courseMethod ?? 'project-alignment';
+      return `  ${x.label}: chart u ${span(x.window.u)}, v ${span(x.window.v)}; start edge ${q.settings.startEdge ?? 'v0'}; fill ${q.settings.cells.fill}; ${COURSE_METHODS[method].label}; ${q.w} needles x ${q.h} passes; ${q.exportBlockers.length} export blockers.`;
+    }),
+    `Seams (sewing guidance from a geometric prediction; ${PATCH_PAIRING_RULE} Differences are reported, not blocking):`,
+    ...b.seams.map(
+      (x) =>
+        `  ${x.id}: chart ${x.axis} = ${x.value}, ${x.axis === 'u' ? 'v' : 'u'} ${span(x.range)}, ${mm(x.length)} along the surface; ${side(x.sides[0])}, ${side(x.sides[1])}; ${x.pairs.length} pairs; without a partner ${x.unpaired[0].length} and ${x.unpaired[1].length}.`
+    ),
   ];
 }

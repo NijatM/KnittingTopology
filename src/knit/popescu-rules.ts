@@ -24,7 +24,7 @@ import {
   shapeNearSide,
 } from './shape-geometry';
 import { crossingPairs, segmentsConflict, stagePoint } from './knit-graph';
-import type { ShapePoint, StartEdge } from './shape-types';
+import type { ChartWindow, ShapePoint, StartEdge } from './shape-types';
 
 export const POPESCU_METHOD =
   'Popescu 2019 §§6.2.2–6.2.4 written connection rules, reconstructed from the thesis text (not compas_knit); project contours, sampling and dual v1';
@@ -128,9 +128,18 @@ export function popescuCourseStage(
   startEdge: StartEdge,
   options: PopescuOptions,
   fingerprint: string,
-  context?: GenerationContext
+  context?: GenerationContext,
+  window?: ChartWindow
 ): KnitCourseStage {
-  const field = shapeDistanceField(surface, stitchWidth, courseHeight, startEdge, context);
+  const field = shapeDistanceField(
+    surface,
+    stitchWidth,
+    courseHeight,
+    startEdge,
+    context,
+    undefined,
+    window
+  );
   assertMonotone(field);
   const { n, d, check } = field;
   let far = Infinity;
@@ -276,7 +285,8 @@ export function popescuLoopStage(
   startEdge: StartEdge,
   options: PopescuOptions,
   fingerprint: string,
-  context?: GenerationContext
+  context?: GenerationContext,
+  window?: ChartWindow
 ): KnitLoopStage {
   const check = () => {
     if (context?.cancelled?.()) {
@@ -364,7 +374,7 @@ export function popescuLoopStage(
   for (const [a, b] of courses.warp ?? []) addEdge(original(a), original(b), 'warp');
   grid = new EdgeGrid((i) => finals[i]!.uv, finals.length);
   for (const e of edges) grid.add(e.a, e.b);
-  const rotated = finals.map((p) => rotatedShapeUV(p.uv, startEdge)),
+  const rotated = finals.map((p) => rotatedShapeUV(p.uv, startEdge, window)),
     rv = (i: number) => rotated[i]![1];
   // Adjacent segments leave warp-linked or shared end vertices on the same side (project reading of
   // "segment adjacency", p. 103); the upper one has the larger chart coordinate along the contours.

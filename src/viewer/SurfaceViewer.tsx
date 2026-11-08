@@ -702,8 +702,11 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       if (current.current.pickStartEdge) {
         const sample = pick(event);
         if (sample) {
-          const [u, v] = sample.attachment.uv;
-          const distances = [v, 1 - u, 1 - v, u];
+          // Distances to the sides of the selected patch's rectangle (the whole chart without patches).
+          const w = current.current.startEdgeWindow ?? { u: [0, 1], v: [0, 1] },
+            u = (sample.attachment.uv[0] - w.u[0]) / (w.u[1] - w.u[0]),
+            v = (sample.attachment.uv[1] - w.v[0]) / (w.v[1] - w.v[0]);
+          const distances = [v, 1 - u, 1 - v, u].map((d) => (d < -0.15 ? Infinity : Math.abs(d)));
           const nearest = distances.indexOf(Math.min(...distances));
           if (distances[nearest]! <= 0.15)
             current.current.onStartEdge?.((['v0', 'u1', 'v1', 'u0'] as const)[nearest]!);
@@ -1171,22 +1174,37 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
       }
     }
     if (props.startEdge) {
-      const path: Vec3[] = [];
+      const path: Vec3[] = [],
+        w = props.startEdgeWindow ?? { u: [0, 1], v: [0, 1] },
+        su = (t: number) => w.u[0] + t * (w.u[1] - w.u[0]),
+        sv = (t: number) => w.v[0] + t * (w.v[1] - w.v[0]);
       for (let i = 0; i <= 64; i++) {
         const t = i / 64;
         const uv: Vec2 =
           props.startEdge === 'v0'
-            ? [t, 0]
+            ? [su(t), sv(0)]
             : props.startEdge === 'v1'
-              ? [t, 1]
+              ? [su(t), sv(1)]
               : props.startEdge === 'u0'
-                ? [0, t]
-                : [1, t];
+                ? [su(0), sv(t)]
+                : [su(1), sv(t)];
         path.push(evaluateSurface(props.surface, 0, ...uv));
       }
       const segments: number[] = [];
       appendPath(segments, path);
       lineSegments(state.selectionGroup, segments, '#d09a4e');
+    }
+    if (props.patchLines) {
+      const seams: number[] = [],
+        selected: number[] = [];
+      for (const line of props.patchLines.seams) appendPath(seams, line);
+      for (const line of props.patchLines.selected) appendPath(selected, line);
+      lineSegments(
+        state.selectionGroup,
+        seams,
+        props.options.background === 'light' ? '#3a3a3a' : '#e0e0e0'
+      );
+      lineSegments(state.selectionGroup, selected, '#d09a4e');
     }
     if (props.graphEdit) {
       pointsObject(
@@ -1224,8 +1242,10 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     props.shapeOverlay,
     props.options.background,
     props.startEdge,
+    props.startEdgeWindow,
     props.cutEdgeIds,
     props.graphEdit,
+    props.patchLines,
   ]);
 
   const editing = !!props.graphEdit;
@@ -1258,7 +1278,8 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     state.renderer.domElement.setAttribute(
       'aria-label',
       editing
-        ? 'Knit graph editor. Click or drag the courses-stage handles on the surface; turn editing off to rotate.'
+        ? (props.graphEditLabel ??
+            'Knit graph editor. Click or drag the courses-stage handles on the surface; turn editing off to rotate.')
         : props.pickCutEdge
           ? 'Interactive cut editor. Click near a visible network edge to toggle it in the cut draft.'
           : !supportsGuides(props.surface)
@@ -1274,7 +1295,7 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
             ? 'pointer'
             : 'grab';
     state.draw();
-  }, [ready, props.options, props.surface, props.pickCutEdge, editing]);
+  }, [ready, props.options, props.surface, props.pickCutEdge, editing, props.graphEditLabel]);
 
   return (
     <div

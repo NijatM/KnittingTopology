@@ -33,6 +33,8 @@ interface Props {
   onToggleEdgePicking: () => void;
   /** Closed surface opened by a validated cut: measured layout only. */
   closed?: 'cube' | 'sphere';
+  /** Label of the selected computational patch, whose start edge, method and fill are shown. */
+  patch?: string;
 }
 
 const RULES: { kind: KnitCellRule['kind']; name: string }[] = [
@@ -131,6 +133,7 @@ export default function KnitControls({
   requirements,
   onRepair,
   closed,
+  patch,
 }: Props) {
   const key = settingsKey(s),
     library = structuresForKey(key, s.tiles, s.keys);
@@ -214,6 +217,12 @@ export default function KnitControls({
         </select>
       </label>
       {keyNote && <p className="hint">{keyNote}</p>}
+      {patch && (
+        <p className="hint" data-testid="knit-controls-patch">
+          Start edge, course method and fill structure apply to patch {patch}. Choose the patch
+          under Computational patches in the Knit tab.
+        </p>
+      )}
       <>
         <label className="select-label">
           Start edge (pass 1)
