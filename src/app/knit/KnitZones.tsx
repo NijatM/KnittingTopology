@@ -50,10 +50,11 @@ export default function KnitZones({
       <h3 className="knit-heading">Feature zones</h3>
       <p className="hint">
         Mark where features go, as in the thesis (Popescu 2019, §6.3.2, p. 112): channels, openings,
-        pockets, inlays or inserts, material regions and colour patterns. Zones are intent only:
-        they change no operation. Fill them with feature clusters in the lab software, using the
-        zone map and the marked BMP (§6.4.1, Fig. 6.19). A region marks the loops inside it; a
-        stroke marks the loops within half its width of its path on the surface (project rule).
+        pockets, inlays or inserts, material regions and colour patterns. Zones alone change no
+        operation. Optional channel/pocket recipes are assigned separately below. Other features can
+        be filled in the lab software using the zone map and the marked BMP (§6.4.1, Fig. 6.19). A
+        region marks the loops inside it; a stroke marks the loops within half its width of its path
+        on the surface (project rule).
       </p>
       {!state.available && (
         <p className="hint warn">

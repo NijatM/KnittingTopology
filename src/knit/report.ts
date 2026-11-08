@@ -8,6 +8,7 @@ import { keyById, meaningName, rgbText } from './keys';
 import { creaseLabel, faceLabel, type CubeNetLayout } from './cube-net';
 import type { SphereKnitLayout } from './sphere-knit';
 import { CALIBRATION_FIELDS, measurementStateLabel, type Gauge } from './gauge';
+import { recipeLines } from './recipes';
 import { COURSE_METHODS } from './knit-graph';
 import { editSummary } from './knit-graph-edit';
 import type { ShapeKnitGraph } from './shape-types';
@@ -119,7 +120,7 @@ export function knitReport(
         ]
       : []),
     '',
-    'Structures',
+    p.recipeResult?.applied ? 'Base structure assignments (before recipe overrides)' : 'Structures',
     pad('  id', 14) + pad('loops', 9) + 'gauge',
     ...p.structures.map(
       (x) =>
@@ -151,7 +152,8 @@ export function knitReport(
     '',
     `Checks (warnings; limits float ${s.limits.float}, held ${s.limits.held}, tucks ${s.limits.tucks}). They do not certify knittability.`,
     ...(p.findings.length ? p.findings.map((f) => `  - ${f.title}: ${f.text}`) : ['  none']),
-    ...(p.sequence ? ['', ...sequenceLines(p.sequence, p.h)] : []),
+    ...(p.sequence ? ['', ...sequenceLines(p.sequence, p.h, !!p.recipeResult?.applied)] : []),
+    ...(p.recipeResult ? ['', ...recipeLines(p.recipeResult)] : []),
     ...(p.issues.length ? ['', 'Notes', ...p.issues.map((t) => `  - ${t}`)] : []),
     '',
     'Measurement context (user-reported; not machine settings or physical validation)',

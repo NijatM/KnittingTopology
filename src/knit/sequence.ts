@@ -183,8 +183,14 @@ export type Lowering = { ok: true; cells: Uint8Array } | { ok: false; problems: 
 /** The sequence as `key`'s bitmap (image order), or the cells the key has no operation for. */
 export function lowerSequence(seq: KnitSequence, key: Key): Lowering {
   const same = seq.keyId === key.id;
+  const originals = keySymbols(key);
   const value = seq.symbols.map((s) =>
-    same && s.cell !== undefined && (s.cell >= UNKNOWN || s.cell < key.ops.length)
+    same &&
+    s.cell !== undefined &&
+    ((s.cell >= UNKNOWN && s.steps.length === 0) ||
+      (s.cell < key.ops.length &&
+        s.op === originals[s.cell]?.op &&
+        JSON.stringify(s.steps) === JSON.stringify(originals[s.cell]?.steps)))
       ? s.cell
       : opFor(s, key)
   );
@@ -226,7 +232,13 @@ export function fillCluster(
   const index = cluster.symbols.map((s) => {
     const problem = symbolProblem(s, seq.guides);
     if (problem) throw new Error(`symbol ${s.id}: ${problem}`);
-    if (!indexOf.has(s.id)) {
+    const existing = indexOf.get(s.id);
+    if (
+      existing !== undefined &&
+      JSON.stringify(symbols[existing]!.steps) !== JSON.stringify(s.steps)
+    )
+      throw new Error(`symbol ${s.id} already has a different meaning.`);
+    if (existing === undefined) {
       indexOf.set(s.id, symbols.length);
       symbols.push({ id: s.id, steps: s.steps });
     }
@@ -498,7 +510,7 @@ export const runProgramSequence = (p: KnitCells & { firstDir: 1 | -1 }): Sequenc
 export function sequenceJson(
   seq: KnitSequence,
   run: SequenceRun,
-  meta: { key: Key; piece: string | null; blockers: readonly string[] }
+  meta: { key: Key; piece: string | null; blockers: readonly string[]; recipes?: unknown }
 ): string {
   const dirText = (d: number) => (d === 1 ? 'left-to-right' : 'right-to-left');
   return JSON.stringify(
@@ -536,6 +548,7 @@ export function sequenceJson(
         cells: f.cells.map((i) => [(i % seq.w) + 1, seq.h - Math.floor(i / seq.w)]),
       })),
       blockers: meta.blockers,
+      ...(meta.recipes ? { recipes: meta.recipes } : {}),
     },
     null,
     2
@@ -548,12 +561,14 @@ export function sequenceJson(
 }
 
 /** Report lines for the program's sequence. */
-export function sequenceLines(run: SequenceRun, passes: number): string[] {
+export function sequenceLines(run: SequenceRun, passes: number, expanded = false): string[] {
   const c = run.counts;
   return [
     'Operation sequence (machine-neutral; Popescu 2019, §6.4.1, pp. 113–114; symbolic execution, not a machine simulation):',
     `  ${passes} passes, ${c.symbols} symbols in use: ${c.knits} knits, ${c.tucks} tucks, ${c.transfers} transfers, ${c.moves} same-bed moves, ${c.drops} drops; ${c.racked ? `${c.racked} passes need a racking other than 0` : 'racking 0 in every pass'}.`,
-    '  Converted from the class-key bitmap; converting back gives the same cells.',
+    expanded
+      ? '  Actual expanded recipe sequence retained; colour-key conversion must succeed before operation export.'
+      : '  Converted from the class-key bitmap; converting back gives the same cells.',
     ...(run.findings.length
       ? run.findings.map((f) => `  ${f.blocking ? 'BLOCKS EXPORT: ' : ''}${f.title}: ${f.text}`)
       : ['  No findings.']),

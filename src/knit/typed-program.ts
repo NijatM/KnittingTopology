@@ -9,7 +9,7 @@ import { isTwoLayer, tileOp } from './structures';
 import { insertTransfers } from './transfers';
 import { runChecks } from './checks';
 import { gaugeOf } from './gauge';
-import { runProgramSequence } from './sequence';
+import { executeSequence, programSequence } from './sequence';
 
 /** Unmeasured network layout on a rectangular chart. Surface coordinates are registration only. */
 export function buildTypedSurfaceProgram(
@@ -68,7 +68,8 @@ export function buildTypedSurfaceProgram(
       : { cells, changes: [], skipped: [] };
     cells = transfers.cells;
     const firstDir = settings.lab.firstPass === 'left-to-right' ? 1 : -1,
-      sequence = runProgramSequence({ w, h, cells, key, firstDir });
+      operations = programSequence({ w, h, cells, key, firstDir }),
+      sequence = executeSequence(operations);
     return {
       ok: true,
       program: {
@@ -100,6 +101,7 @@ export function buildTypedSurfaceProgram(
         staleNetwork,
         exportBlockers: sequence.blockers,
         sequence,
+        operations,
       },
     };
   } catch (cause) {

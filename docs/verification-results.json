@@ -1330,5 +1330,83 @@
       "feature recipes that produce drops, diagonal transfers or clusters from feature zones (audit item 4)",
       "native machine symbols, bindings and machine files"
     ]
+  },
+  "plane_feature_recipes": {
+    "status": "Local verification complete:650/650 unit tests (37files,328knit), focused development browser2/2 and full production browser47/47. Symbolic construction checks only; no physical or native-machine validation.",
+    "date": "2026-11-08",
+    "method": "guide-swap-bands-v1",
+    "source": "Popescu (2019), section5.5 pp90–91, Figs5.26–5.27: separate single-jersey layers with double-jersey linking courses or selective bed switching. Finite schedules, band priority and validation are project constructions, not native symbol libraries.",
+    "scope": [
+      "Opt-in local assignments to axis-aligned four-corner regions on compatible two-guide, unpatched, unshaped constant-width plane programs.",
+      "Channels open at two opposite physical panel boundaries; pockets have one selected boundary mouth and three join sides. Body guide1front/guide2back; vertical bands exchanged; horizontal bands alternate by needle; vertical corners take precedence.",
+      "joinBand1..16 grid positions and clear body at least2x2 are project limits. Source-chart boundary tolerance1e-10; loop-centre membership alone is insufficient.",
+      "Atomic application, no overlapping assigned footprints, other cells byte-identical. Intent-only overlaps remain allowed. No added passes, transfers, drops, cast-on, finishing or native scheduling.",
+      "Canonical expanded sequence retained separately from execution summary and bitmap; exact key conversion gates operation output. Sequence JSON remains inspectable after refusal.",
+      "Independent streaming live-layer and cross-bed yarn-path checks; existing Shape parent and sequence blockers preserved. Unsupported patched recipes stay blocked in individual piece exports.",
+      "Recipe settings and assigned-zone changes stale the knit program while topology/course fingerprints stay unchanged; zone deletion removes assignment atomically and is undoable."
+    ],
+    "unit_tests": {
+      "command": "npm run check",
+      "passed": 650,
+      "files": 37,
+      "knit": 328,
+      "duration_seconds": 25.95,
+      "result": "pass"
+    },
+    "focused_tests": {
+      "command": "npx vitest run tests/knit/recipes.test.ts tests/knit/recipe-integration.test.ts tests/knit/sequence.test.ts",
+      "passed": 42,
+      "result": "pass"
+    },
+    "typecheck": {
+      "command": "npm run typecheck (also within npm run check and final npm run build)",
+      "result": "pass"
+    },
+    "production_build": {
+      "command": "npm run build",
+      "result": "pass",
+      "initial_js_kb": 766.23,
+      "initial_js_gzip_kb": 249.48,
+      "viewer_js_kb": 586.18,
+      "viewer_js_gzip_kb": 148.27,
+      "knit_worker_js_kb": 170.77,
+      "generation_worker_js_kb": 97.35,
+      "import_worker_js_kb": 27.85,
+      "cut_worker_js_kb": 28.28,
+      "warning": "Initial JS exceeds the configured750kB chunk warning threshold. Build succeeds; maximum-size browser responsiveness is not certified."
+    },
+    "formatting": {
+      "command": "npm run format:check",
+      "result": "pass; final records formatted and rechecked before delivery"
+    },
+    "development_browser": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:5184/KnittingTopology/ npm run test:browser -- --grep \"(channel recipe:|pocket recipe:)\" --output=tmp/qa/4a-development-final",
+      "result": "pass",
+      "passed": 2,
+      "duration_seconds_reported": 24.3,
+      "page_or_console_errors": 0,
+      "earlier_runs": "Initial channel workflow passed. Pocket check sampled width421 immediately after viewport resize; a diagnostic isolated the overflowing canvas, then the test was changed to await ResizeObserver/requestAnimationFrame settling. Both final focused tests pass at375px; no runtime resize change was needed.",
+      "source_scope": "Unit suite and focused dev tests preceded one presentation-only change: the Structures heading now labels base assignments when recipes apply. Final production build includes that label; numerical code is unchanged."
+    },
+    "production_browser": {
+      "command": "KNITTING_BASE_URL=http://127.0.0.1:4184/KnittingTopology/ npm run test:browser -- --output=tmp/qa/4a-production",
+      "result": "pass",
+      "passed": 47,
+      "duration_minutes_reported": 7.5,
+      "page_or_console_errors": 0,
+      "source_scope": "Final built runtime; source frozen throughout the full production run."
+    },
+    "evidence": [
+      "25 recipe cases: both channel axes; all4 pocket mouths; first-pass direction reversal; rotated start edges; geometry/minimum/boundary rejection; overlap atomic refusal; unchanged outside cells including duplicate-meaning colours; damaged body/joins; custom-key lowering refusal; cancellation; canonical source consistency.",
+      "Isolated synthetic600x600panel produces720000knits without retained loop objects. Test values, not measured gauges; no browser maximum-input performance certificate.",
+      "5 integration cases: project roundtrip/undo and unchanged stage signatures; worker clone fidelity of actual sequences/roles; unsupported patched child gates; stale key-cell provenance cannot bypass lowering; symbol-ID meaning collision refusal.",
+      "2 new browser workflows: canonical sequence and all-pixel BMP/JSON agreement; exact outside-footprint identity; boundary repair; persistent error/export blocking; save/reload; zone deletion undo; pocket roles/report and settled375px layout."
+    ],
+    "limits": [
+      "Symbolic construction checks only: no impermeable seam, usable dimension, knittability, native compatibility or achieved shape certificate.",
+      "Finite presets independently implement public thesis principles; no native symbol/font library is reproduced.",
+      "Curved/shaped or patched recipes, arbitrary strokes, interior access holes, overlapping applied recipes and transfer/drop feature families remain unsupported."
+    ],
+    "servers": "Both owned preview servers5184/4184 stopped after verification; listener check empty."
   }
 }

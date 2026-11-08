@@ -11,6 +11,7 @@ import type { ViewerSelection } from '../../viewer/types';
 import type { KnitProgram } from '../../knit/program';
 import { SOURCE, SOURCE_NAMES } from '../../knit/rasterize';
 import { imageIndex, needleOf, passOf } from '../../knit/grid';
+import { symbolText } from '../../knit/sequence';
 import type { KnitLayers } from './KnitInspection';
 
 /** The network element a loop comes from, as a viewer selection. */
@@ -71,6 +72,18 @@ export function marksOf(p: KnitProgram, cells: readonly number[]): Uint8Array {
 /** One line describing a loop: needle, pass, operation, structure and source. */
 export function loopText(p: KnitProgram, graph: PatternGraph | null, i: number): string {
   const op = p.key.ops[p.cells[i]!];
+  const recipeIndex = p.recipeResult?.owner[i] ?? -1;
+  const recipe = recipeIndex < 0 ? undefined : p.settings.recipes?.[recipeIndex];
+  const recipeText =
+    recipe && p.recipeResult?.applied
+      ? ` · recipe ${recipe.zone}: ${['unchanged', 'body', 'join band', 'boundary access'][p.recipeResult.roles[i] ?? 0]} (base assignment below)`
+      : '';
+  const symbol =
+    p.operations?.symbols[p.operations.rows[passOf(p.w, p.h, i) * p.w + needleOf(p.w, i)]!];
+  const operation =
+    p.recipeResult?.applied && !p.recipeResult.lowering.ok && symbol
+      ? `${symbolText(symbol)} (not represented in the base bitmap)`
+      : (op?.name ?? 'unknown');
   const kind = p.raster.kind[i]!,
     e = p.raster.element[i]!;
   const structure = p.raster.structures[p.raster.structure[i]!];
@@ -97,11 +110,11 @@ export function loopText(p: KnitProgram, graph: PatternGraph | null, i: number):
           ? graph?.nodes[e]?.id
           : undefined;
   if (p.shape)
-    return `Needle ${needleOf(p.w, i) + 1}, pass ${passOf(p.w, p.h, i) + 1}: ${op?.name ?? 'unknown'} · ${structure?.name ?? '?'} · ${placement ? `${p.settings.mode === 'network' ? 'reference ' : ''}${roles} · course ${placement.course + 1} · ${placement.loop.id}` : p.rectification ? 'rectangular fill (no surface reference)' : 'held / outside course'}${p.settings.mode !== 'shape' ? ` · ${SOURCE_NAMES[kind]}${id ? ` ${id}` : ''}` : ''}`;
+    return `Needle ${needleOf(p.w, i) + 1}, pass ${passOf(p.w, p.h, i) + 1}: ${operation}${recipeText} · ${structure?.name ?? '?'} · ${placement ? `${p.settings.mode === 'network' ? 'reference ' : ''}${roles} · course ${placement.course + 1} · ${placement.loop.id}` : p.rectification ? 'rectangular fill (no surface reference)' : 'held / outside course'}${p.settings.mode !== 'shape' ? ` · ${SOURCE_NAMES[kind]}${id ? ` ${id}` : ''}` : ''}`;
   const moved = p.transfers.find(
     (t) => t.needle === needleOf(p.w, i) && t.pass === passOf(p.w, p.h, i)
   );
-  return `Needle ${needleOf(p.w, i) + 1}, pass ${passOf(p.w, p.h, i) + 1}: ${op?.name ?? 'unknown'} (${op?.colour ?? '?'}) · ${structure?.name ?? '?'} · ${SOURCE_NAMES[kind]}${id ? ` ${id}` : ''}${moved ? ` · automatic transfer (${moved.from} → ${moved.to})` : ''}`;
+  return `Needle ${needleOf(p.w, i) + 1}, pass ${passOf(p.w, p.h, i) + 1}: ${operation}${recipeText} (${op?.colour ?? '?'}) · ${structure?.name ?? '?'} · ${SOURCE_NAMES[kind]}${id ? ` ${id}` : ''}${moved ? ` · automatic transfer (${moved.from} → ${moved.to})` : ''}`;
 }
 
 /** Render-only shaping marks retain their bitmap index; turns are explicit steps. */

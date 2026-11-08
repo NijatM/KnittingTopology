@@ -77,8 +77,18 @@ export function useZoneLayout(
     [available, zones, paths, shown]
   );
   const commit = (next: KnitZone[], coalesceKey?: string) => {
-    const { zones: _old, ...rest } = settings;
-    onSettings(next.length ? { ...rest, zones: next } : rest, coalesceKey);
+    const { zones: _old, recipes: _recipes, ...rest } = settings;
+    const recipes = settings.recipes?.filter((recipe) =>
+      next.some((zone) => zone.id === recipe.zone)
+    );
+    onSettings(
+      {
+        ...rest,
+        ...(next.length ? { zones: next } : {}),
+        ...(recipes?.length ? { recipes } : {}),
+      },
+      coalesceKey
+    );
     setError('');
   };
   /** Change one zone; `coalesceKey` merges repeated changes (a colour being picked) into one undo step. */

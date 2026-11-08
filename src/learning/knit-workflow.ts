@@ -29,8 +29,8 @@ export const KNIT_WORKFLOW = [
     title: 'Mark feature intent',
     source:
       'Use linked 3D/2D marks to locate channels, openings, pockets, inlays, material/tension changes and colour patterns. A mark can identify a region that needs a whole symbol cluster.',
-    here: 'Feature zones: strokes with a width in millimetres or closed regions drawn on the surface, each with a thesis kind, a name and a colour. The bitmap preview shows the marked cells; a zone map JSON and a marked BMP prepare filling the zones in the lab software. Zones change no operation.',
-    gap: 'A zone is feature intent, and a textured edge is not a fabricated channel or rib. Verified layer-aware recipes are needed before those features can be generated; marks cannot yet be drawn on the 2D bitmap.',
+    here: 'Feature zones mark intent. Optional guide-swap recipes apply to boundary-access channel/pocket rectangles on an unpatched, unshaped two-guide plane program. The body, join bands and access are inspectable; other cells stay unchanged. Unassigned zones change no operation.',
+    gap: 'Arbitrary strokes, interior access holes, overlapping applied rectangles, curved/shaped recipes and projecting ribs are absent. Marks cannot yet be drawn on the 2D bitmap. A texture alone does not manufacture a feature.',
     locator: '§5.5, pp. 89–91; §6.3.2, p. 112; Fig. 6.19, p. 115',
   },
   {
@@ -38,7 +38,7 @@ export const KNIT_WORKFLOW = [
     source:
       'In the thesis machine software, zones identify guides and symbols specify operations. Symbols may combine yarn-fed knitting with yarn-free transfers; clusters span several positions. Colour is a design aid and can have different meanings in different regions.',
     here: 'The class-key bitmap uses fixed exact RGB meanings. Every program is also written as a machine-neutral operation sequence: symbols of ordered yarn-fed and yarn-free steps (knit, tuck, transfers straight or diagonal, same-bed moves, drops), clusters repeated over cells, and racking per pass. The class key converts to it without loss; symbols the key cannot say are refused and block export.',
-    gap: 'Nothing produces drops, diagonal transfers or compound two-guide symbols yet: verified recipes are needed. Two-guide shaping transfers remain unsupported. Neither native symbols nor their RGB codes can be inferred from source diagrams.',
+    gap: 'The first recipes produce guide-swap clusters and retain their actual expanded sequence. No recipe yet produces drops, diagonal transfers or compound two-guide transfer symbols. Two-guide shaping transfers remain unsupported. Native symbols and their RGB codes cannot be inferred from source diagrams.',
     locator: '§6.4.1, pp. 113–115, footnotes 8–12; Fig. 6.18; Fig. 7.34g–k, p. 152',
   },
   {
@@ -99,8 +99,8 @@ export const THESIS_FEATURES = [
   },
   {
     name: 'Channels, pockets and spacer layers',
-    status: 'Missing recipes',
-    text: 'Require separately knitted layers and controlled joins/openings or pile/tuck connections. A colour region is feature intent until expanded into a verified sequence.',
+    status: 'Bounded plane recipes',
+    text: 'Guide-swap channel/pocket presets use separate bodies, join bands and declared panel-boundary access on compatible two-guide plane programs. Geometry, live layer parents and cross-bed yarn paths are checked. These finite schedules are project constructions. Interior openings, curved/shaped recipes and spacer connections remain absent; no physical closure or usable dimension is certified.',
     locator: '§5.1.3, pp. 77–79; §5.5, pp. 89–91; Fig. 6.19, p. 115',
   },
   {
@@ -118,4 +118,4 @@ export const THESIS_FEATURES = [
 ] as const;
 
 export const KNIT_METHOD_WORDING =
-  'Course and loop construction is adapted from Popescu (2019), KnitCrete, §§5.2 and 6.2. Distance-field construction, monotone alignment, needle placement and symbolic operation checks are project adaptations. The thesis’s complete patch-editing workflow, feature recipes and native symbol compiler are not reproduced. Optional swatch context records user-reported measurement conditions following the calibration concerns in §6.5; it is not a material model or physical validation. DOI: https://doi.org/10.3929/ethz-b-000408640';
+  'Course and loop construction is adapted from Popescu (2019), KnitCrete, §§5.2 and 6.2. Distance-field construction, monotone alignment, needle placement and symbolic operation checks are project adaptations. Optional plane channel/pocket presets follow the layer-connection principles of §5.5; their finite band schedules and symbolic layer/yarn-path checks are project constructions. The thesis’s complete patch-editing workflow, full feature library and native symbol compiler are not reproduced. Optional swatch context records user-reported measurement conditions following §6.5; it is not a material model or physical validation. DOI: https://doi.org/10.3929/ethz-b-000408640';

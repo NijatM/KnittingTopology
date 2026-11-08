@@ -20,7 +20,8 @@ import type { ShapeResult } from './shape-types';
 import { buildShapeProgram } from './shape-program';
 import { buildTypedSurfaceProgram } from './typed-program';
 import { buildPatchedProgram, type PatchBuild } from './patches';
-import { runProgramSequence, type SequenceRun } from './sequence';
+import { executeSequence, programSequence, type KnitSequence, type SequenceRun } from './sequence';
+import { applyRecipes, type RecipeResult } from './recipes';
 
 export interface StructureUse {
   id: string;
@@ -56,6 +57,9 @@ export interface KnitProgram {
   patches?: PatchBuild;
   /** The operation sequence, executed symbolically; its blocking steps are in `exportBlockers`. */
   sequence?: SequenceRun;
+  /** Actual derived symbols and fills; never recreate recipe operations from their bitmap. */
+  operations?: KnitSequence;
+  recipeResult?: RecipeResult;
   /** Network-only fills cells without reference-surface loops. */
   rectification?: { addedCells: number; maxAddedPasses: number; maxAddedCourseLengthM: number };
 }
@@ -67,6 +71,36 @@ export const knitSettingsOf = (p: Pick<ProjectState, 'knit'>): KnitSettings =>
 export const swatchesOf = (p: Pick<ProjectState, 'swatches'>): SwatchEntry[] => p.swatches ?? [];
 
 export function buildKnitProgram(
+  project: Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>,
+  staleNetwork = false,
+  context?: GenerationContext
+): KnitBuild {
+  const build = buildBaseKnitProgram(project, staleNetwork, context);
+  if (!build.ok || !project.knit?.recipes?.length) return build;
+  const program = applyRecipes(build.program, project.surface, context);
+  // Unsupported patched recipes must not become exportable by selecting a child piece.
+  if (program.patches && program.recipeResult?.blockers.length) {
+    const blockers = program.recipeResult.blockers;
+    program.patches = {
+      ...program.patches,
+      pieces: program.patches.pieces.map((piece) => ({
+        ...piece,
+        build: piece.build.ok
+          ? {
+              ok: true as const,
+              program: {
+                ...piece.build.program,
+                exportBlockers: [...piece.build.program.exportBlockers, ...blockers],
+              },
+            }
+          : piece.build,
+      })),
+    };
+  }
+  return { ok: true, program };
+}
+
+function buildBaseKnitProgram(
   project: Pick<ProjectState, 'surface' | 'graph' | 'knit' | 'swatches'>,
   staleNetwork = false,
   context?: GenerationContext
@@ -157,7 +191,8 @@ export function buildKnitProgram(
     .filter((s) => s.loops > 0);
 
   const firstDir = settings.lab.firstPass === 'left-to-right' ? 1 : -1,
-    sequence = runProgramSequence({ w, h, cells, key, firstDir });
+    operations = programSequence({ w, h, cells, key, firstDir }),
+    sequence = executeSequence(operations);
   return {
     ok: true,
     program: {
@@ -179,6 +214,7 @@ export function buildKnitProgram(
       staleNetwork,
       exportBlockers: sequence.blockers,
       sequence,
+      operations,
     },
   };
 }

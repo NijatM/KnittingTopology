@@ -9,6 +9,7 @@ import { validateTiles } from './tiles';
 import { POPESCU_LIMITS, validateKnitGraph } from './knit-graph';
 import { MAX_SPLITS, patchCount, sharedEdges, splitProblem } from './patches';
 import { validateZones } from './zones';
+import { validateRecipes } from './recipes';
 
 export const MAX_LINE_LOOPS = 40;
 export const MAX_PALETTE = 8;
@@ -205,6 +206,7 @@ export function validateKnitSettings(value: unknown): KnitSettings {
     ...(s.graph === undefined ? {} : { graph: validateKnitGraph(s.graph) }),
     ...(s.patches === undefined ? {} : { patches: patchLayoutOf(s.patches) }),
     ...(s.zones === undefined ? {} : { zones: validateZones(s.zones) }),
+    ...(s.recipes === undefined ? {} : { recipes: validateRecipes(s.recipes) }),
     keyId,
     ...(cut
       ? {

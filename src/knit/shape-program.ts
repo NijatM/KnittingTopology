@@ -60,7 +60,7 @@ import { shapeMapping } from './mapping';
 import { insertTransfers } from './transfers';
 import { runChecks } from './checks';
 import { validateShapeOperations } from './shape-validate';
-import { runProgramSequence } from './sequence';
+import { executeSequence, programSequence } from './sequence';
 import { rasterizeSurfaceNetwork } from './rasterize-surface';
 import type { Raster } from './rasterize';
 
@@ -557,7 +557,8 @@ export function buildShapeProgram(
         : []),
     ];
     // The operation sequence runs beside the shaping check; its blocking steps join the export blockers.
-    const sequence = runProgramSequence({ w, h, cells, key, firstDir });
+    const operations = programSequence({ w, h, cells, key, firstDir }),
+      sequence = executeSequence(operations);
     context?.progress?.(1, 'Shape program complete');
     return {
       ok: true,
@@ -580,6 +581,7 @@ export function buildShapeProgram(
         staleNetwork: false,
         exportBlockers: [...blockers, ...sequence.blockers],
         sequence,
+        operations,
         shape,
         ...(!shaping
           ? {

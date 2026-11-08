@@ -2,6 +2,7 @@
 import { download } from '../../adapters/export';
 import type { KnitProgram } from '../../knit/program';
 import { programSequence, sequenceJson } from '../../knit/sequence';
+import { recipeJsonData } from '../../knit/recipes';
 
 interface Props {
   program: KnitProgram;
@@ -21,8 +22,10 @@ export default function KnitSequence({ program, file, piece, onMark }: Props) {
       <p className="hint">
         The program as carriage passes of symbols, machine-neutral (Popescu 2019, §6.4.1, pp.
         113–114), followed symbolically with each pass&apos;s yarn-fed steps before its yarn-free
-        steps (project convention). Not a machine simulation. Converted from the class-key bitmap;
-        converting back gives the same cells.
+        steps (project convention). Not a machine simulation.{' '}
+        {program.recipeResult?.applied
+          ? 'Shows the expanded recipe sequence; conversion to the colour key must succeed before operation export.'
+          : 'Converted from the class-key bitmap; converting back gives the same cells.'}
       </p>
       <p className="hint" aria-label="Sequence counts">
         {program.h} passes · {c.symbols} symbols in use · {c.knits} knits · {c.tucks} tucks ·{' '}
@@ -47,10 +50,13 @@ export default function KnitSequence({ program, file, piece, onMark }: Props) {
           type="button"
           onClick={() =>
             download(
-              sequenceJson(programSequence(program), run, {
+              sequenceJson(program.operations ?? programSequence(program), run, {
                 key: program.key,
                 piece,
                 blockers: program.exportBlockers,
+                ...(program.recipeResult
+                  ? { recipes: recipeJsonData(program.recipeResult, program.w, program.h) }
+                  : {}),
               }),
               `${file}-sequence.json`,
               'application/json'

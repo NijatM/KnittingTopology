@@ -396,6 +396,11 @@ export interface KnitZone {
   /** Original chart (u, v) points joined by straight chart lines; a stroke's width is in meters. */
   shape: { kind: 'stroke'; points: Vec2[]; width: number } | { kind: 'region'; points: Vec2[] };
 }
+/** Optional project-authored guide-swap presets; the selected zone contains body and join bands. */
+export type KnitRecipe = { zone: string; joinBand: number } & (
+  | { kind: 'channel'; axis: 'needles' | 'passes' }
+  | { kind: 'pocket'; opening: 'left' | 'right' | 'first-pass' | 'last-pass' }
+);
 export interface KnitSettings {
   mode: KnitMode;
   /** Missing means `project-alignment`. The Popescu rules apply on open surfaces only. */
@@ -409,6 +414,8 @@ export interface KnitSettings {
   patches?: KnitPatchLayout;
   /** Feature zones in chart coordinates (open surfaces, every mode); they change no operation. */
   zones?: KnitZone[];
+  /** Opt-in boundary-access channel/pocket presets on unpatched, unshaped two-guide plane programs. */
+  recipes?: KnitRecipe[];
   /** Chart side used for the first course. Missing in older projects means v0. */
   startEdge?: 'v0' | 'u1' | 'v1' | 'u0';
   /** Initial action on an opened needle; unconfirmed lab convention, default knit. */

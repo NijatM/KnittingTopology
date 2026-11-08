@@ -1520,3 +1520,172 @@ test('operation sequence: counts, findings, sequence JSON while blocked; a trans
     'Converted from the class-key bitmap; converting back gives the same cells.'
   );
 });
+
+async function recipePlane(page: Page) {
+  await planeNetwork(page);
+  await page.getByRole('combobox', { name: 'Knit key', exact: true }).selectOption('4s52-two');
+  await page.getByRole('combobox', { name: 'Program size' }).selectOption('typed');
+  // Test values, not measured gauges: this is an unmeasured 40×40 design grid.
+  await page.getByRole('spinbutton', { name: 'Needles', exact: true }).fill('40');
+  await page.getByRole('spinbutton', { name: 'Passes', exact: true }).fill('40');
+  await page.getByRole('button', { name: 'Show program beside the surface', exact: true }).click();
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  const panel = page.locator('.knit-recipe-panel');
+  await panel.locator(':scope > summary').click();
+  return panel;
+}
+
+test('channel recipe: local expansion, canonical export, persistent repair, project reload and zone deletion undo', async ({
+  page,
+}) => {
+  const panel = await recipePlane(page);
+  const baseline = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Knit Grammar JSON'))
+  );
+  await panel.getByRole('button', { name: 'Save rectangle and recipe', exact: true }).click();
+  await expect(panel).toContainText('Generate the knit program');
+  // Switching the typed plane to worker-based recipes preserves the preceding bitmap.
+  await expect(page.getByRole('img', { name: /^Knit program bitmap/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(panel.getByLabel('Recipe results')).toContainText(
+    'Recipes applied; symbolic checks completed.'
+  );
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  await page
+    .getByRole('combobox', { name: 'Bitmap colour by', exact: true })
+    .selectOption('recipes');
+  await expect(page.locator('.knit-bitmap-legend')).toContainText(
+    'blue body · amber joins · green boundary access'
+  );
+  await panel.getByRole('button', { name: 'Show Z1 joins', exact: true }).click();
+  const sequence = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Operation sequence JSON'))
+  );
+  expect(sequence.recipes).toMatchObject({
+    applied: true,
+    method: 'guide-swap-bands-v1',
+    lowering: { ok: true },
+  });
+  expect(sequence.clusters.length).toBeGreaterThan(0);
+  expect(sequence.fills.length).toBeGreaterThan(0);
+  expect(sequence.recipes.patches[0].checks).toMatchObject({
+    parents: true,
+    separateBody: true,
+    joinedSides: true,
+    openAccess: true,
+  });
+  expect(sequence.recipes.patches[0].access.map((a: { side: string }) => a.side)).toEqual([
+    'left',
+    'right',
+  ]);
+  const grammar = JSON.parse(new TextDecoder().decode(await downloadOf(page, 'Knit Grammar JSON')));
+  const oldCells = Uint8Array.from(atob(baseline.cells), (c) => c.charCodeAt(0));
+  const cells = Uint8Array.from(atob(grammar.cells), (c) => c.charCodeAt(0));
+  const inside = new Set(
+    sequence.recipes.patches[0].cells.map(([j, k]: number[]) => (40 - k!) * 40 + j! - 1)
+  );
+  let changed = 0;
+  for (let i = 0; i < cells.length; i++) {
+    if (!inside.has(i)) expect(cells[i]).toBe(oldCells[i]);
+    if (cells[i] !== oldCells[i]) changed++;
+  }
+  expect(changed).toBeGreaterThan(0);
+  const bmp = await downloadOf(page, 'Bitmap BMP');
+  const stride = Math.ceil((40 * 3) / 4) * 4;
+  for (let y = 0; y < 40; y++)
+    for (let x = 0; x < 40; x++) {
+      const at = 54 + (39 - y) * stride + x * 3;
+      expect([bmp[at + 2], bmp[at + 1], bmp[at]]).toEqual(grammar.key.ops[cells[y * 40 + x]!].rgb);
+    }
+  const saving = page.waitForEvent('download');
+  await page.getByTitle('Save project JSON (⌘/Ctrl S)', { exact: true }).click();
+  const saved = await saving;
+  const project = JSON.parse(new TextDecoder().decode(await bytes(saved))).project;
+  expect(project.knit.recipes).toEqual([
+    { zone: 'Z1', kind: 'channel', axis: 'needles', joinBand: 1 },
+  ]);
+  // An off-boundary rectangle still includes many loops; it cannot claim a panel opening.
+  await panel.getByLabel('Needle start (%)', { exact: true }).fill('5');
+  await panel.getByRole('button', { name: 'Save rectangle and recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(panel.getByLabel('Recipe results')).toContainText('actual panel boundary');
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeDisabled();
+  const blocked = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Operation sequence JSON'))
+  );
+  expect(blocked.recipes.applied).toBe(false);
+  expect(blocked.blockers.join(' ')).toContain('actual panel boundary');
+  await expect(panel.getByLabel('Recipe results')).toContainText('actual panel boundary');
+  await page.getByLabel('Load project file').setInputFiles(await saved.path());
+  await page.getByRole('tab', { name: 'Knit', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Bitmap BMP', exact: true })).toBeEnabled();
+  expect(await downloadOf(page, 'Bitmap BMP')).toEqual(bmp);
+  await page.getByRole('button', { name: 'Delete zone Z1', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Remove Z1 recipe', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  // Details may close when loading a project; expand it before inspecting the restored assignment.
+  await panel.evaluate((el) => {
+    (el as HTMLDetailsElement).open = true;
+  });
+  await expect(panel.getByRole('button', { name: 'Remove Z1 recipe', exact: true })).toBeVisible();
+});
+
+test('pocket recipe: one boundary mouth, three checked joins, report and responsive preview', async ({
+  page,
+}) => {
+  const panel = await recipePlane(page);
+  await panel.getByLabel('Feature recipe kind', { exact: true }).selectOption('pocket');
+  await panel.getByLabel('Needle start (%)', { exact: true }).fill('30');
+  await panel.getByLabel('Needle end (%)', { exact: true }).fill('70');
+  await panel
+    .getByRole('button', { name: 'Set access edges to panel boundary', exact: true })
+    .click();
+  await panel.getByRole('button', { name: 'Save rectangle and recipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate knit program', exact: true }).click();
+  await expect(panel.getByLabel('Recipe results')).toContainText(
+    'Recipes applied; symbolic checks completed.'
+  );
+  const seq = JSON.parse(
+    new TextDecoder().decode(await downloadOf(page, 'Operation sequence JSON'))
+  );
+  expect(seq.recipes.patches[0].access.map((a: { side: string }) => a.side)).toEqual(['last-pass']);
+  expect(seq.recipes.patches[0].checks).toMatchObject({
+    parents: true,
+    separateBody: true,
+    joinedSides: true,
+    openAccess: true,
+  });
+  const report = new TextDecoder().decode(await downloadOf(page, 'Report TXT'));
+  expect(report).toContain('Feature recipes (guide-swap-bands-v1');
+  expect(report).toContain('access last-pass');
+  expect(report).toContain('Actual expanded recipe sequence retained');
+  await page
+    .getByRole('combobox', { name: 'Bitmap colour by', exact: true })
+    .selectOption('recipes');
+  await page.screenshot({ path: 'tmp/qa/4a-pocket-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 375, height: 900 });
+  const measure = () =>
+    page.evaluate(() => ({
+      width: document.documentElement.scrollWidth,
+      overflow: [...document.querySelectorAll('body *')]
+        .filter((el) => {
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.right > 376;
+        })
+        .map((el) => ({
+          tag: el.tagName,
+          class: el.className,
+          text: el.textContent?.slice(0, 100),
+          right: el.getBoundingClientRect().right,
+        }))
+        .slice(-20),
+    }));
+  // Canvas dimensions settle in ResizeObserver/requestAnimationFrame after the viewport changes.
+  await expect
+    .poll(async () => (await measure()).width, { timeout: 3000 })
+    .toBeLessThanOrEqual(375);
+  const layout = await measure();
+  expect(layout.width, JSON.stringify(layout.overflow)).toBeLessThanOrEqual(375);
+  await page.screenshot({ path: 'tmp/qa/4a-pocket-mobile.png', fullPage: true });
+});

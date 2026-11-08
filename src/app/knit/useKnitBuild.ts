@@ -46,6 +46,7 @@ export function useKnitBuild(
   // Shape generation has no graph input, except on a cube or sphere, whose layout comes from the cut network.
   const graphFree = shape && input.surface.kind !== 'cube' && input.surface.kind !== 'sphere';
   const usesWorker =
+    !!input.knit?.recipes?.length ||
     input.knit?.mode === 'both' ||
     shape ||
     input.surface.kind !== 'plane' ||
@@ -59,6 +60,9 @@ export function useKnitBuild(
     () =>
       JSON.stringify([
         input.knit && { ...withoutStages(input.knit), zones: undefined },
+        input.knit?.recipes?.map((recipe) =>
+          input.knit?.zones?.find((zone) => zone.id === recipe.zone)
+        ),
         input.swatches,
       ]),
     [input.knit, input.swatches]
@@ -107,6 +111,11 @@ export function useKnitBuild(
     () => (usesWorker ? null : buildKnitProgram(input, staleNetwork)),
     [usesWorker, input.surface, input.graph, input.knit, input.swatches, staleNetwork]
   );
+  // Keep a typed plane preview when an opt-in recipe switches generation to the worker.
+  useEffect(() => {
+    if (!usesWorker && networkBuild?.ok)
+      setAccepted({ signature, surface: surfaceSignature, build: networkBuild });
+  }, [usesWorker, networkBuild, signature, surfaceSignature]);
   if (!usesWorker) build = networkBuild!;
   else if (accepted && accepted.surface === surfaceSignature) {
     const shown =

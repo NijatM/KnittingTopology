@@ -31,6 +31,7 @@ import type { ChartWindow } from '../../knit/shape-types';
 import { patchLabel, type PatchBuild } from '../../knit/patches';
 import KnitWorkflowLesson from '../../learning/KnitWorkflowLesson';
 import KnitZones from './KnitZones';
+import KnitRecipes from './KnitRecipes';
 import KnitSequence from './KnitSequence';
 import type { ZoneLayoutState } from './zone-layout';
 import type { ZoneMarks } from '../../knit/zones';
@@ -442,7 +443,11 @@ export default function KnitPanel(props: Props) {
               : 'Point at the bitmap to trace a loop to the surface; select a cell, edge or node in 3D to see its loops.'}
           </p>
 
-          <h3 className="knit-heading">Structures</h3>
+          <h3 className="knit-heading">
+            {program.recipeResult?.applied
+              ? 'Base structures before recipe overrides'
+              : 'Structures'}
+          </h3>
           <table className="knit-table">
             <tbody>
               {program.structures.map((x) => (
@@ -701,6 +706,16 @@ export default function KnitPanel(props: Props) {
           outdated={props.previewOutdated}
         />
       )}
+
+      <KnitRecipes
+        settings={s}
+        surface={props.surface}
+        program={program}
+        outdated={props.previewOutdated}
+        onSettings={props.onSettings}
+        onMark={props.onMark}
+        onSelectZone={props.zones?.select}
+      />
 
       {props.patches && (
         <KnitPatches

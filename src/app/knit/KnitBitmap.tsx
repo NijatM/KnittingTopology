@@ -65,11 +65,19 @@ export default function KnitBitmap({
   const image = useRef<HTMLCanvasElement | null>(null);
   const markImage = useRef<HTMLCanvasElement | null>(null);
   const redraw = useRef<() => void>(() => {});
-  const [colourBy, setColourBy] = useState<'operation' | 'role' | 'zones'>('operation');
+  const [colourBy, setColourBy] = useState<'operation' | 'role' | 'zones' | 'recipes'>('operation');
   const roles = useMemo(() => (program ? roleColours(program) : null), [program]);
   const byRole = colourBy === 'role' && !!roles;
   const byZone =
     colourBy === 'zones' && !!zones && zones.top.length === (program?.cells.length ?? -1);
+  const recipeRoles = program?.recipeResult?.roles;
+  const byRecipe = colourBy === 'recipes' && !!recipeRoles;
+  const recipeRgb = [
+    [65, 65, 65],
+    [107, 176, 192],
+    [203, 161, 107],
+    [163, 188, 147],
+  ];
 
   // one pixel per loop, rebuilt when the program or the colouring changes
   useEffect(() => {
@@ -83,17 +91,19 @@ export default function KnitBitmap({
     const ctx = off.getContext('2d')!;
     const data = ctx.createImageData(program.w, program.h);
     program.cells.forEach((v, i) => {
-      const rgb = byRole
-        ? roles!.subarray(i * 3, i * 3 + 3)
-        : byZone && zones!.top[i]! >= 0
-          ? zones!.rgb[zones!.top[i]!]!
-          : (program.key.ops[v]?.rgb ?? [255, 0, 255]);
+      const rgb = byRecipe
+        ? recipeRgb[recipeRoles![i] ?? 0]!
+        : byRole
+          ? roles!.subarray(i * 3, i * 3 + 3)
+          : byZone && zones!.top[i]! >= 0
+            ? zones!.rgb[zones!.top[i]!]!
+            : (program.key.ops[v]?.rgb ?? [255, 0, 255]);
       data.data.set([rgb[0]!, rgb[1]!, rgb[2]!, 255], i * 4);
     });
     ctx.putImageData(data, 0, 0);
     image.current = off;
     redraw.current();
-  }, [program, byRole, roles, byZone, zones]);
+  }, [program, byRole, roles, byZone, zones, byRecipe, recipeRoles]);
 
   useEffect(() => {
     if (!program || !marks) {
@@ -227,17 +237,18 @@ export default function KnitBitmap({
           if (i !== null) onPick(i);
         }}
       />
-      {(roles || zones) && (
+      {(roles || zones || recipeRoles) && (
         <label className="knit-bitmap-colour">
           Colour by
           <select
             aria-label="Bitmap colour by"
             value={colourBy}
-            onChange={(e) => setColourBy(e.target.value as 'operation' | 'role' | 'zones')}
+            onChange={(e) => setColourBy(e.target.value as typeof colourBy)}
           >
             <option value="operation">Operation</option>
             {roles && <option value="role">Loop role</option>}
             {zones && <option value="zones">Feature zones</option>}
+            {recipeRoles && <option value="recipes">Recipe regions</option>}
           </select>
           {byZone && (
             <span className="knit-bitmap-legend">
@@ -247,6 +258,18 @@ export default function KnitBitmap({
           {byRole && (
             <span className="knit-bitmap-legend">
               grey loop · blue short-row end · green increase · gold decrease · dark held/unused
+            </span>
+          )}
+          {byRecipe && (
+            <span className="knit-bitmap-legend">
+              blue body · amber joins · green boundary access · grey unchanged; symbolic layout, not
+              fabric simulation
+            </span>
+          )}
+          {program?.recipeResult?.applied && !program.recipeResult.lowering.ok && (
+            <span className="knit-bitmap-legend">
+              Key conversion failed: operation colours show the base bitmap. Inspect Recipe regions
+              and the expanded sequence; operation export is blocked.
             </span>
           )}
         </label>
