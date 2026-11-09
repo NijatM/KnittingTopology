@@ -971,11 +971,11 @@ export default function App() {
       <aside className="sidebar" aria-label="Generation controls">
         <a
           className="identity"
-          href="https://nijatmahamaliyev.com"
+          href="https://tailoredmateriality.com/people/"
           target="_blank"
           rel="noreferrer"
         >
-          <strong>Nijat Mahamaliyev</strong>
+          <strong>[NM,IS]</strong>
           <span>Tailored Materiality Research</span>
         </a>
         <div className="sidebar-scroll">

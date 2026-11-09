@@ -23,7 +23,7 @@
     "result": "pass",
     "base": "/KnittingTopology/",
     "initial_js_kb": 830.07,
-    "initial_js_gzip_kb": 268.87,
+    "initial_js_gzip_kb": 268.88,
     "lazy_viewer_js_kb": 586.23,
     "lazy_viewer_js_gzip_kb": 148.29,
     "shaping_schedule_worker_js_kb": 30.3,
@@ -48,7 +48,7 @@
     "passed": 3,
     "duration_seconds": 18.387,
     "page_or_console_errors": 0,
-    "source_scope": "Focused production checks for decorative copy removal: Compare capture/restore, all13 Learn topics and diagram controls, and375px Learn layout. Full browser/unit suites were not rerun for this text-only change."
+    "source_scope": "Focused production checks for decorative copy removal: Compare capture/restore, all13 Learn topics and diagram controls, and375px Learn layout. Full browser/unit suites were not rerun for this text-only change. This run precedes the subsequent two-field header identity/link update; no browser rerun for that update."
   },
   "mobile": {
     "viewport_width": 375,
@@ -1950,5 +1950,21 @@
     "visual_review": "Desktop Learn screenshot inspected; remaining product and section headings clear, footer compact.375px test document/body width375.",
     "servers": "Owned production4184 preview stopped; listener check empty.",
     "remote_deployment": "Not run for this change; user performs Git and publication."
+  },
+  "header_identity_update": {
+    "date": "2026-11-09",
+    "scope": "Top sidebar identity label changed to[ NM,IS ] without spaces inside the rendered brackets; destination replaced with https://tailoredmateriality.com/people/. Subtitle and existing new-tab behavior retained.",
+    "rendered_label": "[NM,IS]",
+    "href": "https://tailoredmateriality.com/people/",
+    "build": {
+      "command": "npm run build (includes typecheck)",
+      "result": "pass"
+    },
+    "formatting": {
+      "command": "prettier check for changed source/docs and git diff --check",
+      "result": "pass"
+    },
+    "verification": "Static identity markup asserted: exact requested label and href; personal-site URL absent from identity. Unit/browser suites not rerun for two text/URL literal changes.",
+    "remote_deployment": "User-run publication pending."
   }
 }
