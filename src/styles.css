@@ -450,7 +450,18 @@ kbd {
 .sidebar-footer a {
   text-decoration: none;
   color: var(--dim);
+}
+.sidebar-footer > a {
   margin-top: 5px;
+}
+.sidebar-footer .repository-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sidebar-footer a:hover,
+.sidebar-footer a:focus-visible {
+  color: var(--hi);
 }
 
 .stage {

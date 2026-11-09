@@ -122,5 +122,3 @@ docs/          method contracts, workflows, limitations and verification
 ## Research and development credits
 
 Knitting Topology is a research project by Nijat Mahamaliyev and İlkyaz Sarımehmetoğlu. It was developed through supervised multi-agent orchestration using Claude Code with Claude Opus 5.5 and Codex CLI with GPT-6.1 Sol. Agents were assigned specialized roles and clearly defined tasks, assisting with implementation, method documentation and automated checks. The authors established the research direction, made methodological decisions and interpreted the results, with human review guiding the integration of agent contributions throughout development.
-
-Tooling snapshot verified on 8 November 2026: Claude Code CLI 2.1.289; Codex CLI 0.164.0-alpha.11.1. Versions identify the environment at the verification date, rather than a fixed toolchain for the entire development history.
