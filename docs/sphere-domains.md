@@ -46,6 +46,10 @@ Opening the poles changes short-row targets and can reduce hold durations, but n
 All numerical fixture loop sizes are **test values, not measured gauges or machine specifications**.
 
 - `tests/core/sphere-domain.test.ts`: analytic rims/area, uncapped mesh, projection, admissible paths, all pattern families, guides, density, manifold boundaries and numerical limits.
-- `tests/knit/sphere-domain-knit.test.ts`: exact default legacy fixtures, both start sides/directions, domain layout and chart round trips, parent/yarn/hold accounting and network cell coverage.
+- `tests/knit/sphere-domain-knit.test.ts`: exact default legacy schedules and parent histories, tolerance-checked numeric layout and analytic loop positions, both start sides/directions, domain layout and chart round trips, parent/yarn/hold accounting and network cell coverage.
 - `tests/knit/sphere-domain-integration.test.ts`: annulus-to-disk cuts on all families, natural boundary coverage/tampering, modes and keys, sector prerequisites, save/load/undo, fingerprints and invalid saved domains.
 - `tests/browser/sphere-domain.spec.ts`: controls, real worker generation, rim/seam distinctions, no-cut sector knitting, project restoration, invalidation and narrow layout. Executed outcomes are recorded in [verification](verification.md).
+
+### Portable legacy regression
+
+The original fixture hashed the entire raw JSON layout, including floating-point coordinates and cubical-chart attachments. It passed on the development Mac but failed on the Ubuntu Pages runner. That fingerprint is retained as local-baseline provenance, not used as a cross-platform numerical equality rule. The compact `tests/fixtures/knit/sphere-legacy.json` baseline reproduces the four original local hashes. The revised test hashes discrete course runs, loop IDs, needle/pass allocation, parents and short-row steps exactly; compares layout scalars, lengths and rounding with absolute tolerance `1e-12`; independently checks every loop's analytic Cartesian position within `1e-12 m`; and reconstructs chart attachments as physical points. Equivalent atlas choices at chart boundaries are therefore accepted without accepting a displaced loop. Explicit zero/full parameters still compare exactly to absent defaults within each runtime. These are synthetic test dimensions, not measured gauges.

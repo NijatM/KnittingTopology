@@ -26,3 +26,7 @@ Contents:
 - `basic-all-ops`, `basic-reversed`, `two-guide`: BMP from `bmpOf` and project JSON from `toJSON` for known cells (odd widths exercise row padding; `two-guide` starts right to left).
 - `checks-basic`, `checks-two` and `checks.json`: pseudo-random programs and the findings of `runChecks` with limits float 3, held 4, tucks 2.
 - `structures.json`: `STRUCTURES_1`, `STRUCTURES_2` and the program `generate()` makes from a design layer of eight structures.
+
+## Sphere legacy layout baseline
+
+`sphere-legacy.json` is a synthetic project-layout regression fixture, separate from the class bitmap fixtures above. Its dimensions are test values, not measured gauges or machine specifications. Four original pre-domain local SHA-256 fingerprints were reproduced before extracting the compact baseline. The regression checks exact discrete schedules/parents and floating geometry with explicit tolerances rather than requiring cross-platform raw floating-point JSON hashes. See [sphere domain evidence](../../../docs/sphere-domains.md#portable-legacy-regression).

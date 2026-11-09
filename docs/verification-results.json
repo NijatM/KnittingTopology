@@ -1,11 +1,11 @@
 {
   "date": "2026-11-08",
   "typecheck": {
-    "command": "npm run typecheck",
+    "command": "npm run typecheck (Node26.11.1), then within npm run check under Node26.13.0",
     "result": "pass"
   },
   "unit_tests": {
-    "command": "npm run check",
+    "command": "npm exec --cache /private/tmp/knitting-node-cache --yes --package=node@26.13.0 -- npm run check",
     "result": "pass",
     "passed": 909,
     "files": 48,
@@ -15,10 +15,11 @@
     "import_parsing_and_projects": 84,
     "mapping_kernel_generation_and_projects": 67,
     "knit_program": 495,
-    "duration_seconds": 29.47
+    "duration_seconds": 27.8,
+    "runtime": "Node26.13.0; macOS arm64"
   },
   "production_build": {
-    "command": "npm run build (within npm run check)",
+    "command": "npm run build within npm run check under Node26.13.0",
     "result": "pass",
     "base": "/KnittingTopology/",
     "initial_js_kb": 830.46,
@@ -50,7 +51,7 @@
     "flaky": 0,
     "duration_seconds": 478.114,
     "page_or_console_errors": 0,
-    "source_scope": "Complete final rebuilt runtime; source and tests frozen throughout. A preliminary full run passed52/53; its half-shell test sampled transient width421 immediately after viewport resize. Waiting for the settled375px layout passed a focused follow-up and this final complete run. No application CSS was changed for that timing correction."
+    "source_scope": "Complete final rebuilt runtime; source and tests frozen throughout. A preliminary full run passed52/53; its half-shell test sampled transient width421 immediately after viewport resize. Waiting for the settled375px layout passed a focused follow-up and this final complete run. No application CSS was changed for that timing correction. Runtime/configuration fingerprints and built asset names remain unchanged by the later test-only portability correction; browser checks were not rerun for that correction."
   },
   "mobile": {
     "viewport_width": 375,
@@ -1851,5 +1852,75 @@
       "Software Chrome and resized desktop viewport only; no physical-device/assistive-technology or maximum-input performance certification. Existing initial bundle warning remains."
     ],
     "servers": "Owned development5184 and production4184 previews stopped; listener check empty."
+  },
+  "portable_sphere_regression": {
+    "date": "2026-11-08",
+    "failed_remote_run": {
+      "url": "https://github.com/NijatM/KnittingTopology/actions/runs/42557193559",
+      "commit": "86104717e34cfdc088cfc36db7dbab03b06add19",
+      "step": "Verify and build",
+      "node": "26.13.0",
+      "runner": "ubuntu-26.04",
+      "unit_tests": {
+        "passed": 908,
+        "failed": 1
+      },
+      "failure": "Raw SHA-256 of full legacy sphere output differed from the local fingerprint. No Pages configuration or deployment step was reached."
+    },
+    "diagnostic": "All four original raw local fingerprints reproduce under both Node26.11.1 and26.13.0 on macOS arm64. Exact Ubuntu differing fields were not captured; cross-platform floating/atlas equality is not established by a raw JSON fingerprint.",
+    "correction": "Compact baseline retains original raw hashes as provenance. Exact discrete digest covers course runs, IDs, pass/needle allocation, parents, short-row steps and diagnostics; numeric layout/rounding and every loop position checked explicitly. Chart attachments reconstruct to the same physical point, permitting equivalent seam-chart choices.",
+    "tolerances": {
+      "cartesian_and_lengths_absolute_m": 1e-12,
+      "normalized_uv_net_and_scalar_absolute": 1e-12,
+      "discrete_schedules_and_parent_ids": "exact"
+    },
+    "focused_node26_11": {
+      "command": "npx vitest run tests/knit/sphere-domain-knit.test.ts",
+      "passed": 19,
+      "duration_seconds": 5.55,
+      "result": "pass"
+    },
+    "focused_node26_13": {
+      "command": "npm exec --cache /private/tmp/knitting-node-cache --yes --package=node@26.13.0 -- node node_modules/vitest/vitest.mjs run tests/knit/sphere-domain-knit.test.ts",
+      "passed": 19,
+      "duration_seconds": 5.41,
+      "result": "pass"
+    },
+    "full_checks": {
+      "command": "npm exec --cache /private/tmp/knitting-node-cache --yes --package=node@26.13.0 -- npm run check",
+      "result": "pass",
+      "passed": 909,
+      "files": 48,
+      "core": 198,
+      "project_and_persistence": 32,
+      "learning_and_citations": 33,
+      "import_parsing_and_projects": 84,
+      "mapping_kernel_generation_and_projects": 67,
+      "knit_program": 495,
+      "duration_seconds": 27.8,
+      "runtime": "Node26.13.0; macOS arm64"
+    },
+    "production_build": {
+      "command": "npm run build within npm run check under Node26.13.0",
+      "result": "pass",
+      "base": "/KnittingTopology/",
+      "initial_js_kb": 830.46,
+      "initial_js_gzip_kb": 268.99,
+      "lazy_viewer_js_kb": 586.23,
+      "lazy_viewer_js_gzip_kb": 148.29,
+      "shaping_schedule_worker_js_kb": 30.3,
+      "transfer_plan_worker_js_kb": 23.4,
+      "knit_worker_js_kb": 189.51,
+      "generation_worker_js_kb": 106.37,
+      "import_worker_js_kb": 27.85,
+      "cut_worker_js_kb": 31.08,
+      "warning": "Initial JavaScript exceeds the existing configured 750 kB warning; no maximum-input performance claim."
+    },
+    "formatting": {
+      "command": "npm run format:check",
+      "result": "pass"
+    },
+    "browser": "Not rerun: no application/public/configuration source changed; runtime hashes and built asset names identical to the previously verified53/53 production run.",
+    "remaining": "Corrected Ubuntu CI and successful deployment require the user commit/push and workflow dispatch. No remote success claimed."
   }
 }

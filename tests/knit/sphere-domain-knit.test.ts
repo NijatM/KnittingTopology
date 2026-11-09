@@ -15,6 +15,8 @@ import {
 } from '../../src/knit/sphere-knit';
 import { sphereMeridianCut } from '../../src/knit/cut-presets';
 import { rasterizeSurfaceNetwork, type NetworkChart } from '../../src/knit/rasterize-surface';
+import { evaluateSurface } from '../../src/core/surfaces';
+import legacy from '../fixtures/knit/sphere-legacy.json';
 import { defaultKnitSettings } from '../../src/knit/settings';
 import { settingsKey } from '../../src/knit/keys';
 import { buildCutDisk, cutSourceSignature } from '../../src/knit/cuts';
@@ -29,12 +31,6 @@ const meridian: SphereCut = {
     { lat: -Math.PI / 2, lon: 0 },
   ],
 };
-const fingerprints = [
-  '4b442c3abf7b9d0f1bff7dfeaaf9d5a438ed0c99db3e32b62544dba42a60ed5d',
-  '6f8d30ff39ea6822e16db5dd421f32eff0fdf6fc2d66d357f963b8d96cfcbc86',
-  'e6f15d8b097238c66489a8c68f6ea9b909e01f945c01b202d91b723280f3b702',
-  'fff5ddf1220fe0f66444dfd3915c8300f52259e1d8d74361e891adbe202994b0',
-];
 const digest = async (value: unknown) =>
   Array.from(
     new Uint8Array(
@@ -42,6 +38,43 @@ const digest = async (value: unknown) =>
     ),
     (b) => b.toString(16).padStart(2, '0')
   ).join('');
+function discreteSphereResult(result: ReturnType<typeof layoutSphere>) {
+  const { geometry: g, needles: n } = result;
+  return {
+    geometry: {
+      method: g.method,
+      issues: g.issues,
+      resolution: g.resolution,
+      maxLinkOffset: g.maxLinkOffset,
+      contours: g.contours,
+      courses: g.courses.map((c) => ({
+        id: c.id,
+        index: c.index,
+        pointCount: c.points.length,
+        loops: c.loops.map((l) => l.id),
+        leftBoundary: c.leftBoundary,
+        rightBoundary: c.rightBoundary,
+        turnStart: c.turnStart,
+        turnEnd: c.turnEnd,
+      })),
+    },
+    needles: {
+      w: n.w,
+      h: n.h,
+      placements: n.placements.map((p) => ({
+        id: p.loop.id,
+        course: p.course,
+        needle: p.needle,
+        role: p.role,
+        parents: p.parents,
+      })),
+      moves: n.moves,
+      steps: n.steps,
+      unresolved: n.unresolved,
+      yarnJumps: n.yarnJumps,
+    },
+  };
+}
 function network(surface: SurfaceSpec, family: PatternFamily = 'quad') {
   const p = createProject();
   return generatePattern({
@@ -70,24 +103,103 @@ function covered(chart: NetworkChart, p: Vec2) {
 }
 
 describe('sphere domain knitting', () => {
-  it('keeps exact legacy layouts for both needle orders and pass directions', async () => {
-    let i = 0;
-    for (const start of ['v0', 'v1'] as const)
-      for (const dir of [1, -1] as const) {
-        const old = layoutSphere(base, meridian, 0.006, 0.004, dir, start);
-        expect(await digest(old)).toBe(fingerprints[i++]);
-        expect(
-          layoutSphere(
-            { ...base, poleOpeningDiameter: 0, sphereFraction: 1 },
-            meridian,
-            0.006,
-            0.004,
-            dir,
-            start
-          )
-        ).toEqual(old);
-        expect(old.layout.domain).toBeUndefined();
+  it('preserves legacy schedules exactly and numerical geometry within explicit tolerances', async () => {
+    // Absolute coordinate/length tolerance: 1e-12 m; UV/net and scalar tolerance: 1e-12.
+    // Stored raw hashes document the original local baseline; math/atlas ties may differ by platform.
+    const close = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThanOrEqual(1e-12);
+    const vector = (a: readonly number[], b: readonly number[]) => {
+      expect(a.length).toBe(b.length);
+      a.forEach((v, i) => close(v, b[i]!));
+    };
+    for (const fixture of legacy.cases) {
+      const start = fixture.start as 'v0' | 'v1',
+        direction = fixture.direction as 1 | -1;
+      const old = layoutSphere(
+        base,
+        meridian,
+        legacy.stitchWidth,
+        legacy.courseHeight,
+        direction,
+        start
+      );
+      expect(await digest(discreteSphereResult(old))).toBe(fixture.discreteSha256);
+      const {
+        exact,
+        maxCountError,
+        maxCourseDeviation,
+        widthRounding,
+        cutWander,
+        ...discreteLayout
+      } = old.layout;
+      const {
+        exact: expectedExact,
+        maxCountError: expectedCountError,
+        maxCourseDeviation: expectedDeviation,
+        widthRounding: expectedWidth,
+        cutWander: expectedWander,
+        ...expectedDiscrete
+      } = fixture.layout;
+      expect(discreteLayout).toEqual(expectedDiscrete);
+      vector(exact, expectedExact);
+      vector(
+        [maxCountError, maxCourseDeviation, widthRounding, cutWander],
+        [expectedCountError, expectedDeviation, expectedWidth, expectedWander]
+      );
+      vector(
+        old.geometry.courses.map((c) => c.length),
+        fixture.courseLengths
+      );
+      vector(old.geometry.courseRounding, fixture.courseRounding);
+      vector(old.geometry.contourRounding, fixture.contourRounding);
+      expect(old.geometry.stitchWidth).toBe(legacy.stitchWidth);
+      expect(old.geometry.courseHeight).toBe(legacy.courseHeight);
+      const seen = new Array<number>(old.layout.needles).fill(0);
+      const byId = new Map(old.needles.placements.map((p) => [p.loop.id, p.loop]));
+      for (const p of old.needles.placements) {
+        const j = p.needle,
+          m = seen[j]!,
+          count = fixture.layout.counts[j]!;
+        seen[j]++;
+        const v =
+          start === 'v0' ? (j + 0.5) / old.layout.needles : 1 - (j + 0.5) / old.layout.needles;
+        const u = start === 'v0' ? 1 - (m + 0.5) / count : (m + 0.5) / count;
+        const latitude = Math.PI * (v - 0.5),
+          longitude = 2 * Math.PI * u,
+          r = base.size / 2;
+        vector(p.loop.net!, [u, v]);
+        vector(p.loop.position, [
+          r * Math.cos(latitude) * Math.cos(longitude),
+          r * Math.cos(latitude) * Math.sin(longitude),
+          r * Math.sin(latitude),
+        ]);
+        close(p.loop.across, (j + 0.5) * legacy.stitchWidth);
+        // A seam tie may choose another valid cubical chart: compare its physical point.
+        vector(evaluateSurface(base, p.loop.patch!, p.loop.uv[0], p.loop.uv[1]), p.loop.position);
       }
+      expect(seen).toEqual(fixture.layout.counts);
+      for (const course of old.geometry.courses) {
+        course.loops.forEach((loop, i) => {
+          const expected = byId.get(loop.id)!;
+          for (const point of [loop, course.points[i]!]) {
+            vector(point.position, expected.position);
+            vector(point.net!, expected.net!);
+            close(point.across, expected.across);
+            vector(evaluateSurface(base, point.patch!, point.uv[0], point.uv[1]), point.position);
+          }
+        });
+      }
+      expect(
+        layoutSphere(
+          { ...base, poleOpeningDiameter: 0, sphereFraction: 1 },
+          meridian,
+          legacy.stitchWidth,
+          legacy.courseHeight,
+          direction,
+          start
+        )
+      ).toEqual(old);
+      expect(old.layout.domain).toBeUndefined();
+    }
   });
 
   it.each([
