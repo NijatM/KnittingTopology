@@ -77,7 +77,6 @@ export default function LearningPanel({
       aria-label="Learn and cite methods"
     >
       <div className="learning-intro">
-        <span className="learning-kicker">UNDERSTAND / EXPERIMENT / CITE</span>
         <h2>Learn the method</h2>
         <p>
           Read how each stage changes the network, try a bounded example, and inspect the source
@@ -166,7 +165,6 @@ export default function LearningPanel({
           </ul>
         </details>
         <section className="learning-experiment" aria-label="Try the method">
-          <span className="learning-kicker">CONTROLLED EXPERIMENT</span>
           <h4>{lesson.experiment.title}</h4>
           <ol>
             {lesson.experiment.instructions.map((item) => (

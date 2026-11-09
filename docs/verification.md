@@ -472,3 +472,9 @@ The corrected test retains the original local hashes as provenance in a compact 
 - Full `npm run check` under Node 26.13.0: **909/909 across 48 files**, 27.80 s; type check and production build pass. Separate Node 26.11.1 type check also passes. Formatting/diff and manifest checks are finalized before delivery.
 - Application, public assets and runtime/configuration fingerprints are unchanged. Rebuilt asset names/sizes match the preceding production build, so the earlier **53/53 browser run** remains evidence for the same runtime; it was not rerun for a test/documentation-only change.
 - Corrected Ubuntu CI and deployment await the user's commit/push and workflow dispatch. This record does not claim a successful corrected remote run or physical fabrication validation.
+
+## Decorative copy cleanup — 9 November 2026
+
+Removed the five user-selected decorative spans: “Geometry first. Evidence always.”, “SURFACE / PATTERN / TOPOLOGY”, “CONTROLLED EXPLORATION”, “UNDERSTAND / EXPERIMENT / CITE” and “CONTROLLED EXPERIMENT”. The product title, Compare/Learn headings, specific example titles, instructions and controls remain. No numerical or interaction logic changed.
+
+`npm run build` (including type checking), formatting and diff checks pass. **3/3 focused production browser tests pass in 18.387 seconds**, with no JavaScript/console errors: Compare capture/difference/restore, all 13 Learn topics and diagram controls without scientific-state changes, and Learn/references at 375px without horizontal overflow. The desktop Learn screenshot was visually inspected. The full unit/browser suites were not rerun for this static-text cleanup; earlier complete-suite records remain historical evidence. Initial JavaScript is 830.07 kB / 268.87 kB gzip; the existing chunk-size warning remains. The owned production preview on 4184 is stopped and its listener check is empty. Remote publication awaits the user.

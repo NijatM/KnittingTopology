@@ -980,7 +980,6 @@ export default function App() {
         </a>
         <div className="sidebar-scroll">
           <div className="project-heading">
-            <span className="eyebrow">SURFACE / PATTERN / TOPOLOGY</span>
             <h1>
               Knitting
               <br />
@@ -1382,7 +1381,6 @@ export default function App() {
           <span>
             KNITTING TOPOLOGY <b>v0.1</b>
           </span>
-          <span>Geometry first. Evidence always.</span>
           <a href="https://github.com/nijatmahamaliyev" target="_blank" rel="noreferrer">
             ↗ Research & projects
           </a>
@@ -2259,7 +2257,6 @@ export default function App() {
           {!inspectionOnly && tab === 'compare' && (
             <>
               <div className="inspector-title">
-                <span className="eyebrow">CONTROLLED EXPLORATION</span>
                 <h2>Compare variants</h2>
                 <p>
                   Capture accepted results, inspect their measured differences, and return to any
