@@ -2,6 +2,7 @@
 import type { GenerationContext, KnitCutSettings, PatternGraph, SurfaceSpec } from '../core/types';
 import { MAX_GRAPH_CELLS, MAX_GRAPH_EDGES, MAX_GRAPH_NODES } from '../core/limits';
 import { validateSurface } from '../core/surfaces';
+import { sphereDomain } from '../core/sphere-domain';
 import {
   cutEdgeLength,
   type CutBoundaryStep,
@@ -47,6 +48,13 @@ export function cutSourceSignature(surface: SurfaceSpec, graph: PatternGraph): s
   add(surface.size);
   add(surface.curvature);
   add(surface.revision);
+  if (
+    surface.kind === 'sphere' &&
+    ((surface.poleOpeningDiameter ?? 0) > 0 || (surface.sphereFraction ?? 1) !== 1)
+  ) {
+    add(surface.poleOpeningDiameter ?? 0);
+    add(surface.sphereFraction ?? 1);
+  }
   for (const n of graph.nodes) {
     add(n.id);
     for (const x of n.position) add(x);
@@ -206,6 +214,84 @@ export function inspectCutComplex(c: CutComplex): {
   };
 }
 
+/** Source incidence, preserving original identities and ordered boundaries. */
+export function sourceCutComplex(graph: PatternGraph): CutComplex {
+  if (
+    !graph.nodes.length ||
+    graph.nodes.length > MAX_GRAPH_NODES ||
+    graph.edges.length > MAX_GRAPH_EDGES ||
+    graph.cells.length > MAX_GRAPH_CELLS
+  )
+    throw new Error('Cut source exceeds the graph resource bounds.');
+  const nodes = new Set(graph.nodes.map((n) => n.id)),
+    pairs = new Map<string, string>();
+  if (
+    nodes.size !== graph.nodes.length ||
+    new Set(graph.edges.map((e) => e.id)).size !== graph.edges.length
+  )
+    throw new Error('Source identities are duplicated.');
+  for (const n of graph.nodes)
+    if (n.position.length !== 3 || !n.position.every(Number.isFinite))
+      throw new Error('Source positions must be finite.');
+  for (const e of graph.edges) {
+    const key = pair(e.a, e.b);
+    if (e.a === e.b || !nodes.has(e.a) || !nodes.has(e.b) || pairs.has(key))
+      throw new Error('Source edge endpoints are missing, repeated or ambiguous.');
+    pairs.set(key, e.id);
+  }
+  return {
+    vertices: graph.nodes.map((n) => ({ ...n, sourceId: n.id })),
+    edges: graph.edges.map((e) => ({ ...e, sourceId: e.id, faces: e.cells })),
+    faces: graph.cells.map((c) => ({
+      id: c.id,
+      sourceId: c.id,
+      patch: c.patch,
+      vertices: c.nodes,
+      edges: c.nodes.map((a, i) => pairs.get(pair(a, c.nodes[(i + 1) % c.nodes.length]!)) ?? ''),
+    })),
+  };
+}
+
+/** A sector is already a disk; its natural meridians are not a closing seam. */
+export function inspectSphereSector(
+  surface: SurfaceSpec,
+  graph: PatternGraph,
+  context?: GenerationContext
+): ReturnType<typeof inspectCutComplex> {
+  validateSurface(surface);
+  const d = sphereDomain(surface);
+  if (!d.partial) throw new Error('Natural-sector validation requires partial angular coverage.');
+  if (context?.cancelled?.()) {
+    const e = new Error('Sector validation cancelled.');
+    e.name = 'AbortError';
+    throw e;
+  }
+  if (graph.provenance.surfaceRevision !== surface.revision)
+    throw new Error(
+      'Sphere sector network belongs to a different surface. Regenerate the network.'
+    );
+  const result = inspectCutComplex(sourceCutComplex(graph));
+  if (result.euler !== 1 || result.components !== 1 || result.boundaryComponents !== 1)
+    throw new Error('Sphere sector must be one oriented manifold disk with one natural boundary.');
+  const nodes = new Map(graph.nodes.map((n) => [n.id, n.position])),
+    edges = new Map(graph.edges.map((e) => [e.id, e]));
+  const tol = surface.size * 1e-8;
+  const onBoundary = (p: number[]) => {
+    if (Math.abs(Math.hypot(...p) - d.radius) > tol || Math.abs(p[2]!) > d.zMax + tol) return false;
+    if (d.opened && Math.abs(Math.abs(p[2]!) - d.zMax) <= tol) return true;
+    if (Math.hypot(p[0]!, p[1]!) <= tol) return true;
+    let phi = Math.atan2(p[1]!, p[0]!);
+    if (phi < 0) phi += 2 * Math.PI;
+    return Math.min(phi, 2 * Math.PI - phi) <= 1e-8 || Math.abs(phi - d.longitudeSpan) <= 1e-8;
+  };
+  for (const step of result.boundary) {
+    const edge = edges.get(step.sourceEdgeId)!;
+    if (!(edge.path ?? [nodes.get(edge.a)!, nodes.get(edge.b)!]).every(onBoundary))
+      throw new Error('A sector boundary leaves the declared meridian or polar rim.');
+  }
+  return result;
+}
+
 export function buildCutDisk(
   surface: SurfaceSpec,
   graph: PatternGraph,
@@ -263,8 +349,35 @@ export function buildCutDisk(
       })),
     };
     const before = inspectCutComplex(source);
-    if (before.euler !== 2 || before.components !== 1 || before.boundaryComponents !== 0)
-      throw new Error('Source must be one closed oriented manifold with Euler characteristic 2.');
+    const domain = surface.kind === 'sphere' ? sphereDomain(surface) : null;
+    if (domain?.partial)
+      throw new Error(
+        'A partial sphere sector is already open; use its natural meridian boundaries instead of a closing cut.'
+      );
+    const annulus = !!domain?.opened;
+    if (
+      before.euler !== (annulus ? 0 : 2) ||
+      before.components !== 1 ||
+      before.boundaryComponents !== (annulus ? 2 : 0)
+    )
+      throw new Error(
+        annulus
+          ? 'Source sphere band must be one oriented annulus with Euler characteristic 0 and two rim boundaries.'
+          : 'Source must be one closed oriented manifold with Euler characteristic 2.'
+      );
+    if (annulus) {
+      const tol = surface.size * 1e-8,
+        byId = new Map(graph.nodes.map((n) => [n.id, n.position]));
+      for (const e of graph.edges.filter((e) => e.cells.length === 1))
+        if (
+          !(e.path ?? [byId.get(e.a)!, byId.get(e.b)!]).every(
+            (p) =>
+              Math.abs(Math.abs(p[2]) - domain!.zMax) <= tol &&
+              Math.abs(Math.hypot(...p) - domain!.radius) <= tol
+          )
+        )
+          throw new Error('Sphere band natural boundaries must lie on the two polar rims.');
+    }
     const cuts = new Set(settings.edgeIds);
     if (!cuts.size) throw new Error('Select at least one cut edge.');
     if (cuts.size !== settings.edgeIds.length || [...cuts].some((e) => !edgeIndex.has(e)))
@@ -274,6 +387,8 @@ export function buildCutDisk(
       degree = new Map<string, number>();
     for (const id of cuts) {
       const e = graph.edges[edgeIndex.get(id)!]!;
+      if (e.cells.length !== 2)
+        throw new Error('A natural rim boundary cannot be selected as a paired cut seam.');
       const a = nodes.get(e.a)!,
         b = nodes.get(e.b)!;
       if (tree.find(a) === tree.find(b)) throw new Error('The selected cut contains a cycle.');
@@ -301,7 +416,7 @@ export function buildCutDisk(
     for (let i = 0; i < graph.edges.length; i++) {
       if ((i & 1023) === 0) check();
       const e = graph.edges[i]!;
-      if (cuts.has(e.id)) continue;
+      if (cuts.has(e.id) || e.cells.length !== 2) continue;
       for (const node of [e.a, e.b])
         fans.join(at.get(e.cells[0]!)!.get(node)!, at.get(e.cells[1]!)!.get(node)!);
     }
@@ -380,7 +495,10 @@ export function buildCutDisk(
         ],
       });
     }
-    if (after.boundary.length !== 2 * cuts.size)
+    const naturalBoundaries = after.boundary.filter(
+      (s) => graph.edges[edgeIndex.get(s.sourceEdgeId)!]!.cells.length === 1
+    );
+    if (after.boundary.length !== 2 * cuts.size + naturalBoundaries.length)
       throw new Error('Cut edge pairing does not cover the boundary exactly twice.');
     const plan: CutPlan = {
       version: 'cut-corner-fans-v1',
@@ -389,6 +507,7 @@ export function buildCutDisk(
       provenance: graph.provenance,
       complex,
       boundary: after.boundary,
+      ...(annulus ? { naturalBoundaries } : {}),
       seams,
       statistics: {
         sourceEuler: before.euler,
@@ -483,6 +602,35 @@ export function assertSeamPairs(
     covered.add(a.edgeId);
     covered.add(b.edgeId);
   }
+  const natural = plan.naturalBoundaries ?? [];
+  if (natural.length) {
+    const d = sphereDomain(plan.surface),
+      tol = plan.surface.size * 1e-8;
+    if (!d.opened || d.partial || plan.statistics.sourceEuler !== 0)
+      throw new Error('Natural cut boundaries require an opened full-coverage sphere band.');
+    const edgeById = new Map(plan.complex.edges.map((e) => [e.id, e]));
+    for (const step of natural) {
+      if (
+        !actual.has(step.edgeId) ||
+        !same(step, actual.get(step.edgeId)!) ||
+        covered.has(step.edgeId) ||
+        sourceCuts.has(step.sourceEdgeId)
+      )
+        throw new Error('Natural boundary differs from the cut complex or overlaps a paired seam.');
+      const e = edgeById.get(step.edgeId)!;
+      const endpoints = [vertices.get(step.from)!.position, vertices.get(step.to)!.position];
+      const sign = Math.sign(endpoints[0]![2]);
+      if (
+        e.faces.length !== 1 ||
+        !(e.path ?? endpoints).every(
+          (p) =>
+            Math.abs(p[2] - sign * d.zMax) <= tol && Math.abs(Math.hypot(...p) - d.radius) <= tol
+        )
+      )
+        throw new Error('Natural boundary is not a polar rim.');
+      covered.add(step.edgeId);
+    }
+  }
   if (covered.size !== plan.boundary.length || plan.boundary.some((s) => !covered.has(s.edgeId)))
     throw new Error('Seam pairs do not cover the entire boundary.');
 }
@@ -506,6 +654,7 @@ export function seamMapJson(plan: CutPlan, current: KnitCutSettings): string {
       statistics: plan.statistics,
       complex: plan.complex,
       boundary: plan.boundary,
+      ...(plan.naturalBoundaries ? { naturalBoundaries: plan.naturalBoundaries } : {}),
       seams: plan.seams,
       notes: plan.notes,
     },

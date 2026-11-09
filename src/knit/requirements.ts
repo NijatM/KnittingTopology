@@ -2,6 +2,7 @@
 import type { ProjectState } from '../core/types';
 import { defaultKnitSettings } from './settings';
 import { knitAvailable } from './mapping';
+import { requiresKnitCut } from './surface-scope';
 
 export type KnitRequirementId = 'measurement' | 'network' | 'cut';
 export interface KnitRequirement {
@@ -40,7 +41,7 @@ export function knitRequirements(
       action: 'Go to network generation',
     });
   if (
-    closed &&
+    requiresKnitCut(input.surface) &&
     (!settings.cut?.edgeIds.length ||
       settings.cut.surfaceRevision !== input.surface.revision ||
       !cutMatchesSource)

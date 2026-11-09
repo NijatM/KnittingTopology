@@ -1,3 +1,4 @@
+import { isModifiedSphere, sphereDomain, sphereDomainUV, surfacePatchCount } from './sphere-domain';
 import type {
   Diagnostic,
   GraphStatistics,
@@ -271,7 +272,7 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       'Support-surface residual exceeds tolerance.',
       off.map((n) => n.id)
     );
-  const maxPatch = surface.kind === 'cube' || surface.kind === 'sphere' ? 5 : 0;
+  const maxPatch = surfacePatchCount(surface) - 1;
   const attach = graph.nodes.filter(
     (n) =>
       !n.attachment ||
@@ -551,7 +552,10 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       'Incident cells must form one cycle at an interior node or one path at a boundary node.',
       badLinks
     );
-  const closed = surface.kind === 'cube' || surface.kind === 'sphere',
+  const modified = isModifiedSphere(surface),
+    domain = modified ? sphereDomain(surface) : undefined,
+    closed = surface.kind === 'cube' || (surface.kind === 'sphere' && !modified),
+    expectedEuler = domain && !domain.partial ? 0 : closed ? 2 : 1,
     boundary = [...incidence.values()].filter((i) => i.cells.length === 1).length;
   if (closed && boundary)
     report(
@@ -561,6 +565,98 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       [],
       boundary
     );
+  if (domain) {
+    const adjacency = new Map<string, string[]>();
+    for (const inc of incidence.values())
+      if (inc.cells.length === 1) {
+        adjacency.set(inc.a, [...(adjacency.get(inc.a) ?? []), inc.b]);
+        adjacency.set(inc.b, [...(adjacency.get(inc.b) ?? []), inc.a]);
+      }
+    const seen = new Set<string>();
+    let count = 0;
+    for (const id of adjacency.keys())
+      if (!seen.has(id)) {
+        count++;
+        const stack = [id];
+        seen.add(id);
+        while (stack.length)
+          for (const next of adjacency.get(stack.pop()!) ?? [])
+            if (!seen.has(next)) {
+              seen.add(next);
+              stack.push(next);
+            }
+      }
+    // Independently require complete natural-boundary coverage, rather than accepting
+    // any annulus/disk with the right Euler characteristic.
+    const intervals = new Map<string, [number, number][]>();
+    if (domain.opened) {
+      intervals.set('south', []);
+      intervals.set('north', []);
+    }
+    if (domain.partial) {
+      intervals.set('start', []);
+      intervals.set('end', []);
+    }
+    const issues: string[] = [];
+    const addInterval = (side: string, a: number, b: number) => {
+      const list = intervals.get(side)!;
+      if (!domain.partial && (side === 'south' || side === 'north') && Math.abs(a - b) > 0.5) {
+        if (a < b) a += 1;
+        else b += 1;
+      }
+      const lo = Math.min(a, b),
+        hi = Math.max(a, b);
+      if (hi > 1) {
+        list.push([lo, 1], [0, hi - 1]);
+      } else list.push([lo, hi]);
+    };
+    for (const [key, inc] of incidence)
+      if (inc.cells.length === 1) {
+        const pa = nodes.get(inc.a)!.position,
+          pb = nodes.get(inc.b)!.position;
+        const a = sphereDomainUV(surface, pa),
+          b = sphereDomainUV(surface, pb);
+        const ap = !domain.opened && Math.hypot(pa[0], pa[1]) < scale * 1e-12,
+          bp = !domain.opened && Math.hypot(pb[0], pb[1]) < scale * 1e-12;
+        if (domain.opened && Math.abs(a[1]) < 1e-8 && Math.abs(b[1]) < 1e-8)
+          addInterval('south', a[0], b[0]);
+        else if (domain.opened && Math.abs(a[1] - 1) < 1e-8 && Math.abs(b[1] - 1) < 1e-8)
+          addInterval('north', a[0], b[0]);
+        else if (domain.partial && (ap || Math.abs(a[0]) < 1e-8) && (bp || Math.abs(b[0]) < 1e-8))
+          addInterval('start', a[1], b[1]);
+        else if (
+          domain.partial &&
+          (ap || Math.abs(a[0] - 1) < 1e-8) &&
+          (bp || Math.abs(b[0] - 1) < 1e-8)
+        )
+          addInterval('end', a[1], b[1]);
+        else issues.push(key);
+      }
+    for (const [side, spans] of intervals) {
+      let covered = 0;
+      for (const [lo, hi] of spans.sort((a, b) => a[0] - b[0])) {
+        if (Math.abs(lo - covered) > 1e-8 || hi - lo < 1e-12) issues.push(side);
+        covered = hi;
+      }
+      if (Math.abs(covered - 1) > 1e-8) issues.push(side);
+    }
+    if (issues.length)
+      report(
+        'sphere-natural-boundary',
+        'Incomplete sphere domain boundary',
+        'Boundary edges must cover each retained circular rim and natural meridian exactly once, without interior segments, gaps or overlaps (normalized domain tolerance 1e-8).',
+        issues
+      );
+    const expected = domain.partial ? 1 : 2;
+    if (count !== expected)
+      report(
+        'sphere-boundaries',
+        'Incorrect sphere boundary components',
+        `Retained sphere domain requires ${expected} boundary component(s).`,
+        [],
+        count
+      );
+  }
   if (graph.cells.length === 0)
     report('empty-graph', 'Empty graph', 'A valid pattern must contain cells.');
   const stats = computeStatistics(graph, surface, graph.provenance?.parameters?.spacing ?? scale);
@@ -572,11 +668,11 @@ export function validateGraph(graph: PatternGraph, surface: SurfaceSpec): Diagno
       [],
       stats.components
     );
-  if (stats.euler !== (closed ? 2 : 1))
+  if (stats.euler !== expectedEuler)
     report(
       'euler',
       'Unexpected Euler characteristic',
-      `Expected ${closed ? 2 : 1} for a connected ${closed ? 'sphere-like closed surface' : 'disk'}.`,
+      `Expected ${expectedEuler} for a connected ${domain && !domain.partial ? 'annular spherical band' : closed ? 'sphere-like closed surface' : 'disk'}.`,
       [],
       stats.euler
     );
@@ -646,6 +742,21 @@ export function extraordinaryNodeIds(graph: PatternGraph, surface: SurfaceSpec):
           const neighbors = boundaryNeighbors.get(n.id)!;
           const normalizedBoundaryDirection = (id: string): Vec3 => {
             const other = nodes.get(id)!;
+            if (
+              isModifiedSphere(surface) &&
+              Math.hypot(n.position[0], n.position[1]) > surface.size * 1e-12
+            ) {
+              const d = sphereDomain(surface),
+                a = sphereDomainUV(surface, n.position),
+                b = sphereDomainUV(surface, other.position);
+              let du = b[0] - a[0];
+              if (!d.partial) {
+                if (du > 0.5) du -= 1;
+                if (du < -0.5) du += 1;
+              }
+              if (Math.hypot(other.position[0], other.position[1]) < surface.size * 1e-12) du = 0;
+              return [du, b[1] - a[1], 0];
+            }
             return surface.kind === 'plane' ||
               surface.kind === 'saddle' ||
               hasRectangularMapping(surface)

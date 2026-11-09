@@ -14,6 +14,7 @@ import type {
   ProjectState,
   SurfaceSpec,
 } from '../core/types';
+import { requiresKnitCut } from './surface-scope';
 import { evaluateSurface } from '../core/surfaces';
 import { gaugeOf, GAUGE_REFERENCE } from './gauge';
 import { knitAvailable } from './mapping';
@@ -119,12 +120,21 @@ export function courseStageFingerprint(
       surface.revision,
       surface.mapping ?? null,
       settings.startEdge ?? 'v0',
-      closed ? (settings.cut ?? null) : null,
+      requiresKnitCut(surface) ? (settings.cut ?? null) : null,
       gauge.stitchWidth,
       gauge.courseHeight,
       method === 'popescu-2019-rules' ? popescuSettingsOf(settings) : null,
       closed ? settings.lab.firstPass : null,
       ...(window ? [window] : []),
+      ...(surface.kind === 'sphere' &&
+      ((surface.poleOpeningDiameter ?? 0) > 0 || (surface.sphereFraction ?? 1) !== 1)
+        ? [
+            {
+              poleOpeningDiameter: surface.poleOpeningDiameter ?? 0,
+              sphereFraction: surface.sphereFraction ?? 1,
+            },
+          ]
+        : []),
     ])
   )}`;
 }

@@ -35,7 +35,9 @@ export default function CutControls({
       <p className="hint">
         {surface.kind === 'cube'
           ? 'A cut made only of whole crease lines, such as the cross-net preset, can then be knitted from its flat net in 05 Knit program.'
-          : 'A single cut running from a highest node to a lowest node, descending at every point, such as the meridian preset, can then be knitted from pole to pole in 05 Knit program.'}
+          : (surface.poleOpeningDiameter ?? 0) > 0
+            ? 'Connect the top and bottom circular rims with one descending meridian cut. The two polar rims remain natural openings and are not paired seams.'
+            : 'A single cut running from a highest node to a lowest node, descending at every point, such as the meridian preset, can then be knitted from pole to pole in 05 Knit program.'}
       </p>
       <button
         type="button"

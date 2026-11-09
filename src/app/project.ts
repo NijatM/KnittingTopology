@@ -8,6 +8,7 @@ import type {
   Diagnostic,
 } from '../core/types';
 import { evaluateSurface, validateSurface } from '../core/surfaces';
+import { surfacePatchCount } from '../core/sphere-domain';
 import { mappedAttachmentMatches } from '../core/diagnostics';
 import { validateImportedMesh } from '../import/mesh';
 import { createCitationRecord } from '../adapters/citations';
@@ -52,10 +53,18 @@ export function createProject(): ProjectState {
 }
 export function geometryChange(state: ProjectState, change: Partial<SurfaceSpec>): ProjectState {
   const surface = { ...state.surface, ...change, revision: `surface-${crypto.randomUUID()}` };
+  if (surface.kind !== 'sphere') {
+    delete surface.poleOpeningDiameter;
+    delete surface.sphereFraction;
+  } else {
+    if (surface.poleOpeningDiameter === 0) delete surface.poleOpeningDiameter;
+    if (surface.sphereFraction === 1) delete surface.sphereFraction;
+  }
   if (surface.kind !== 'mesh') {
     delete surface.mesh;
     delete surface.mapping;
-  } else validateSurface(surface);
+  }
+  validateSurface(surface);
   return {
     ...state,
     surface,
@@ -365,7 +374,7 @@ export function parseProject(contents: string): ProjectState {
       vector(sample.position, 'sample position', 3);
       validateAttachment(sample.attachment, revision);
       const attachment = sample.attachment as { patch: number; uv: [number, number] };
-      const maxPatch = surface.kind === 'cube' || surface.kind === 'sphere' ? 5 : 0;
+      const maxPatch = surfacePatchCount(surface as unknown as SurfaceSpec) - 1;
       if (attachment.patch > maxPatch) fail('guide patch does not exist on this surface.');
       const expected = evaluateSurface(
         surface as unknown as SurfaceSpec,

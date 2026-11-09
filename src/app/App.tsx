@@ -242,6 +242,7 @@ function RangeControl({
   step = 1,
   suffix = '',
   onChange,
+  formatValue,
 }: {
   label: string;
   value: number;
@@ -250,13 +251,18 @@ function RangeControl({
   step?: number | 'any';
   suffix?: string;
   onChange: (n: number) => void;
+  formatValue?: (n: number) => string;
 }) {
   return (
     <label className="range-control">
       <span className="control-caption">
         {label}
         <span>
-          {Number.isInteger(value) ? value : Number(value.toPrecision(6))}
+          {formatValue
+            ? formatValue(value)
+            : Number.isInteger(value)
+              ? value
+              : Number(value.toPrecision(6))}
           <small>{suffix}</small>
         </span>
       </span>
@@ -1000,7 +1006,13 @@ export default function App() {
                 >
                   <SurfaceGlyph kind={s.key} />
                   <strong>{s.name}</strong>
-                  <small>{s.caption}</small>
+                  <small>
+                    {s.key === 'sphere' &&
+                    ((project.surface.poleOpeningDiameter ?? 0) > 0 ||
+                      (project.surface.sphereFraction ?? 1) < 1)
+                      ? 'Open / curved'
+                      : s.caption}
+                  </small>
                 </button>
               ))}
             </div>
@@ -1008,7 +1020,14 @@ export default function App() {
               <RangeControl
                 label={project.surface.kind === 'sphere' ? 'Diameter' : 'Side length'}
                 value={Math.round(project.surface.size * 1000)}
-                min={40}
+                min={
+                  project.surface.kind === 'sphere'
+                    ? Math.max(
+                        40,
+                        Math.ceil(((project.surface.poleOpeningDiameter ?? 0) * 1000 + 0.1) / 5) * 5
+                      )
+                    : 40
+                }
                 max={400}
                 step={5}
                 suffix="mm"
@@ -1019,6 +1038,65 @@ export default function App() {
                   setElapsed(null);
                 }}
               />
+            )}
+            {project.surface.kind === 'sphere' && (
+              <>
+                <RangeControl
+                  label="Pole opening diameter"
+                  value={(project.surface.poleOpeningDiameter ?? 0) * 1000}
+                  min={0}
+                  max={Math.max(0, project.surface.size * 1000 - 0.1)}
+                  step={0.1}
+                  suffix="mm"
+                  onChange={(n) => {
+                    cancel(false);
+                    commit(
+                      geometryChange(projectRef.current, { poleOpeningDiameter: n / 1000 }),
+                      'surface:poleOpeningDiameter'
+                    );
+                    setSelection(null);
+                    setElapsed(null);
+                  }}
+                />
+                <RangeControl
+                  label="Sphere fraction"
+                  value={project.surface.sphereFraction ?? 1}
+                  min={0.01}
+                  max={1}
+                  step={0.01}
+                  formatValue={(n) => n.toFixed(2)}
+                  onChange={(n) => {
+                    cancel(false);
+                    commit(
+                      geometryChange(projectRef.current, { sphereFraction: n }),
+                      'surface:sphereFraction'
+                    );
+                    setSelection(null);
+                    setElapsed(null);
+                  }}
+                />
+                <p className="hint" aria-label="Sphere domain summary">
+                  {((project.surface.sphereFraction ?? 1) * 360).toFixed(1)}° from +X around +Z ·{' '}
+                  {(project.surface.poleOpeningDiameter ?? 0) > 0
+                    ? 'two open polar rims; no caps'
+                    : 'polar caps retained'}
+                  . Opening diameter is a target surface dimension; remaining knit holds still need
+                  inspection.
+                </p>
+                {(project.surface.poleOpeningDiameter ?? 0) > 0 && (
+                  <p className="hint">
+                    Both polar openings share this diameter. Reduce it first to shrink the sphere
+                    below the opening size. The knitted edge size is not calibrated from this
+                    target.
+                  </p>
+                )}
+                {(project.surface.sphereFraction ?? 1) < 1 && (
+                  <p className="hint">
+                    Open sector: its meridian edges remain separate. Generate a network, then a
+                    measured knit program; no additional closing seam is required.
+                  </p>
+                )}
+              </>
             )}
             {project.surface.kind === 'saddle' && (
               <RangeControl
@@ -1238,6 +1316,8 @@ export default function App() {
               )}
               {knitAvailable(project.surface) ? (
                 <KnitControls
+                  surface={project.surface}
+                  seamRequired={cutJob.closed}
                   closed={
                     project.surface.kind === 'cube' || project.surface.kind === 'sphere'
                       ? project.surface.kind
@@ -2298,6 +2378,10 @@ export default function App() {
                       v.project.surface.kind !== variants[0].project.surface.kind ||
                       v.project.surface.size !== variants[0].project.surface.size ||
                       v.project.surface.curvature !== variants[0].project.surface.curvature ||
+                      (v.project.surface.poleOpeningDiameter ?? 0) !==
+                        (variants[0].project.surface.poleOpeningDiameter ?? 0) ||
+                      (v.project.surface.sphereFraction ?? 1) !==
+                        (variants[0].project.surface.sphereFraction ?? 1) ||
                       (v.project.surface.kind === 'mesh' &&
                         scientificSignature({
                           surface: v.project.surface,

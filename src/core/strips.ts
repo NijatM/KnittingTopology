@@ -1,5 +1,6 @@
 import type { PatternGraph, SurfaceSpec } from './types';
 import { MAX_SUBDIVISIONS } from './limits';
+import { isModifiedSphere } from './sphere-domain';
 import { embeddedEdgeLength } from './surfaces';
 import { edgeKey } from './topology';
 /** Opposite-edge equivalence classes of an explicit all-quad coarse complex (Oval et al., §3.2). */
@@ -50,11 +51,17 @@ export function extractCoarseStrips(
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([root, es]) => {
       const id = `strip:${root}`,
-        meanLength =
-          es.reduce(
-            (sum, e) => sum + embeddedEdgeLength(surface, nodes.get(e.a)!, nodes.get(e.b)!, e.path),
-            0
-          ) / es.length,
+        meanLength = isModifiedSphere(surface)
+          ? Math.max(
+              ...es.map((e) =>
+                embeddedEdgeLength(surface, nodes.get(e.a)!, nodes.get(e.b)!, e.path)
+              )
+            )
+          : es.reduce(
+              (sum, e) =>
+                sum + embeddedEdgeLength(surface, nodes.get(e.a)!, nodes.get(e.b)!, e.path),
+              0
+            ) / es.length,
         value = overrides[id] ?? Math.max(1, Math.round(meanLength / spacing));
       if (!Number.isInteger(value) || value < 1 || value > MAX_SUBDIVISIONS)
         throw new Error(

@@ -8,6 +8,7 @@ import type {
   Provenance,
 } from './types';
 import { areaVector, cross, dot, lerp, mean, norm, sub } from './math';
+import { isModifiedSphere, sphereDomain, sphereDomainBlend } from './sphere-domain';
 import { projectToSurface, surfaceNormal, surfacePath } from './surfaces';
 export const edgeKey = (a: string, b: string) => JSON.stringify(a < b ? [a, b] : [b, a]);
 export function featureAt(s: SurfaceSpec, p: Vec3): GraphNode['feature'] {
@@ -21,6 +22,15 @@ export function featureAt(s: SurfaceSpec, p: Vec3): GraphNode['feature'] {
       ? 'boundary'
       : 'interior';
   return 'interior';
+}
+function blend(s: SurfaceSpec, points: Vec3[], weights?: number[]): Vec3 {
+  const w = weights ?? points.map(() => 1 / points.length);
+  return isModifiedSphere(s) && sphereDomain(s).opened
+    ? sphereDomainBlend(s, points, w)
+    : points.reduce<Vec3>(
+        (sum, p, i) => [sum[0] + p[0] * w[i]!, sum[1] + p[1] * w[i]!, sum[2] + p[2] * w[i]!],
+        [0, 0, 0]
+      );
 }
 export class MeshBuilder {
   nodes: GraphNode[] = [];
@@ -136,7 +146,14 @@ function transformCore(s: SurfaceSpec, g: PatternGraph, family: PatternFamily): 
   const center = (c: GraphCell) => {
     let id = centers.get(c.id);
     if (!id) {
-      id = out.node(mean(c.nodes.map((n) => byId.get(n)!.position)), c.patch, `c:${c.id}`);
+      id = out.node(
+        blend(
+          s,
+          c.nodes.map((n) => byId.get(n)!.position)
+        ),
+        c.patch,
+        `c:${c.id}`
+      );
       centers.set(c.id, id);
     }
     return id;
@@ -145,14 +162,22 @@ function transformCore(s: SurfaceSpec, g: PatternGraph, family: PatternFamily): 
     const key = edgeKey(a, b);
     let id = midpoints.get(key);
     if (!id) {
-      id = out.node(lerp(byId.get(a)!.position, byId.get(b)!.position, 0.5), undefined, `m:${key}`);
+      id = out.node(
+        blend(s, [byId.get(a)!.position, byId.get(b)!.position]),
+        undefined,
+        `m:${key}`
+      );
       midpoints.set(key, id);
     }
     return id;
   };
   if (family === 'kis' || family === 'diagonal' || family === 'gyro') {
     const third = (a: string, b: string) =>
-      out.node(lerp(byId.get(a)!.position, byId.get(b)!.position, 1 / 3), undefined, `t:${a}>${b}`);
+      out.node(
+        blend(s, [byId.get(a)!.position, byId.get(b)!.position], [2 / 3, 1 / 3]),
+        undefined,
+        `t:${a}>${b}`
+      );
     for (const c of g.cells) {
       const old = c.nodes.map((id) =>
           out.node(byId.get(id)!.position, byId.get(id)!.attachment.patch, id)
@@ -167,7 +192,17 @@ function transformCore(s: SurfaceSpec, g: PatternGraph, family: PatternFamily): 
               byId.get(c.nodes[b]!)!.position,
               byId.get(c.nodes[d]!)!.position,
             ]),
-            surfaceNormal(s, mean(c.nodes.map((id) => byId.get(id)!.position)), c.patch)
+            surfaceNormal(
+              s,
+              isModifiedSphere(s)
+                ? mean([
+                    byId.get(c.nodes[a]!)!.position,
+                    byId.get(c.nodes[b]!)!.position,
+                    byId.get(c.nodes[d]!)!.position,
+                  ])
+                : mean(c.nodes.map((id) => byId.get(id)!.position)),
+              c.patch
+            )
           ) >
           s.size * s.size * 1e-14;
         if ((n === 4 && !positive(0, 1, 2)) || (n === 4 && !positive(0, 2, 3))) {
@@ -262,7 +297,7 @@ function transformCore(s: SurfaceSpec, g: PatternGraph, family: PatternFamily): 
         normal = surfaceNormal(s, mean(points), start.patch),
         tol = s.size * s.size * 1e-14;
       if (
-        s.kind === 'cube' &&
+        (s.kind === 'cube' || isModifiedSphere(s)) &&
         family === 'ambo' &&
         unique.length === 4 &&
         points.some(
@@ -354,8 +389,13 @@ export function insetGraph(
       b.cell(c.nodes, c.patch, c.sourceCell, c.id);
       return;
     }
-    const center = mean(c.nodes.map((id) => old.get(id)!.position));
-    const inner = c.nodes.map((id) => b.node(lerp(old.get(id)!.position, center, 0.45), c.patch));
+    const center = blend(
+      s,
+      c.nodes.map((id) => old.get(id)!.position)
+    );
+    const inner = c.nodes.map((id) =>
+      b.node(blend(s, [old.get(id)!.position, center], [0.55, 0.45]), c.patch)
+    );
     b.cell(inner, c.patch, c.id, `${c.id}/inner`);
     for (let i = 0; i < c.nodes.length; i++)
       b.cell(
@@ -378,14 +418,14 @@ export function quadrangulateFaces(s: SurfaceSpec, g: PatternGraph): PatternGrap
   const old = new Map(g.nodes.map((n) => [n.id, n]));
   for (const c of g.cells) {
     const p = c.nodes.map((id) => old.get(id)!.position),
-      m = b.node(mean(p), c.patch);
+      m = b.node(blend(s, p), c.patch);
     for (let i = 0; i < p.length; i++)
       b.cell(
         [
           b.node(p[i]!, undefined, c.nodes[i]),
-          b.node(lerp(p[i]!, p[(i + 1) % p.length]!, 0.5)),
+          b.node(blend(s, [p[i]!, p[(i + 1) % p.length]!])),
           m,
-          b.node(lerp(p[(i + p.length - 1) % p.length]!, p[i]!, 0.5)),
+          b.node(blend(s, [p[(i + p.length - 1) % p.length]!, p[i]!])),
         ],
         c.patch,
         c.id

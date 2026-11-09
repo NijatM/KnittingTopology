@@ -20,6 +20,8 @@ A browser-based research environment for surface topology, knit-graph constructi
 
 The workspace follows the dark monochrome visual language of Knitting Pixel Art Editor. Surface dimensions and spacing are displayed in millimeters; scientific geometry uses meters internally.
 
+Sphere controls provide a shared polar-opening diameter in millimeters and an angular coverage fraction from 0.01 to 1.00. Zero opening diameter and full coverage preserve the existing full sphere. Positive openings remove both polar caps without filling the holes; fractional coverage retains an open sector starting at the +X meridian and increasing counterclockwise around +Z. Geometry, regenerated networks, knitting layouts and diagnostics use the same domain. Full coverage retains the validated meridian-seam workflow; partial sectors use their natural meridian boundaries. Opening sizes and angular coverage are geometric targets, not calibrated fabric dimensions or guarantees against long holds or machine jams. Remaining holds and discretization deviations stay inspectable.
+
 ## Typical workflow
 
 1. **Prepare a surface.** Choose a generated surface or import a mesh with explicit units. Check import defects and mapping eligibility before generating on an OBJ. Cube/sphere knitting first requires a supported cut and validated seam preparation.

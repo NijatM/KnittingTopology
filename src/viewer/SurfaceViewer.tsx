@@ -902,6 +902,8 @@ export default function SurfaceViewer(props: SurfaceViewerProps) {
     props.surface.kind,
     props.surface.size,
     props.surface.curvature,
+    props.surface.poleOpeningDiameter,
+    props.surface.sphereFraction,
     props.surface.revision,
   ]);
 

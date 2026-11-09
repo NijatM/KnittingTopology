@@ -148,6 +148,12 @@ export function describeMethod(p: PatternParameters, surface: SurfaceKind | Surf
       ? `an independently authored, incomplete ${numeric(p.patchSides)}-sided patch template with boundary counts (${p.boundaryCounts.map(numeric).join(', ')}) and variant ${numeric(p.variant)}, inspired by Takayama et al. (2014). It does not implement the complete paper’s template enumeration or minimum-singularity selection. Spacing is set by the hard boundary counts`
       : `the project-authored ${presets[p.preset] ?? 'unsupported'} coarse topology preset and compatible integer strip subdivisions, with target spacing ${numeric(p.spacing)} m. The separation of coarse topology, strip density, pattern transformation and geometry is informed by Oval et al. (2018); the preset does not reproduce their medial-axis construction or grammar`;
   let description = `Knitting Topology constructs a geometric cell network on ${surfaces[surfaceKind] ?? 'an unsupported surface'} using ${construction}.`;
+  if (
+    typeof surface !== 'string' &&
+    surface.kind === 'sphere' &&
+    ((surface.poleOpeningDiameter ?? 0) > 0 || (surface.sphereFraction ?? 1) !== 1)
+  )
+    description = `Knitting Topology constructs a geometric cell network on a retained spherical shell with target polar opening diameter ${numeric(surface.poleOpeningDiameter ?? 0)} m and angular coverage ${numeric((surface.sphereFraction ?? 1) * 360)} degrees, using ${construction}. Its boundary-conforming four-sector atlas, pole fans when needed, and admissible chart paths are project constructions, not a reproduction of a cited paper or a geodesic/spacing guarantee.`;
   if (p.strategy === 'n-sided-patch')
     description += ' The broader pipeline separation is informed by Oval et al. (2018).';
   description += ` The output uses ${families[p.family] ?? 'an unsupported transformation'}.`;

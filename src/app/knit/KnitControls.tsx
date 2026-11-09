@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 import type { KnitRequirement, KnitRequirementId } from '../../knit/requirements';
 import KnitFeedback from './KnitFeedback';
-import type { KnitCellRule, KnitCourseMethod, KnitSettings } from '../../core/types';
+import type { KnitCellRule, KnitCourseMethod, KnitSettings, SurfaceSpec } from '../../core/types';
 import {
   COURSE_METHODS,
   courseMethodOf,
@@ -33,6 +33,8 @@ interface Props {
   onToggleEdgePicking: () => void;
   /** Closed surface opened by a validated cut: measured layout only. */
   closed?: 'cube' | 'sphere';
+  surface?: SurfaceSpec;
+  seamRequired?: boolean;
   /** Label of the selected computational patch, whose start edge, method and fill are shown. */
   patch?: string;
 }
@@ -133,6 +135,8 @@ export default function KnitControls({
   requirements,
   onRepair,
   closed,
+  surface,
+  seamRequired,
   patch,
 }: Props) {
   const key = settingsKey(s),
@@ -153,7 +157,7 @@ export default function KnitControls({
   return (
     <section className="control-section knit-controls">
       <h2>
-        <span>{closed ? '05' : '04'}</span> Knit program <i />
+        <span>{closed && seamRequired !== false ? '05' : '04'}</span> Knit program <i />
       </h2>
       <p className="hint">
         {s.mode === 'shape'
@@ -233,8 +237,16 @@ export default function KnitControls({
           >
             {closed === 'sphere' ? (
               <>
-                <option value="v0">Needle 1 at the bottom pole (default)</option>
-                <option value="v1">Needle 1 at the top pole</option>
+                <option value="v0">
+                  {(surface?.poleOpeningDiameter ?? 0) > 0
+                    ? 'Needle 1 at the bottom rim (default)'
+                    : 'Needle 1 at the bottom pole (default)'}
+                </option>
+                <option value="v1">
+                  {(surface?.poleOpeningDiameter ?? 0) > 0
+                    ? 'Needle 1 at the top rim'
+                    : 'Needle 1 at the top pole'}
+                </option>
                 {(s.startEdge === 'u0' || s.startEdge === 'u1') && (
                   <option value={s.startEdge}>{s.startEdge} (not used on a sphere)</option>
                 )}
@@ -256,7 +268,11 @@ export default function KnitControls({
         )}
         <p className="hint">
           {closed === 'sphere'
-            ? 'Courses run from pole to pole, starting at the validated cut. Each needle knits one circle of latitude, and short rows are spread evenly. Sizes come from your measurements.'
+            ? (surface?.sphereFraction ?? 1) < 1
+              ? 'Needles span the retained latitude range. Each needle knits an open latitude arc; the two meridian edges are natural boundaries, not a closing seam. Sizes come from your measurements.'
+              : (surface?.poleOpeningDiameter ?? 0) > 0
+                ? 'Needles span the retained meridian from rim to rim. Each needle knits a latitude circle from the validated seam. Both polar openings remain open; remaining holds require inspection.'
+                : 'Courses run from pole to pole, starting at the validated cut. Each needle knits one circle of latitude, and short rows are spread evenly. Sizes come from your measurements.'
             : closed
               ? 'The validated cut is unfolded into a flat net; the chosen side of the net is knitted first. Sizes come from your measurements.'
               : 'Measured layouts use the fill gauge with a flagged jersey fallback. Typed network layouts are unmeasured. Click near a chart boundary when picking.'}
@@ -270,7 +286,9 @@ export default function KnitControls({
           >
             {(Object.keys(COURSE_METHODS) as KnitCourseMethod[]).map((id) => (
               <option key={id} value={id} disabled={!!closed && id === 'popescu-2019-rules'}>
-                {COURSE_METHODS[id].label}
+                {closed === 'sphere' && id === 'project-alignment'
+                  ? 'Project sphere short rows'
+                  : COURSE_METHODS[id].label}
                 {closed && id === 'popescu-2019-rules' ? ' (open surfaces only)' : ''}
               </option>
             ))}
@@ -302,7 +320,9 @@ export default function KnitControls({
           </div>
         )}
         <p className="hint">
-          {COURSE_METHODS[courseMethodOf(s)].note}
+          {closed === 'sphere' && courseMethodOf(s) === 'project-alignment'
+            ? 'Project sphere construction: latitude circles or retained arcs, with nested out-and-back short rows. This does not use the open-surface distance-contour connection method.'
+            : COURSE_METHODS[courseMethodOf(s)].note}
           {courseMethodOf(s) === 'popescu-2019-rules'
             ? ' Result count: nearest candidates per side (thesis minimum 4). Angle tolerance: near-ties go to the straighter course (thesis example 5°).'
             : ''}

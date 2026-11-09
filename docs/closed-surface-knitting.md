@@ -33,6 +33,8 @@ Every source cell, edge and node is placed on the net. Because the cut runs alon
 
 ## Sphere
 
+This section describes the default full sphere. [Sphere openings and angular sectors](sphere-domains.md) documents the retained-domain controls, natural rim boundaries, fractional charts and their additional checks.
+
 ### Why pole-to-pole courses
 
 A sphere cannot be flattened without stretching, so it has no exact net. Instead the needles run from pole to pole, and each needle knits one closed circle of latitude. The circles shrink towards the poles, so needles near a pole knit fewer loops. They skip short-row passes that the middle needles knit. This construction is the project's own. It is not taken from Popescu's thesis, and no published sphere knitting method is cited for it.
@@ -51,7 +53,7 @@ A sphere cannot be flattened without stretching, so it has no exact net. Instead
 4. A needle that does not knit in a pass holds its loop, shown as a float in the bitmap. Each loop knits through the previous loop on the same needle. There are no sideways transfers, increases or decreases. Short-row turns add no wrap or tuck. This follows the open-surface convention and is still to be confirmed with the lab. Knit Grammar's held-loop check flags long holds, and export stays allowed.
 5. Loop `m` of a needle sits on its circle at the fraction `(m + ½) / loops` of the way around from the cut. It runs westward from the cut with `v0` and eastward with `v1`. Neither start side mirrors the knit.
 
-Measured on a straight meridian cut, with both first-pass directions:
+Computed on a straight meridian cut, with both first-pass directions (test values, not measured gauges):
 
 | Diameter | Stitch width × course height | Needles × passes | Largest count error | Largest distance from even place | Longest hold |
 | -------- | ---------------------------- | ---------------- | ------------------- | -------------------------------- | ------------ |

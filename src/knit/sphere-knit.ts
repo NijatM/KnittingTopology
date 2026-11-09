@@ -5,6 +5,7 @@
 // finishes, so the yarn never floats across needles.
 import type { PatternGraph, SurfaceSpec, Vec2, Vec3 } from '../core/types';
 import { projectToSurface } from '../core/surfaces';
+import { sphereDomain, sphereDomainPoint, sphereDomainUV } from '../core/sphere-domain';
 import { orientedEdgePath, type CutPlan } from './cut-types';
 import type {
   ShapeCourse,
@@ -57,9 +58,12 @@ export function sphereCutPath(
     throw new Error(
       `The cut branches at node ${branch[0]}. A sphere can only be knitted from one unbranched cut from pole to pole.`
     );
-  let top = -Infinity,
-    bottom = Infinity;
-  for (const n of graph.nodes) {
+  const domain = sphereDomain(surface);
+  if (domain.partial)
+    throw new Error('A sphere sector uses its natural meridian boundaries without a manual cut.');
+  let top = domain.opened ? domain.zMax : -Infinity,
+    bottom = domain.opened ? -domain.zMax : Infinity;
+  for (const n of domain.opened ? [] : graph.nodes) {
     top = Math.max(top, n.position[2]);
     bottom = Math.min(bottom, n.position[2]);
   }
@@ -69,7 +73,9 @@ export function sphereCutPath(
     finish = ends.find((n) => n !== start && nodes.get(n)![2] <= bottom + tie);
   if (ends.length !== 2 || !start || !finish)
     throw new Error(
-      'A sphere cut must be one path from a highest network node to a lowest one. Use the meridian preset or edit the cut.'
+      domain.opened
+        ? 'An opened sphere cut must connect the actual top rim to the actual bottom rim. Use the meridian preset or edit the cut.'
+        : 'A sphere cut must be one path from a highest network node to a lowest one. Use the meridian preset or edit the cut.'
     );
   const step = 1e-12 * surface.size,
     used = new Set<string>(),
@@ -245,6 +251,8 @@ export interface SphereSeam {
   /** Zero-based inclusive needle range whose circles start at each cut edge, or null when none does. */
   edges: { id: string; needles: [number, number] | null }[];
   sides: [SphereSeamSide, SphereSeamSide];
+  /** Natural meridian sides are independent boundaries, never a paired closing seam. */
+  naturalBoundaries?: { paired: false; startEdgeIds: string[]; endEdgeIds: string[] };
 }
 export interface SphereKnitLayout {
   start: SphereStart;
@@ -266,6 +274,15 @@ export interface SphereKnitLayout {
   cutWander: number;
   poles: { needle: number; pole: 'top' | 'bottom'; loops: number }[];
   seam: SphereSeam;
+  /** Geometric targets and sampled ring diameters in meters, not calibrated fabric apertures. */
+  domain?: {
+    openingDiameter: number;
+    fraction: number;
+    longitudeSpan: number;
+    retainedMeridianLength: number;
+    /** Bottom and top outer knitting ring diameters; centers lie inside the retained band. */
+    actualOuterRingDiameters: [number, number];
+  };
 }
 
 /** Pole-to-pole needle/pass layout. Loop positions are latitude and the longitude from the cut. */
@@ -283,13 +300,19 @@ export function layoutSphere(
 } {
   if (![stitchWidth, courseHeight].every((x) => Number.isFinite(x) && x > 0))
     throw new Error('Measured stitch width and course height must be finite and positive.');
-  const R = surface.size / 2,
-    N = Math.max(2, countCeil((Math.PI * R) / stitchWidth));
+  const domain = sphereDomain(surface),
+    R = surface.size / 2,
+    meridian = domain.modified ? domain.meridianLength : Math.PI * R,
+    N = Math.max(2, countCeil(meridian / stitchWidth));
   if (N > MAX_SIDE)
     throw new Error(`The sphere needs ${N} needles from pole to pole, above the 600 needle limit.`);
-  const exact = Array.from(
-      { length: N },
-      (_, j) => (TAU * R * Math.sin(((j + 0.5) * Math.PI) / N)) / courseHeight
+  const exact = Array.from({ length: N }, (_, j) =>
+      domain.modified
+        ? (domain.longitudeSpan *
+            R *
+            Math.sin(domain.thetaMin + ((j + 0.5) * domain.thetaSpan) / N)) /
+          courseHeight
+        : (TAU * R * Math.sin(((j + 0.5) * Math.PI) / N)) / courseHeight
     ),
     targets = exact.map((c) => Math.max(2, Math.round(c))),
     P = Math.max(...targets);
@@ -338,7 +361,7 @@ export function layoutSphere(
       right = r === N - 1;
     if (!left) steps.push({ pass: k + 1, needle: l, role: 'turn' });
     if (!right) steps.push({ pass: k + 1, needle: r, role: 'turn' });
-    const length = ((r - l + 1) * Math.PI * R) / N;
+    const length = domain.modified ? ((r - l + 1) * meridian) / N : ((r - l + 1) * Math.PI * R) / N;
     courseRounding.push(length - loops.length * stitchWidth);
     courses.push({
       id: `course:${k}`,
@@ -386,7 +409,7 @@ export function layoutSphere(
     }
   }
   const maxCountError = Math.max(...counts.map((c, j) => Math.abs(c - exact[j]!))),
-    widthRounding = Math.PI * R - N * stitchWidth;
+    widthRounding = meridian - N * stitchWidth;
   let lo = Infinity,
     hi = -Infinity;
   for (const s of cut.samples) {
@@ -401,6 +424,7 @@ export function layoutSphere(
       { needle: 0, pole: bottomFirst ? 'bottom' : 'top', loops: counts[0]! },
       { needle: N - 1, pole: bottomFirst ? 'top' : 'bottom', loops: counts[N - 1]! },
     ];
+  const sampledDiameter = 2 * R * Math.sin(domain.thetaMin + domain.thetaSpan / (2 * N));
   const mm = (x: number) => (x * 1000).toFixed(2);
   const geometry: ShapeGeometry = {
     courses,
@@ -422,6 +446,18 @@ export function layoutSphere(
       `Each circle starts at the cut, which strays up to ${mm(cutWander)} mm from a single meridian.`,
     ],
   };
+  if (domain.modified) {
+    geometry.method =
+      'sphere-domain-courses-v1: courses along the retained meridian; each needle knits a retained latitude arc with measured loop counts and nested short rows (project construction)';
+    geometry.issues[0] = `${N} needles span the retained meridian; its length differs from the knitted width by ${mm(widthRounding)} mm.`;
+    geometry.issues[1] = `Each needle knits its latitude arc in ${Math.min(...counts)}–${Math.max(...counts)} loops, within ${maxCountError.toFixed(2)} loops of the target. Maximum even-position deviation is ${maxCourseDeviation.toFixed(1)} loops.`;
+    geometry.issues[4] = domain.opened
+      ? `Target polar opening diameter ${mm(domain.openingDiameter)} mm; outer knitting ring diameters ${mm(sampledDiameter)} mm at both ends. These sampled ring centers lie inside the retained band; targets are not calibrated fabric holes. No finishing operation is added.`
+      : `The pole-side edges keep ${counts[0]} and ${counts[N - 1]} loops; no native finishing operation is added.`;
+    geometry.issues[5] = domain.partial
+      ? `The sector retains ${(100 * domain.fraction).toFixed(2)}% angular coverage. Its meridian sides are independent natural boundaries, not paired as a closing seam.`
+      : `Each latitude arc starts at the validated rim-to-rim cut, which strays up to ${mm(cutWander)} mm from one meridian.`;
+  }
   return {
     geometry,
     needles: { w: N, h: P, placements, moves: [], steps, unresolved: [], yarnJumps },
@@ -438,16 +474,31 @@ export function layoutSphere(
       maxHeld,
       cutWander,
       poles,
+      ...(domain.modified
+        ? {
+            domain: {
+              openingDiameter: domain.openingDiameter,
+              fraction: domain.fraction,
+              longitudeSpan: domain.longitudeSpan,
+              retainedMeridianLength: domain.meridianLength,
+              actualOuterRingDiameters: [sampledDiameter, sampledDiameter] as [number, number],
+            },
+          }
+        : {}),
     },
   };
 }
 
 /** Chart [longitude from the cut in turns, latitude fraction] to the sphere. */
 export function sphereToSurface(surface: SurfaceSpec, cut: SphereCut) {
-  const R = surface.size / 2;
+  const R = surface.size / 2,
+    domain = sphereDomain(surface);
   return ([u, v]: Vec2): Vec3 => {
-    const lat = Math.PI * v - Math.PI / 2,
-      lon = cutLongitude(cut, lat) + TAU * u;
+    if (domain.partial) return sphereDomainPoint(surface, u, v);
+    const lat = domain.modified
+        ? Math.PI / 2 - domain.thetaMax + domain.thetaSpan * v
+        : Math.PI * v - Math.PI / 2,
+      lon = cutLongitude(cut, lat) + domain.longitudeSpan * u;
     return [
       R * Math.cos(lat) * Math.cos(lon),
       R * Math.cos(lat) * Math.sin(lon),
@@ -468,8 +519,11 @@ export function spherePlacement(
   cut: SphereCut,
   poleCopies: number
 ) {
-  const tol = 1e-9 * surface.size,
-    atPole = (p: Vec3) => Math.hypot(p[0], p[1]) <= tol,
+  const domain = sphereDomain(surface),
+    latitudeV = (lat: number) =>
+      domain.modified ? (lat - (Math.PI / 2 - domain.thetaMax)) / domain.thetaSpan : vOf(lat),
+    tol = 1e-9 * surface.size,
+    atPole = (p: Vec3) => !domain.opened && Math.hypot(p[0], p[1]) <= tol,
     nodes = new Map(graph.nodes.map((n) => [n.id, n.position]));
   const unwrap = (points: Vec3[]): Vec2[] => {
     let previous: number | undefined;
@@ -477,11 +531,14 @@ export function spherePlacement(
       const raw = lonOf(p),
         lat = latOf(p);
       previous = previous === undefined ? raw : previous + wrap(raw - previous);
-      const u = (previous - cutLongitude(cut, lat)) / TAU;
-      return [Math.abs(u - Math.round(u)) < 1e-9 ? Math.round(u) : u, vOf(lat)];
+      const u = domain.partial
+        ? sphereDomainUV(surface, p)[0]
+        : (previous - cutLongitude(cut, lat)) / TAU;
+      return [Math.abs(u - Math.round(u)) < 1e-9 ? Math.round(u) : u, latitudeV(lat)];
     });
   };
   const anchor = (line: Vec2[]): Vec2[] => {
+    if (domain.partial) return line;
     let best = -1,
       shift = 0;
     for (const [u] of line) {
@@ -507,8 +564,16 @@ export function spherePlacement(
       const r = Math.hypot(...q);
       return Array.from({ length: ARC_STEPS }, (_, k) => {
         if (!k) return q;
-        const t = k / ARC_STEPS,
-          x = q.map((c, d) => c * (1 - t) + next[d]! * t) as Vec3,
+        const t = k / ARC_STEPS;
+        if (domain.modified) {
+          const a = sphereDomainUV(surface, q),
+            b = sphereDomainUV(surface, next);
+          if (atPole(q)) a[0] = b[0];
+          if (atPole(next)) b[0] = a[0];
+          if (!domain.partial) b[0] = a[0] + wrap((b[0] - a[0]) * TAU) / TAU;
+          return sphereDomainPoint(surface, a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t);
+        }
+        const x = q.map((c, d) => c * (1 - t) + next[d]! * t) as Vec3,
           n = Math.hypot(...x);
         return x.map((c) => (c * r) / n) as Vec3;
       });
@@ -533,7 +598,7 @@ export function spherePlacement(
         run.push(q);
         continue;
       }
-      const pole = vOf(latOf(q));
+      const pole = latitudeV(latOf(q));
       flush(pole);
       run = [];
       lead = pole;
@@ -543,7 +608,7 @@ export function spherePlacement(
   });
   const nodeCopies = graph.nodes.map((n): Vec2[] =>
     atPole(n.position)
-      ? Array.from({ length: poleCopies }, (_, i) => [i / poleCopies, vOf(latOf(n.position))])
+      ? Array.from({ length: poleCopies }, (_, i) => [i / poleCopies, latitudeV(latOf(n.position))])
       : anchor(unwrap([n.position]))
   );
   const edgeIndex = new Map(
@@ -587,7 +652,7 @@ export function spherePlacement(
     if (order.slice(0, rest.length).some(atPole))
       throw new Error(`Cell ${graph.cells[ci]!.id} touches a pole more than once.`);
     const out = anchor(unwrap(rest)),
-      pole = vOf(latOf(order.find(atPole)!));
+      pole = latitudeV(latOf(order.find(atPole)!));
     rest.forEach((q, i) => map.set(q, out[i]!));
     return [...out, [out.at(-1)![0], pole], [out[0]![0], pole]] as Vec2[];
   });
@@ -604,13 +669,18 @@ export function sphereChart(
   const { start, needles: N, counts } = layout,
     placed = spherePlacement(surface, graph, cut, 2 * layout.passes),
     toSurface = sphereToSurface(surface, cut),
-    R = surface.size / 2;
+    R = surface.size / 2,
+    domain = sphereDomain(surface);
   return {
-    method:
-      'sphere pole-course chart: latitude across the needles, longitude from the cut around each circle',
-    periodic: true,
-    marks:
-      'Network marks use latitude and the longitude from the cut, measured in loops of each needle. The chart wraps around the cut, so cut edges and nodes are drawn on both seam sides, and a node on a pole marks the whole pole edge.',
+    method: domain.modified
+      ? 'sphere domain-course chart: retained latitude across needles, retained azimuth along each needle'
+      : 'sphere pole-course chart: latitude across the needles, longitude from the cut around each circle',
+    periodic: !domain.partial,
+    marks: domain.partial
+      ? 'Network marks use the retained latitude and angular sector. Natural meridian boundaries do not wrap or form a paired closing seam.'
+      : domain.opened
+        ? 'Network marks use retained latitude and longitude from the validated cut. Only selected meridian cut edges wrap to both seam sides; circular rim boundaries remain unpaired.'
+        : 'Network marks use latitude and the longitude from the cut, measured in loops of each needle. The chart wraps around the cut, so cut edges and nodes are drawn on both seam sides, and a node on a pole marks the whole pole edge.',
     cells: placed.cells,
     edges: placed.edges,
     nodes: placed.nodes,
@@ -625,7 +695,11 @@ export function sphereChart(
     toGrid: (p) => {
       const lat = latOf(p),
         u = Math.hypot(p[0], p[1]) <= 1e-9 * R ? 0 : (lonOf(p) - cutLongitude(cut, lat)) / TAU;
-      return [u - Math.floor(u), vOf(lat)];
+      if (domain.partial) return sphereDomainUV(surface, p);
+      return [
+        u - Math.floor(u),
+        domain.modified ? (lat - (Math.PI / 2 - domain.thetaMax)) / domain.thetaSpan : vOf(lat),
+      ];
     },
   };
 }
@@ -645,8 +719,13 @@ export function sphereSeam(
         .filter((p) => p.course === course)
         .sort((a, b) => a.needle - b.needle)
         .map((p) => ({ id: p.loop.id, needle: p.needle, course }));
-  const latOfNeedle = (j: number) =>
-    Math.PI * (start === 'v0' ? (j + 0.5) / N : 1 - (j + 0.5) / N) - Math.PI / 2;
+  const domain = sphereDomain(surface),
+    latOfNeedle = (j: number) => {
+      const v = start === 'v0' ? (j + 0.5) / N : 1 - (j + 0.5) / N;
+      return domain.modified
+        ? Math.PI / 2 - domain.thetaMax + domain.thetaSpan * v
+        : Math.PI * v - Math.PI / 2;
+    };
   const edges = cut.edges.map(({ id, top, bottom }) => {
     const inside = Array.from({ length: N }, (_, j) => j).filter((j) => {
       const lat = latOfNeedle(j);
@@ -690,5 +769,69 @@ export function sphereSeam(
       { kind: 'start', loops: side(0), cutSides: cutSides[0] },
       { kind: 'end', loops: side(P - 1), cutSides: cutSides[1] },
     ],
+  };
+}
+
+/** Fixed +X chart origin for a naturally open sector. The graph is validated independently as
+ * one disk; these samples describe a chart boundary, not a requested or paired cut. */
+export function sphereSectorCut(surface: SurfaceSpec, graph: PatternGraph): SphereCut {
+  const domain = sphereDomain(surface);
+  if (!domain.partial)
+    throw new Error('Natural sphere-sector boundaries require fractional angular coverage.');
+  if (!graph.edges.some((e) => e.cells.length === 1))
+    throw new Error('A sphere sector needs its natural boundary network.');
+  return {
+    edges: [],
+    samples: [
+      { lat: Math.PI / 2 - domain.thetaMin, lon: 0 },
+      { lat: Math.PI / 2 - domain.thetaMax, lon: 0 },
+    ],
+  };
+}
+
+/** Metadata for the two independent meridian sides of a sector. No source edges are paired,
+ * and circular polar rims are never interpreted as a closing seam. */
+export function sphereSectorSeam(
+  surface: SurfaceSpec,
+  graph: PatternGraph,
+  cut: SphereCut,
+  layout: Omit<SphereKnitLayout, 'seam'>,
+  needles: ShapeNeedles
+): SphereSeam {
+  const domain = sphereDomain(surface);
+  if (!domain.partial || cut.edges.length || cut.samples.some((p) => p.lon !== 0))
+    throw new Error('A sphere sector requires the fixed +X natural-boundary chart.');
+  const nodes = new Map(graph.nodes.map((n) => [n.id, n.position])),
+    sides: [string[], string[]] = [[], []];
+  for (const e of graph.edges) {
+    if (e.cells.length !== 1) continue;
+    const points = orientedEdgePath(e, nodes.get(e.a)!, nodes.get(e.b)!).filter(
+      (p) => Math.hypot(p[0], p[1]) > 1e-9 * surface.size
+    );
+    if (!points.length) continue;
+    const us = points.map((p) => sphereDomainUV(surface, p)[0]);
+    if (us.every((u) => Math.abs(u) < 1e-8)) sides[0].push(e.id);
+    if (us.every((u) => Math.abs(1 - u) < 1e-8)) sides[1].push(e.id);
+  }
+  if (!sides[0].length || !sides[1].length)
+    throw new Error('The sector network must retain both natural meridian boundaries.');
+  const loops = (course: number): SphereSeamSide['loops'] =>
+    needles.placements
+      .filter((p) => p.course === course)
+      .sort((a, b) => a.needle - b.needle)
+      .map((p) => ({ id: p.loop.id, needle: p.needle, course }));
+  const startSide = layout.start === 'v0' ? 1 : 0;
+  return {
+    sourceEdgeIds: [],
+    edges: [],
+    sides: [
+      { kind: 'start', loops: loops(0), cutSides: {} },
+      { kind: 'end', loops: loops(layout.passes - 1), cutSides: {} },
+    ],
+    naturalBoundaries: {
+      paired: false,
+      startEdgeIds: sides[startSide]!,
+      endEdgeIds: sides[1 - startSide]!,
+    },
   };
 }

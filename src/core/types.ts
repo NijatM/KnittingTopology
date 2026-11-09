@@ -68,6 +68,10 @@ export interface SurfaceSpec {
   /** Dimensionless saddle rise; ignored by other surfaces. */
   curvature: number;
   revision: string;
+  /** Sphere-only target diameter of both polar openings, meters; absent/0 preserves the poles. */
+  poleOpeningDiameter?: number;
+  /** Sphere-only azimuth coverage [0.01,1]; absent/1 is a full revolution, starting from +X. */
+  sphereFraction?: number;
   /** Present only for imported, inspection-only surfaces. No analytic UV atlas is implied. */
   mesh?: ImportedMeshData;
   /** User-supplied OBJ chart, revalidated before use; never an automatic unwrap. */

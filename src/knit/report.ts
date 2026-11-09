@@ -212,7 +212,9 @@ function graphLines(g: ShapeKnitGraph, notes: readonly string[]): string[] {
   return [
     '',
     'Knit graph stages (stage separation after Popescu 2019, §§6.2.2–6.2.4, pp. 99–104)',
-    `  Course method: ${COURSE_METHODS[g.stages.courseMethod].label}. ${COURSE_METHODS[g.stages.courseMethod].note}`,
+    courses.method.startsWith('sphere-domain-courses-v1')
+      ? '  Course method: Sphere latitude arcs and nested short rows. Project construction; not the open-surface distance-contour connection method.'
+      : `  Course method: ${COURSE_METHODS[g.stages.courseMethod].label}. ${COURSE_METHODS[g.stages.courseMethod].note}`,
     `  Courses stage: ${from(g.saved.courses)}; fingerprint ${courses.fingerprint}; ${courses.method}. ${courses.vertices.length} vertices, ${courses.links.length} weft links${courses.warp ? `, ${courses.warp.length} warp links` : ''}, ${courses.courses.length} courses.`,
     ...(courses.edits?.length
       ? [
@@ -276,6 +278,32 @@ function closedLines(c: CubeNetLayout, p: KnitProgram): string[] {
 }
 
 function sphereLines(c: SphereKnitLayout, p: KnitProgram): string[] {
+  if (c.domain) {
+    const d = c.domain,
+      n = p.shape!.needles;
+    return [
+      `Sphere domain: ${(d.fraction * 360).toFixed(2)}° angular coverage (${d.fraction.toFixed(2)} of a revolution); target polar opening diameter ${mm(d.openingDiameter)} at both Z poles.`,
+      'Retained spherical shell only: no planar caps. Geometric targets and sampled knitting rings are not calibrated fabric aperture dimensions or machine-safety settings.',
+      `${c.needles} needles across retained meridian ${mm(d.retainedMeridianLength)} x ${c.passes} source passes; meridian minus knitted width: ${mm(c.widthRounding)}.`,
+      `Outer knitting ring diameters (bottom/top): ${mm(d.actualOuterRingDiameters[0])}/${mm(d.actualOuterRingDiameters[1])}. Needle centers lie inside the retained surface boundary.`,
+      `Loops per needle (needle 1 first): ${c.counts.join(', ')}.`,
+      `Largest difference from latitude arc / course height: ${c.maxCountError.toFixed(2)} loops. Largest distance from even angular placement: ${c.maxCourseDeviation.toFixed(2)} loops.`,
+      `Short rows: ${c.turns} passes turn early; no wrap or tuck added (confirm with the lab). Longest held loop: ${c.maxHeld} consecutive passes. Sideways transfers: ${n.moves.length}. Yarn jumps: ${n.yarnJumps}.`,
+      d.openingDiameter > 0
+        ? 'Two natural polar rims remain open and unpaired; no gather, cast-off or other finishing operation is generated.'
+        : 'Polar caps remain; the outer sampled latitude arcs approach the poles. No native pole finishing is generated.',
+      ...(c.seam.naturalBoundaries
+        ? [
+            'Open-sector meridian boundaries: start and end are unpaired; they are not a closing seam.',
+            `Natural start/end source boundary edges: ${c.seam.naturalBoundaries.startEdgeIds.length}/${c.seam.naturalBoundaries.endEdgeIds.length}.`,
+          ]
+        : [
+            `Full revolution: paired meridian seam only. Polar rims are not seam pairs. Cut wander: ${mm(c.cutWander)}.`,
+            `Seam: ${c.seam.sides[0].loops.length}/${c.seam.sides[1].loops.length} start/end loops; ${c.seam.edges.length} cut network edges. No sewing order is implied.`,
+          ]),
+      'Opening size can change hold durations; remaining holds must be reviewed with the actual lab machine. No safe threshold or achieved fabric shape is established.',
+    ];
+  }
   const n = p.shape!.needles,
     courses = p.shape!.geometry.courses,
     early = courses.filter((x) => x.turnStart || x.turnEnd),

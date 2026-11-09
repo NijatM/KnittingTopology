@@ -3,6 +3,7 @@ import type { KnitCutSettings, PatternGraph, SurfaceSpec } from '../../core/type
 import type { CutPlan } from '../../knit/cut-types';
 import { cutSettingsKey, cutSourceSignature } from '../../knit/cuts';
 import { generateCutInWorker } from '../../knit/cut-client';
+import { requiresKnitCut } from '../../knit/surface-scope';
 
 export function useCutPlan(
   surface: SurfaceSpec,
@@ -10,7 +11,7 @@ export function useCutPlan(
   cut: KnitCutSettings | undefined,
   onSave: (cut: KnitCutSettings) => void
 ) {
-  const closed = surface.kind === 'cube' || surface.kind === 'sphere';
+  const closed = requiresKnitCut(surface);
   const sourceSignature = useMemo(
     () => (closed && graph ? cutSourceSignature(surface, graph) : ''),
     [closed, surface, graph]

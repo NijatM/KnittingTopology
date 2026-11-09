@@ -74,6 +74,12 @@ export default function CutPanel({
               {plan.complex.vertices.length} vertex copies · {plan.complex.edges.length} edges ·{' '}
               {plan.complex.faces.length} faces. Geometry remains on the original 3D surface.
             </p>
+            {!!plan.naturalBoundaries?.length && (
+              <p className="hint">
+                {plan.naturalBoundaries.length} natural polar-rim edges remain open. They are
+                distinct from the paired meridian seam and are not gathered closed.
+              </p>
+            )}
           </section>
           <p className="hint">
             One boundary can contain a branched set of paired seams. These checks establish a

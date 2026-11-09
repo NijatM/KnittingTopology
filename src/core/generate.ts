@@ -14,7 +14,20 @@ import { analyzeGraph, mappedAttachmentMatches, polygonArea } from './diagnostic
 import { generateMappedPattern } from '../import/generate-mapped';
 import { hasRectangularMapping, requireRectangularUV } from '../import/uv-mapping';
 import { evaluateSurface, projectToSurface, surfaceNormal, validateSurface } from './surfaces';
-import { assemble, edgeKey, insetGraph, MeshBuilder, transformGraph } from './topology';
+import {
+  isModifiedSphere,
+  sphereDomain,
+  sphereDomainBlend,
+  sphereDomainPoint,
+} from './sphere-domain';
+import {
+  assemble,
+  edgeKey,
+  insetGraph,
+  MeshBuilder,
+  quadrangulateFaces,
+  transformGraph,
+} from './topology';
 
 import {
   MAX_BASE_CELLS,
@@ -210,6 +223,34 @@ function provenance(input: GenerationInput): Provenance {
   };
 }
 function regularCoarse(s: SurfaceSpec, p: Provenance, twoByTwo = false): PatternGraph {
+  if (isModifiedSphere(s)) {
+    const b = new MeshBuilder(s, 'coarse:'),
+      d = sphereDomain(s),
+      sectors = twoByTwo ? 8 : 4;
+    const node = (u: number, v: number, patch: number) => b.node(sphereDomainPoint(s, u, v), patch);
+    for (let i = 0; i < sectors; i++) {
+      const u = i / sectors,
+        z = (i + 1) / sectors,
+        patch = Math.min(3, Math.floor((i * 4) / sectors));
+      if (d.opened) {
+        for (let j = 0; j < 2; j++)
+          b.cell(
+            [
+              node(u, j / 2, patch),
+              node(z, j / 2, patch),
+              node(z, (j + 1) / 2, patch),
+              node(u, (j + 1) / 2, patch),
+            ],
+            patch
+          );
+      } else {
+        b.cell([node(u, 0, patch), node(z, 0.5, patch), node(u, 0.5, patch)], patch);
+        b.cell([node(u, 0.5, patch), node(z, 0.5, patch), node(u, 1, patch)], patch);
+      }
+    }
+    const seed = assemble(s, b.nodes, b.cells, p);
+    return d.opened ? seed : quadrangulateFaces(s, seed);
+  }
   const b = new MeshBuilder(s, 'coarse:'),
     n = twoByTwo ? 2 : 1;
   for (let patch = 0; patch < (s.kind === 'sphere' || s.kind === 'cube' ? 6 : 1); patch++)
@@ -339,6 +380,9 @@ function subdivide(
             index / count
           );
         }
+        if (isModifiedSphere(s) && sphereDomain(s).opened) {
+          pos = sphereDomainBlend(s, p, [(1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v]);
+        }
         row.push(b.node(pos, c.patch, undefined, identity));
       }
       ids.push(row);
@@ -438,6 +482,15 @@ function validEmbedding(s: SurfaceSpec, nodes: PatternGraph['nodes'], cells: Gra
       av = areaVector(ps),
       normal = surfaceNormal(s, mean(ps), c.patch);
     if (dot(av, normal) <= tol) return false;
+    if (
+      isModifiedSphere(s) &&
+      ps.length === 4 &&
+      ps.some(
+        (p, i) =>
+          dot(cross(sub(ps[(i + 1) % 4]!, p), sub(ps[(i + 3) % 4]!, p)), av) <= tol * norm(av)
+      )
+    )
+      return false;
     if (
       ps.length === 4 &&
       ps.some(
@@ -646,6 +699,24 @@ function generateAnalyticPattern(
   validateGenerationInput(input);
   const p = provenance(input),
     s = input.surface;
+  if (isModifiedSphere(s)) {
+    const d = sphereDomain(s);
+    p.scope = p.scope.replace(
+      'Cube/sphere cubical atlases',
+      'Cube/legacy-sphere cubical atlases and the modified-sphere boundary-conforming azimuth atlas'
+    );
+    p.notes = p.notes.filter(
+      (note) =>
+        !note.startsWith('Sphere uses radial normalized-cube charts') &&
+        !note.startsWith('Density uses explicit opposite-edge')
+    );
+    p.notes.push(
+      `Modified sphere domain v1: ${d.fraction} revolution from +X about +Z; shared polar opening diameter ${d.openingDiameter} m; retained colatitude [${d.thetaMin}, ${d.thetaMax}] radians. Four azimuth charts with shared seam identities, an equatorial coarse row, and ${d.opened ? 'affine azimuth/colatitude all-quad bands' : 'radial triangle-to-quad pole fans'}. This boundary-conforming construction is a project extension.`
+    );
+    p.notes.push(
+      'Modified sphere edge lengths use affine azimuth/colatitude project paths, with exact latitude arcs and 16-point midpoint metric quadrature per displayed interval. Display paths are sampled approximations; no geodesic or uniform-spacing guarantee. Strip counts use maximum coarse edge lengths to include the equatorial width.'
+    );
+  }
   const template = templateCoarse(input, p),
     base = template.graph,
     nodeMap = new Map(base.nodes.map((n) => [n.id, n.position]));
@@ -724,18 +795,22 @@ function generateAnalyticPattern(
       message: `Relative RMS edge-length deviation is ${(result.statistics.spacingRmsRelative * 100).toFixed(1)}%. Pattern transformations change the edge length distribution.`,
       value: result.statistics.spacingRmsRelative,
       units: 'relative RMS',
-      method:
-        'sqrt(mean((embedded edge length / requested spacing − 1)²)); great-circle lengths on sphere, exact piecewise-linear cube projected paths, sampled saddle paths.',
+      method: isModifiedSphere(s)
+        ? 'sqrt(mean((project-path edge length / requested spacing − 1)²)); affine azimuth/colatitude sphere path metric using composite midpoint quadrature (16 points per displayed interval), exact latitude arcs; not geodesic lengths.'
+        : 'sqrt(mean((embedded edge length / requested spacing − 1)²)); great-circle lengths on sphere, exact piecewise-linear cube projected paths, sampled saddle paths.',
     },
     {
       id: 'support-area',
       severity: 'info',
       label: 'Support surface area',
-      message:
-        'Statistics surfaceArea is the full analytic support area (saddle: 128×128 midpoint integral). An N-sided patch covers only part of that support.',
+      message: isModifiedSphere(s)
+        ? 'Statistics surfaceArea is the analytic area of the retained spherical shell, excluding both removed caps and omitted angular sector; no caps are added.'
+        : 'Statistics surfaceArea is the full analytic support area (saddle: 128×128 midpoint integral). An N-sided patch covers only part of that support.',
       value: result.statistics.surfaceArea,
       units: 'm²',
-      method: 'Plane s²; cube 6s²; sphere πs²; saddle numerical midpoint quadrature.',
+      method: isModifiedSphere(s)
+        ? 'Retained spherical shell area = 2 R zMax longitudeSpan; no planar caps.'
+        : 'Plane s²; cube 6s²; sphere πs²; saddle numerical midpoint quadrature.',
     },
     {
       id: 'polygon-area',

@@ -531,29 +531,65 @@ export default function KnitPanel(props: Props) {
                 </>
               ) : program.shape.sphere ? (
                 <>
-                  <p className="hint">
-                    Sphere opened from pole to pole: each needle knits one circle of latitude,
-                    starting at the cut. Shorter circles skip out-and-back short rows spread evenly
-                    around the circle. Project construction.
-                  </p>
-                  <p className="hint">
-                    {program.shape.sphere.needles} needles pole to pole ·{' '}
-                    {Math.min(...program.shape.sphere.counts)}–
-                    {Math.max(...program.shape.sphere.counts)} loops per needle ·{' '}
-                    {program.shape.sphere.turns} passes turn early · loops held for up to{' '}
-                    {program.shape.sphere.maxHeld} passes.
-                  </p>
-                  <p className="hint warn">
-                    Gather the pole edges closed (the colour key has no gather operation):{' '}
-                    {program.shape.sphere.poles
-                      .map((x) => `needle ${x.needle + 1} at the ${x.pole} pole, ${x.loops} loops`)
-                      .join('; ')}
-                    .
-                  </p>
-                  <p className="hint">
-                    Seam: pass 1 loops meet the last-pass loops along the cut, needle by needle;
-                    loops per cut edge are listed in the report.
-                  </p>
+                  {program.shape.sphere.domain ? (
+                    <>
+                      <p className="hint">
+                        Sphere coverage: {(program.shape.sphere.domain.fraction * 360).toFixed(1)}°
+                        · target pole opening diameter{' '}
+                        {(program.shape.sphere.domain.openingDiameter * 1000).toFixed(2)} mm. No
+                        planar caps.
+                      </p>
+                      <p className="hint">
+                        {program.shape.sphere.needles} needles across the retained meridian ·{' '}
+                        {program.shape.sphere.passes} passes · longest held loop{' '}
+                        {program.shape.sphere.maxHeld} passes. Outer ring diameters (bottom/top):{' '}
+                        {program.shape.sphere.domain.actualOuterRingDiameters
+                          .map((x) => (x * 1000).toFixed(2))
+                          .join(' / ')}{' '}
+                        mm.
+                      </p>
+                      <p className="knit-required-hint">
+                        {program.shape.sphere.domain.openingDiameter > 0
+                          ? 'Polar rims remain open; no gather or finishing operation is generated.'
+                          : 'Polar caps are retained; no native pole finishing is generated.'}{' '}
+                        Remaining holds still require lab review; target openings are not calibrated
+                        fabric dimensions.
+                      </p>
+                      <p className="hint">
+                        {program.shape.sphere.seam.naturalBoundaries
+                          ? 'Open-sector meridian edges are separate natural boundaries, not a closing seam.'
+                          : 'A validated meridian seam joins the full revolution; circular rims remain unpaired.'}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="hint">
+                        Sphere opened from pole to pole: each needle knits one circle of latitude,
+                        starting at the cut. Shorter circles skip out-and-back short rows spread
+                        evenly around the circle. Project construction.
+                      </p>
+                      <p className="hint">
+                        {program.shape.sphere.needles} needles pole to pole ·{' '}
+                        {Math.min(...program.shape.sphere.counts)}–
+                        {Math.max(...program.shape.sphere.counts)} loops per needle ·{' '}
+                        {program.shape.sphere.turns} passes turn early · loops held for up to{' '}
+                        {program.shape.sphere.maxHeld} passes.
+                      </p>
+                      <p className="hint warn">
+                        Gather the pole edges closed (the colour key has no gather operation):{' '}
+                        {program.shape.sphere.poles
+                          .map(
+                            (x) => `needle ${x.needle + 1} at the ${x.pole} pole, ${x.loops} loops`
+                          )
+                          .join('; ')}
+                        .
+                      </p>
+                      <p className="hint">
+                        Seam: pass 1 loops meet the last-pass loops along the cut, needle by needle;
+                        loops per cut edge are listed in the report.
+                      </p>
+                    </>
+                  )}
                 </>
               ) : (
                 <p className="hint">

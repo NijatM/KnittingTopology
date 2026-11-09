@@ -17,7 +17,9 @@ import type {
   ShapeStep,
   ShapeResult,
 } from './shape-types';
-import { buildCutDisk } from './cuts';
+import { buildCutDisk, inspectSphereSector } from './cuts';
+import type { CutPlan } from './cut-types';
+import { isSphereSector } from './surface-scope';
 import {
   cubeNetChart,
   cubeNetFromCut,
@@ -30,6 +32,8 @@ import {
   sphereChart,
   sphereCutPath,
   sphereSeam,
+  sphereSectorCut,
+  sphereSectorSeam,
   type SphereKnitLayout,
 } from './sphere-knit';
 import type { NetworkChart } from './rasterize-surface';
@@ -255,17 +259,27 @@ export function buildShapeProgram(
         chart = cubeNetChart(project.surface, project.graph, built.layout);
     } else if (project.surface.kind === 'sphere') {
       // Closed sphere: rebuild and recheck the saved cut, which must run from pole to pole.
-      if (!project.graph || !settings.cut)
+      if (!project.graph || (!isSphereSector(project.surface) && !settings.cut))
         return {
           ok: false,
-          reason: 'A sphere needs a network and a validated cut first. Use 04 Cuts and seams.',
+          reason: isSphereSector(project.surface)
+            ? 'Generate a network on the current sphere sector first.'
+            : 'A sphere needs a network and a validated cut first. Use 04 Cuts and seams.',
         };
       const start = settings.startEdge ?? 'v0';
       if (start !== 'v0' && start !== 'v1')
         return { ok: false, reason: 'On a sphere, needle 1 starts at the bottom or the top pole.' };
-      const disk = buildCutDisk(project.surface, project.graph, settings.cut, context);
-      if (!disk.ok) return { ok: false, reason: `Cut: ${disk.reason}` };
-      const cut = sphereCutPath(project.surface, project.graph, settings.cut.edgeIds);
+      const partial = isSphereSector(project.surface);
+      let diskPlan: CutPlan | undefined;
+      if (partial) inspectSphereSector(project.surface, project.graph, context);
+      else {
+        const disk = buildCutDisk(project.surface, project.graph, settings.cut!, context);
+        if (!disk.ok) return { ok: false, reason: `Cut: ${disk.reason}` };
+        diskPlan = disk.plan;
+      }
+      const cut = partial
+        ? sphereSectorCut(project.surface, project.graph)
+        : sphereCutPath(project.surface, project.graph, settings.cut!.edgeIds);
       context?.progress?.(0.4, 'Spreading short rows around the sphere');
       const built = layoutSphere(
         project.surface,
@@ -279,7 +293,9 @@ export function buildShapeProgram(
       needles = built.needles;
       sphere = {
         ...built.layout,
-        seam: sphereSeam(project.surface, project.graph, disk.plan, cut, built.layout, needles),
+        seam: partial
+          ? sphereSectorSeam(project.surface, project.graph, cut, built.layout, needles)
+          : sphereSeam(project.surface, project.graph, diskPlan!, cut, built.layout, needles),
       };
       if (settings.mode !== 'shape')
         chart = sphereChart(project.surface, project.graph, cut, built.layout);

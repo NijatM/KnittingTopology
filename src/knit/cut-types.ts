@@ -53,6 +53,8 @@ export interface CutPlan {
   provenance: PatternGraph['provenance'];
   complex: CutComplex;
   boundary: CutBoundaryStep[];
+  /** Original open polar rims, not paired cut seams; absent on legacy closed sources. */
+  naturalBoundaries?: CutBoundaryStep[];
   seams: CutSeam[];
   statistics: {
     sourceEuler: number;

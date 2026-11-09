@@ -1,4 +1,11 @@
 import type { SurfaceAttachment, SurfaceMesh, SurfaceSpec, Vec3 } from './types';
+import {
+  isModifiedSphere,
+  sphereDomain,
+  sphereDomainPoint,
+  sphereDomainUV,
+  surfacePatchCount,
+} from './sphere-domain';
 import { clamp, dot, finite3, lerp, mul, norm, unit } from './math';
 import { importedMeshSize, validateImportedMesh } from '../import/mesh';
 import {
@@ -25,6 +32,9 @@ export function validateSurface(s: SurfaceSpec): void {
     throw new Error('Saddle curvature must be finite and between -2 and 2.');
   if (typeof s.revision !== 'string' || s.revision.length === 0)
     throw new Error('Surface revision is required.');
+  if (s.kind === 'sphere') sphereDomain(s);
+  else if (s.poleOpeningDiameter !== undefined || s.sphereFraction !== undefined)
+    throw new Error('Polar opening and angular coverage parameters are sphere-only.');
   if (s.kind === 'mesh') {
     if (!s.mesh) throw new Error('Imported surface requires mesh data.');
     let size = validatedMeshes.get(s.mesh);
@@ -97,6 +107,11 @@ export function evaluateSurface(s: SurfaceSpec, patch: number, u: number, v: num
       y = (v - 0.5) * s.size;
     return [x, y, s.kind === 'saddle' ? (s.curvature * (x * x - y * y)) / s.size : 0];
   }
+  if (isModifiedSphere(s)) {
+    if (patch < 0 || patch >= 4)
+      throw new Error('Modified sphere patch must be an integer from 0 to 3.');
+    return sphereDomainPoint(s, (patch + u) / 4, v);
+  }
   const c = cubeCoordinates(patch, u, v);
   return mul(s.kind === 'sphere' ? unit(c) : c, h);
 }
@@ -113,6 +128,25 @@ export function projectToSurface(
   }
   requireAnalyticSurface(s);
   if (!finite3(p)) throw new Error('Projection requires three finite coordinates.');
+  if (isModifiedSphere(s)) {
+    const [globalU, v] = sphereDomainUV(s, p);
+    const d = sphereDomain(s);
+    let scaled = globalU * 4;
+    if (!d.partial && preferredPatch === 3 && scaled < 1e-9) scaled = 4;
+    const preferred =
+      preferredPatch !== undefined &&
+      Number.isInteger(preferredPatch) &&
+      preferredPatch >= 0 &&
+      preferredPatch < 4 &&
+      scaled >= preferredPatch - 1e-9 &&
+      scaled <= preferredPatch + 1 + 1e-9;
+    const patch = preferred ? preferredPatch! : Math.min(3, Math.floor(scaled));
+    const u = clamp(scaled - patch, 0, 1);
+    return {
+      position: evaluateSurface(s, patch, u, v),
+      attachment: { surfaceRevision: s.revision, patch, uv: [u, v] },
+    };
+  }
   let patch = 0,
     u = 0.5,
     v = 0.5;
@@ -198,6 +232,11 @@ export function surfaceResidual(s: SurfaceSpec, p: Vec3): number {
     return mappedResidual(s, p);
   }
   requireAnalyticSurface(s);
+  if (isModifiedSphere(s)) {
+    const [u, v] = sphereDomainUV(s, p),
+      q = sphereDomainPoint(s, u, v);
+    return norm([p[0] - q[0], p[1] - q[1], p[2] - q[2]]);
+  }
   if (s.kind === 'sphere') return Math.abs(norm(p) - s.size / 2);
   if (s.kind === 'cube') return Math.abs(Math.max(...p.map(Math.abs)) - s.size / 2);
   const z = s.kind === 'saddle' ? (s.curvature * (p[0] * p[0] - p[1] * p[1])) / s.size : 0;
@@ -213,6 +252,7 @@ export function analyticSurfaceArea(s: SurfaceSpec): number {
     return mappedSurfaceArea(s);
   }
   requireAnalyticSurface(s);
+  if (isModifiedSphere(s)) return sphereDomain(s).area;
   if (s.kind === 'sphere') return Math.PI * s.size * s.size;
   if (s.kind === 'cube') return 6 * s.size * s.size;
   if (s.kind === 'plane') return s.size * s.size;
@@ -227,7 +267,8 @@ export function analyticSurfaceArea(s: SurfaceSpec): number {
     }
   return (a * s.size * s.size) / (n * n);
 }
-/** Great-circle length on sphere. Other surfaces use the sampled embedded edge polyline. */
+/** Legacy spheres use great-circle length. Modified spheres integrate their admissible
+ * affine azimuth/colatitude project path (not a shortest-geodesic claim). */
 export function embeddedEdgeLength(s: SurfaceSpec, a: Vec3, b: Vec3, path?: Vec3[]): number {
   if (hasRectangularMapping(s)) {
     validateSurface(s);
@@ -242,6 +283,32 @@ export function embeddedEdgeLength(s: SurfaceSpec, a: Vec3, b: Vec3, path?: Vec3
     return length;
   }
   requireAnalyticSurface(s);
+  if (isModifiedSphere(s)) {
+    const pts = path ?? surfacePath(s, a, b),
+      d = sphereDomain(s);
+    let length = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const x = sphereDomainUV(s, pts[i - 1]!),
+        y = sphereDomainUV(s, pts[i]!);
+      if (!d.opened) {
+        if (Math.hypot(pts[i - 1]![0], pts[i - 1]![1]) < s.size * 1e-12) x[0] = y[0];
+        if (Math.hypot(pts[i]![0], pts[i]![1]) < s.size * 1e-12) y[0] = x[0];
+      }
+      let du = y[0] - x[0];
+      if (!d.partial) {
+        if (du > 0.5) du -= 1;
+        if (du < -0.5) du += 1;
+      }
+      const dt = (y[1] - x[1]) * d.thetaSpan,
+        dp = du * d.longitudeSpan;
+      // Composite midpoint quadrature of the affine chart path metric, never a geodesic claim.
+      for (let k = 0; k < 16; k++) {
+        const theta = d.thetaMax - (x[1] + ((y[1] - x[1]) * (k + 0.5)) / 16) * d.thetaSpan;
+        length += (d.radius * Math.hypot(dt, Math.sin(theta) * dp)) / 16;
+      }
+    }
+    return length;
+  }
   if (s.kind === 'sphere') {
     const pts = path ?? [a, b];
     let length = 0;
@@ -267,7 +334,8 @@ export function embeddedEdgeLength(s: SurfaceSpec, a: Vec3, b: Vec3, path?: Vec3
     ]);
   return d;
 }
-/** Projected chord. Cube seam breakpoints are inserted exactly; sphere samples a great circle. */
+/** Legacy projected-chord path; modified spheres use an admissible affine domain path.
+ * Display samples approximate the curved path; latitude rims remain small circles. */
 export function surfacePath(s: SurfaceSpec, a: Vec3, b: Vec3): Vec3[] {
   if (hasRectangularMapping(s)) {
     validateSurface(s);
@@ -278,6 +346,27 @@ export function surfacePath(s: SurfaceSpec, a: Vec3, b: Vec3): Vec3[] {
     );
   }
   requireAnalyticSurface(s);
+  if (isModifiedSphere(s)) {
+    const d = sphereDomain(s),
+      x = sphereDomainUV(s, a),
+      y = sphereDomainUV(s, b);
+    if (!d.partial) {
+      if (y[0] - x[0] > 0.5) y[0] -= 1;
+      if (y[0] - x[0] < -0.5) y[0] += 1;
+    }
+    if (!d.opened) {
+      if (Math.hypot(a[0], a[1]) < s.size * 1e-12) x[0] = y[0];
+      if (Math.hypot(b[0], b[1]) < s.size * 1e-12) y[0] = x[0];
+    }
+    const n = Math.max(8, Math.ceil(Math.abs(y[0] - x[0]) * d.longitudeSpan * 16));
+    return Array.from({ length: n + 1 }, (_, i) =>
+      i === 0
+        ? a
+        : i === n
+          ? b
+          : sphereDomainPoint(s, x[0] + ((y[0] - x[0]) * i) / n, x[1] + ((y[1] - x[1]) * i) / n)
+    );
+  }
   if (s.kind === 'plane') return [a, b];
   if (s.kind === 'cube') {
     const ts = [0, 1];
@@ -314,8 +403,9 @@ export function buildSurfaceMesh(s: SurfaceSpec, resolution = 24): SurfaceMesh {
   if (!Number.isInteger(resolution) || resolution < 1 || resolution > 256)
     throw new Error('Surface mesh resolution must be an integer from 1 to 256.');
   const out: SurfaceMesh = { positions: [], indices: [], trianglePatches: [], uvs: [] },
-    n = resolution;
-  for (let p = 0; p < (s.kind === 'cube' || s.kind === 'sphere' ? 6 : 1); p++) {
+    // Pole fans need an interior latitude row even at the lowest requested resolution.
+    n = isModifiedSphere(s) && !sphereDomain(s).opened ? Math.max(2, resolution) : resolution;
+  for (let p = 0; p < surfacePatchCount(s); p++) {
     const offset = out.positions.length / 3;
     for (let j = 0; j <= n; j++)
       for (let i = 0; i <= n; i++) {
@@ -328,8 +418,15 @@ export function buildSurfaceMesh(s: SurfaceSpec, resolution = 24): SurfaceMesh {
           b = a + 1,
           d = a + n + 1,
           c = d + 1;
-        out.indices.push(a, b, c, a, c, d);
-        out.trianglePatches.push(p, p);
+        // A retained pole has one triangle per angular cell, without collapsed pole faces.
+        if (!(isModifiedSphere(s) && !sphereDomain(s).opened && j === 0)) {
+          out.indices.push(a, b, c);
+          out.trianglePatches.push(p);
+        }
+        if (!(isModifiedSphere(s) && !sphereDomain(s).opened && j === n - 1)) {
+          out.indices.push(a, c, d);
+          out.trianglePatches.push(p);
+        }
       }
   }
   return out;
